@@ -30,10 +30,11 @@ class SQLiteStoryDependencyRepository:
         Raises:
             ValueError: If dependency already exists or stories don't exist.
         """
+        if story_id == depends_on_id:
+            raise ValueError("Historia nao pode depender de si mesma")
+
         if await self.exists(story_id, depends_on_id):
-            raise ValueError(
-                f"Dependencia {story_id} -> {depends_on_id} ja existe"
-            )
+            raise ValueError(f"Dependencia {story_id} -> {depends_on_id} ja existe")
 
         await self._conn.execute(
             "INSERT INTO Story_Dependency (story_id, depends_on_id) VALUES (?, ?)",
@@ -51,9 +52,7 @@ class SQLiteStoryDependencyRepository:
             ValueError: If dependency doesn't exist.
         """
         if not await self.exists(story_id, depends_on_id):
-            raise ValueError(
-                f"Dependencia {story_id} -> {depends_on_id} nao existe"
-            )
+            raise ValueError(f"Dependencia {story_id} -> {depends_on_id} nao existe")
 
         await self._conn.execute(
             "DELETE FROM Story_Dependency WHERE story_id = ? AND depends_on_id = ?",

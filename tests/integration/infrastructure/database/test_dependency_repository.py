@@ -141,3 +141,25 @@ class TestStoryDependencyRepository:
             assert ("TEST-002", "TEST-001") in all_deps
             assert ("TEST-003", "TEST-001") in all_deps
             assert ("TEST-003", "TEST-002") in all_deps
+
+    async def test_self_dependency_raises_error(self, db_path: Path) -> None:
+        """Test adding self-dependency raises ValueError."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            await self._create_stories(uow)
+
+        with pytest.raises(ValueError, match="Historia nao pode depender de si mesma"):
+            async with SQLiteUnitOfWork(db_path) as uow:
+                await uow.dependencies.add("TEST-001", "TEST-001")
+
+    async def test_valid_dependency_a_to_b(self, db_path: Path) -> None:
+        """Test adding valid dependency A -> B works."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            await self._create_stories(uow)
+            await uow.dependencies.add("TEST-002", "TEST-001")
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            assert await uow.dependencies.exists("TEST-002", "TEST-001") is True
