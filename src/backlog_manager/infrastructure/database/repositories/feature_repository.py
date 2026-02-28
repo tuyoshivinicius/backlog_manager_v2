@@ -97,9 +97,7 @@ class SQLiteFeatureRepository:
         Returns:
             List of all features.
         """
-        async with self._conn.execute(
-            "SELECT * FROM Feature ORDER BY wave"
-        ) as cursor:
+        async with self._conn.execute("SELECT * FROM Feature ORDER BY wave") as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_feature(row) for row in rows]
 
@@ -150,9 +148,7 @@ class SQLiteFeatureRepository:
                 story_count=story_count,
             )
 
-        await self._conn.execute(
-            "DELETE FROM Feature WHERE id = ?", (feature_id,)
-        )
+        await self._conn.execute("DELETE FROM Feature WHERE id = ?", (feature_id,))
 
     async def exists(self, feature_id: int) -> bool:
         """Check if feature exists.
@@ -193,7 +189,7 @@ class SQLiteFeatureRepository:
             "SELECT COUNT(*) FROM Story WHERE feature_id = ?", (feature_id,)
         ) as cursor:
             row = await cursor.fetchone()
-            return row[0] if row else 0
+            return int(row[0]) if row else 0
 
     def _row_to_feature(self, row: aiosqlite.Row) -> Feature:
         """Convert database row to Feature entity.

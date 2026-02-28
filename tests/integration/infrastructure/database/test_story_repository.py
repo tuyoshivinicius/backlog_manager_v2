@@ -121,7 +121,7 @@ class TestStoryRepository:
                     name="Story 2",
                     story_points=StoryPoint.SMALL,
                     priority=1,
-                    status=StoryStatus.IN_PROGRESS,
+                    status=StoryStatus.EXECUCAO,
                 )
             )
 
@@ -207,7 +207,7 @@ class TestStoryRepository:
                 name="Updated Name",
                 story_points=StoryPoint.LARGE,
                 priority=5,
-                status=StoryStatus.IN_PROGRESS,
+                status=StoryStatus.EXECUCAO,
             )
             await uow.stories.update(updated)
 
