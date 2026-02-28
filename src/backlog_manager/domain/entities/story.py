@@ -71,12 +71,12 @@ class Story:
 
         if self.priority < 0:
             raise ValueError(f"Prioridade deve ser >= 0: {self.priority}")
+        if self.duration is not None and self.duration < 0:
+            raise ValueError(f"Duracao deve ser >= 0: {self.duration}")
 
         if (
             self.start_date is not None
             and self.end_date is not None
             and self.start_date > self.end_date
         ):
-            raise ValueError(
-                "Data de inicio nao pode ser posterior a data de termino"
-            )
+            raise ValueError("Data de inicio nao pode ser posterior a data de termino")

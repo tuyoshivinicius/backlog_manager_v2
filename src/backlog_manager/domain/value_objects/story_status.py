@@ -4,14 +4,14 @@ from enum import StrEnum
 
 
 class StoryStatus(StrEnum):
-    """Estados do workflow de uma historia.
+    """Estados do workflow de uma historia conforme SRS 6.5.
 
-    Transicoes validas:
-        BACKLOG -> IN_PROGRESS -> DONE
-        IN_PROGRESS -> BLOCKED -> IN_PROGRESS
+    Transicoes: Modelo flexivel - todas as transicoes sao permitidas.
+    Estados em portugues (sem acentos) para compatibilidade com interface.
     """
 
     BACKLOG = "BACKLOG"
-    IN_PROGRESS = "IN_PROGRESS"
-    BLOCKED = "BLOCKED"
-    DONE = "DONE"
+    EXECUCAO = "EXECUCAO"
+    TESTES = "TESTES"
+    CONCLUIDO = "CONCLUIDO"
+    IMPEDIDO = "IMPEDIDO"
