@@ -250,6 +250,22 @@ class SQLiteStoryRepository:
                 return None
             return self._row_to_story(row)
 
+    async def count_by_developer(self, developer_id: int) -> int:
+        """Count stories assigned to a developer.
+
+        Args:
+            developer_id: Developer ID.
+
+        Returns:
+            Number of stories assigned (0 if none).
+        """
+        async with self._conn.execute(
+            "SELECT COUNT(*) FROM Story WHERE developer_id = ?",
+            (developer_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0]) if row else 0
+
     def _row_to_story(self, row: aiosqlite.Row) -> Story:
         """Convert database row to Story entity.
 

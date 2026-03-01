@@ -138,6 +138,21 @@ class StoryRepository(Protocol):
         """
         ...
 
+    async def count_by_developer(self, developer_id: int) -> int:
+        """Conta historias alocadas a um desenvolvedor.
+
+        Args:
+            developer_id: ID do desenvolvedor.
+
+        Returns:
+            Numero de historias alocadas (0 se nenhuma).
+
+        Note:
+            Mais eficiente que len(get_by_developer()) pois
+            nao carrega todas as entidades.
+        """
+        ...
+
 
 class DeveloperRepository(Protocol):
     """Interface para persistencia de desenvolvedores."""
@@ -300,6 +315,20 @@ class FeatureRepository(Protocol):
 
         Returns:
             True se tem historias, False caso contrario.
+        """
+        ...
+
+    async def get_by_name(self, name: str) -> Feature | None:
+        """Busca feature pelo nome exato.
+
+        Args:
+            name: Nome da feature (case-sensitive).
+
+        Returns:
+            Feature se encontrada, None caso contrario.
+
+        Note:
+            Busca e case-sensitive conforme default SQLite.
         """
         ...
 
