@@ -122,3 +122,17 @@ class SQLiteStoryDependencyRepository:
         ) as cursor:
             rows = await cursor.fetchall()
             return [(row[0], row[1]) for row in rows]
+
+    async def remove_all_for_story(self, story_id: str) -> None:
+        """Remove all dependencies where the story appears.
+
+        Args:
+            story_id: ID of the story.
+
+        Note:
+            Removes where story_id is the dependent AND where it is the dependency.
+        """
+        await self._conn.execute(
+            "DELETE FROM Story_Dependency WHERE story_id = ? OR depends_on_id = ?",
+            (story_id, story_id),
+        )
