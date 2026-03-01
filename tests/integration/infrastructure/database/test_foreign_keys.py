@@ -28,9 +28,7 @@ class TestForeignKeys:
     async def test_story_developer_fk(self, db_connection) -> None:
         """Test Story.developer_id references Developer."""
         # Create developer
-        await db_connection.execute(
-            "INSERT INTO Developer (name) VALUES ('John')"
-        )
+        await db_connection.execute("INSERT INTO Developer (name) VALUES ('John')")
 
         # Get developer id
         async with db_connection.execute(
@@ -131,9 +129,7 @@ class TestForeignKeys:
     async def test_developer_delete_set_null(self, db_connection) -> None:
         """Test ON DELETE SET NULL for developer."""
         # Create developer and story
-        await db_connection.execute(
-            "INSERT INTO Developer (name) VALUES ('John')"
-        )
+        await db_connection.execute("INSERT INTO Developer (name) VALUES ('John')")
 
         async with db_connection.execute(
             "SELECT id FROM Developer WHERE name = 'John'"
@@ -151,9 +147,7 @@ class TestForeignKeys:
         await db_connection.commit()
 
         # Delete developer
-        await db_connection.execute(
-            "DELETE FROM Developer WHERE id = ?", (dev_id,)
-        )
+        await db_connection.execute("DELETE FROM Developer WHERE id = ?", (dev_id,))
         await db_connection.commit()
 
         # Story should still exist with NULL developer_id

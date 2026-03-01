@@ -198,6 +198,58 @@ class SQLiteStoryRepository:
             row = await cursor.fetchone()
             return row is not None
 
+    async def get_max_id_number(self, component: str) -> int:
+        """Get max sequential number for a component.
+
+        Args:
+            component: Component name (case-insensitive).
+
+        Returns:
+            Max number found or 0 if none.
+        """
+        async with self._conn.execute(
+            """
+            SELECT COALESCE(
+                MAX(CAST(SUBSTR(id, INSTR(id, '-') + 1) AS INTEGER)),
+                0
+            )
+            FROM Story
+            WHERE UPPER(component) = UPPER(?)
+            """,
+            (component,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0]) if row else 0
+
+    async def get_max_priority(self) -> int:
+        """Get max priority in backlog.
+
+        Returns:
+            Max priority or 0 if empty.
+        """
+        async with self._conn.execute(
+            "SELECT COALESCE(MAX(priority), 0) FROM Story"
+        ) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0]) if row else 0
+
+    async def get_by_priority(self, priority: int) -> Story | None:
+        """Get story by exact priority.
+
+        Args:
+            priority: Priority to search.
+
+        Returns:
+            Story if found, None otherwise.
+        """
+        async with self._conn.execute(
+            "SELECT * FROM Story WHERE priority = ?", (priority,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return self._row_to_story(row)
+
     def _row_to_story(self, row: aiosqlite.Row) -> Story:
         """Convert database row to Story entity.
 

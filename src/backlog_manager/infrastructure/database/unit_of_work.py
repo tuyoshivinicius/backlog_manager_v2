@@ -98,7 +98,7 @@ class SQLiteUnitOfWork:
             raise RuntimeError("UnitOfWork must be used as context manager")
         return self._dependencies
 
-    async def __aenter__(self) -> "SQLiteUnitOfWork":
+    async def __aenter__(self) -> SQLiteUnitOfWork:
         """Enter async context and start transaction.
 
         Returns:
