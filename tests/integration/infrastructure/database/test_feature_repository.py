@@ -223,3 +223,37 @@ class TestFeatureRepository:
                 )
             )
             assert await uow.features.has_stories(feat_id) is True
+
+    async def test_get_by_name_returns_feature_when_exists(self, db_path: Path) -> None:
+        """Test get_by_name returns feature when it exists."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            await uow.features.add(Feature(name="Auth", wave=1))
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            result = await uow.features.get_by_name("Auth")
+            assert result is not None
+            assert result.name == "Auth"
+            assert result.wave == 1
+
+    async def test_get_by_name_returns_none_when_not_exists(
+        self, db_path: Path
+    ) -> None:
+        """Test get_by_name returns None when feature doesn't exist."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            result = await uow.features.get_by_name("NonExistent")
+            assert result is None
+
+    async def test_get_by_name_is_case_sensitive(self, db_path: Path) -> None:
+        """Test get_by_name is case-sensitive."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            await uow.features.add(Feature(name="Auth", wave=1))
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            result = await uow.features.get_by_name("auth")
+            assert result is None  # Case-sensitive, so "auth" != "Auth"

@@ -176,6 +176,23 @@ class SQLiteFeatureRepository:
         """
         return await self._count_stories(feature_id) > 0
 
+    async def get_by_name(self, name: str) -> Feature | None:
+        """Get feature by exact name.
+
+        Args:
+            name: Feature name (case-sensitive).
+
+        Returns:
+            Feature if found, None otherwise.
+        """
+        async with self._conn.execute(
+            "SELECT * FROM Feature WHERE name = ?", (name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return self._row_to_feature(row)
+
     async def _count_stories(self, feature_id: int) -> int:
         """Count stories in a feature.
 

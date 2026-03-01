@@ -282,3 +282,94 @@ class TestStoryRepository:
             )
 
             assert await uow.stories.exists("AUTH-001") is True
+
+    async def test_count_by_developer_returns_correct_count(
+        self, db_path: Path
+    ) -> None:
+        """Test count_by_developer returns correct count of assigned stories."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            dev_id = await uow.developers.add(Developer(name="Ana"))
+            for i in range(3):
+                await uow.stories.add(
+                    Story(
+                        id=f"TEST-{i:03d}",
+                        component="TEST",
+                        name=f"Story {i}",
+                        story_points=StoryPoint.SMALL,
+                        priority=i,
+                        developer_id=dev_id,
+                    )
+                )
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            count = await uow.stories.count_by_developer(dev_id)
+            assert count == 3
+
+    async def test_count_by_developer_returns_zero_when_none(
+        self, db_path: Path
+    ) -> None:
+        """Test count_by_developer returns 0 when no stories assigned."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            count = await uow.stories.count_by_developer(999)
+            assert count == 0
+
+    async def test_count_by_developer_excludes_unassigned(self, db_path: Path) -> None:
+        """Test count_by_developer excludes stories assigned to other developers."""
+        await init_database(db_path)
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            dev1_id = await uow.developers.add(Developer(name="Dev 1"))
+            dev2_id = await uow.developers.add(Developer(name="Dev 2"))
+
+            # 2 stories for dev1
+            await uow.stories.add(
+                Story(
+                    id="TEST-001",
+                    component="TEST",
+                    name="Story 1",
+                    story_points=StoryPoint.SMALL,
+                    priority=0,
+                    developer_id=dev1_id,
+                )
+            )
+            await uow.stories.add(
+                Story(
+                    id="TEST-002",
+                    component="TEST",
+                    name="Story 2",
+                    story_points=StoryPoint.SMALL,
+                    priority=1,
+                    developer_id=dev1_id,
+                )
+            )
+            # 1 story for dev2
+            await uow.stories.add(
+                Story(
+                    id="TEST-003",
+                    component="TEST",
+                    name="Story 3",
+                    story_points=StoryPoint.SMALL,
+                    priority=2,
+                    developer_id=dev2_id,
+                )
+            )
+            # 1 unassigned story
+            await uow.stories.add(
+                Story(
+                    id="TEST-004",
+                    component="TEST",
+                    name="Story 4",
+                    story_points=StoryPoint.SMALL,
+                    priority=3,
+                )
+            )
+
+        async with SQLiteUnitOfWork(db_path) as uow:
+            count1 = await uow.stories.count_by_developer(dev1_id)
+            count2 = await uow.stories.count_by_developer(dev2_id)
+            assert count1 == 2
+            assert count2 == 1
