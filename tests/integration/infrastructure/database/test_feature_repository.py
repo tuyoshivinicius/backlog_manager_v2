@@ -109,7 +109,9 @@ class TestFeatureRepository:
             feat_id = await uow.features.add(Feature(name="Auth", wave=1))
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            await uow.features.update(Feature(id=feat_id, name="Authentication", wave=1))
+            await uow.features.update(
+                Feature(id=feat_id, name="Authentication", wave=1)
+            )
 
         async with SQLiteUnitOfWork(db_path) as uow:
             result = await uow.features.get_by_id(feat_id)

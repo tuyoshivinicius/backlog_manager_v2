@@ -108,6 +108,36 @@ class StoryRepository(Protocol):
         """
         ...
 
+    async def get_max_id_number(self, component: str) -> int:
+        """Retorna o maior numero sequencial para um componente.
+
+        Args:
+            component: Nome do componente (case-insensitive).
+
+        Returns:
+            Maior numero NNN encontrado ou 0 se nenhum.
+        """
+        ...
+
+    async def get_max_priority(self) -> int:
+        """Retorna a maior prioridade existente no backlog.
+
+        Returns:
+            Maior prioridade ou 0 se backlog vazio.
+        """
+        ...
+
+    async def get_by_priority(self, priority: int) -> Story | None:
+        """Busca historia por prioridade exata.
+
+        Args:
+            priority: Prioridade a buscar.
+
+        Returns:
+            Historia encontrada ou None.
+        """
+        ...
+
 
 class DeveloperRepository(Protocol):
     """Interface para persistencia de desenvolvedores."""
@@ -344,6 +374,17 @@ class StoryDependencyRepository(Protocol):
         """
         ...
 
+    async def remove_all_for_story(self, story_id: str) -> None:
+        """Remove todas as dependencias onde a historia aparece.
+
+        Args:
+            story_id: ID da historia.
+
+        Note:
+            Remove onde story_id e o dependente E onde e a dependencia.
+        """
+        ...
+
 
 class UnitOfWork(Protocol):
     """Interface para gerenciamento de transacoes."""
@@ -353,7 +394,7 @@ class UnitOfWork(Protocol):
     features: FeatureRepository
     dependencies: StoryDependencyRepository
 
-    async def __aenter__(self) -> "UnitOfWork":
+    async def __aenter__(self) -> UnitOfWork:
         """Inicia transacao."""
         ...
 
