@@ -135,7 +135,7 @@ Como Scrum Master, preciso calcular as datas de inicio e fim de todas as histori
 ### Edge Cases
 
 - O que acontece quando a configuracao nao tem velocity definida? Use case usa velocity default (2.0 SP/dia) da Configuration.
-- O que acontece com historias ja com datas manuais? Recalculo sobrescreve datas de historias com status=BACKLOG; historias com outros statuses (IN_PROGRESS, DONE, etc.) mantem suas datas existentes mas participam do grafo de dependencias para calculo correto de dependentes.
+- O que acontece com historias ja com datas manuais? Ver FR-041a - apenas historias com status=BACKLOG sao recalculadas; outras participam do grafo mas mantem datas existentes.
 - O que acontece se todas as historias tem ciclos? CyclicDependencyException e lancada na primeira deteccao de ciclo, nenhuma data e calculada.
 - O que acontece se start_date do projeto cai em feriado? Ajustado automaticamente para proximo dia util.
 - O que acontece com historias de anos fora de 2026-2028? Apenas feriados de 2026-2028 sao considerados; outros anos usam apenas validacao de fim de semana.
@@ -161,7 +161,7 @@ Como Scrum Master, preciso calcular as datas de inicio e fim de todas as histori
 - **FR-010**: SchedulingService DEVE implementar metodo `add_workdays(start_date: date, workdays: int, holidays: frozenset[date]) -> date` que avanca N dias uteis
 - **FR-011**: SchedulingService.add_workdays DEVE contar start_date como dia 1 (ex: start=segunda, workdays=2 -> terca)
 - **FR-012**: SchedulingService.add_workdays DEVE pular fins de semana e feriados durante a contagem
-- **FR-013**: SchedulingService DEVE implementar metodo `count_workdays_between(start_date: date, end_date: date, holidays: frozenset[date]) -> int` que conta dias uteis entre duas datas (exclusivo)
+- **FR-013**: SchedulingService DEVE implementar metodo `count_workdays_between(start_date: date, end_date: date, holidays: frozenset[date]) -> int` que conta dias uteis entre duas datas (exclusivo). *Nota: Metodo utilitario para validacao e debugging; nao usado diretamente nos calculos de cronograma.*
 - **FR-014**: SchedulingService DEVE implementar metodo `topological_sort(stories: Sequence[Story], dependencies: dict[str, list[str]]) -> list[Story]` que ordena historias topologicamente
 - **FR-015**: SchedulingService.topological_sort DEVE usar Kahn's algorithm com heap/priority queue para desempate por prioridade
 - **FR-016**: SchedulingService.topological_sort DEVE ter complexidade O(V+E) onde V=numero de historias, E=numero de dependencias
@@ -204,7 +204,7 @@ Como Scrum Master, preciso calcular as datas de inicio e fim de todas as histori
 #### DTOs - Application Layer
 
 - **FR-060**: Sistema DEVE implementar DTOs Pydantic em `src/backlog_manager/application/dto/scheduling/`
-- **FR-061**: Sistema DEVE implementar `CalculateScheduleInputDTO(BaseModel)` com campos: velocity (float), start_date (date), recalculate_all (bool, default=True)
+- **FR-061**: Sistema DEVE implementar `CalculateScheduleInputDTO(BaseModel)` com campos: velocity (float), project_start_date (date), recalculate_all (bool, default=True)
 - **FR-062**: Sistema DEVE implementar `CalculateScheduleOutputDTO(BaseModel)` com campos: success (bool), stories_processed (int), stories_updated (int), warnings (list[str])
 - **FR-063**: Sistema DEVE implementar `CalculateDurationInputDTO(BaseModel)` com campos: story_points (int), velocity (float)
 - **FR-064**: Sistema DEVE implementar `CalculateDurationOutputDTO(BaseModel)` com campos: duration (int), formula (str)
