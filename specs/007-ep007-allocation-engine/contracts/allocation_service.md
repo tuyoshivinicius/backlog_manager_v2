@@ -46,7 +46,6 @@ def allocate_stories(
 
     Raises:
         ValueError: Se config.velocity <= 0 ou config.max_idle_days fora de [2, 30].
-        MaxIterationsExceeded: Se max_iterations atingido sem convergencia (opcional).
 
     Example:
         >>> result = AllocationService.allocate_stories(
@@ -124,10 +123,18 @@ def allocate_stories(
 |--------|------------------|
 | _is_eligible | Verifica se historia e elegivel para alocacao |
 | _select_developer | Seleciona dev por criterio (LOAD_BALANCING ou DEPENDENCY_OWNER) |
+| _select_by_load_balancing | Seleciona dev com menor contagem de historias |
 | _allocate_by_wave | Processa todas as historias de uma wave |
+| _ensure_dependencies_finished | Ajusta start_date da historia para depois das dependencias (por historia, no loop principal) |
 | _resolve_allocation_conflicts | Resolve sobreposicoes de periodo |
-| _final_dependency_check | Verifica e corrige violacoes de dependencia |
+| _has_period_overlap | Verifica se duas historias tem sobreposicao de periodo |
+| _adjust_date_for_availability | Ajusta start_date +1 dia util quando nenhum dev disponivel |
+| _final_dependency_check | Verifica e corrige violacoes de dependencia (pos-alocacao) |
 | _check_and_fix_idle_violations | Detecta e corrige ociosidade |
+| _stabilization_loop | Executa loop de estabilizacao com 3 etapas |
+| _check_idleness | Detecta gaps de ociosidade intra/inter-wave |
+| _build_feature_map | Constroi mapa feature_id -> wave |
+| _group_stories_by_wave | Agrupa historias por wave |
 | _get_story_wave | Retorna wave da historia (0 se sem feature) |
 | _get_dependency_owner | Retorna dev_id do proprietario de dependencia |
 

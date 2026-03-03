@@ -477,6 +477,77 @@ class AllocationService:
                 break
 
     @staticmethod
+    def _ensure_dependencies_finished(
+        story: Story,
+        dependency_graph: dict[str, list[str]],
+        story_map: dict[str, Story],
+        holidays: frozenset[date],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+    ) -> bool:
+        """Ajusta start_date da historia para depois das dependencias.
+
+        Verifica se a historia comeca antes de suas dependencias
+        terminarem e, se necessario, ajusta start_date e end_date.
+
+        Args:
+            story: Historia a verificar.
+            dependency_graph: Grafo de dependencias.
+            story_map: Mapa story_id -> Story.
+            holidays: Conjunto de feriados.
+            config: Configuracao de alocacao.
+            metrics: Metricas a atualizar.
+
+        Returns:
+            True se ajuste foi feito, False se nenhum ajuste necessario.
+        """
+        from datetime import timedelta
+
+        deps = dependency_graph.get(story.id, [])
+        if not deps:
+            return False
+
+        # Find max end_date of dependencies
+        max_dep_end: date | None = None
+        for dep_id in deps:
+            dep_story = story_map.get(dep_id)
+            if (
+                dep_story
+                and dep_story.end_date
+                and (max_dep_end is None or dep_story.end_date > max_dep_end)
+            ):
+                max_dep_end = dep_story.end_date
+
+        if max_dep_end is None or not story.start_date:
+            return False
+
+        # Check if story starts before dependency ends
+        if story.start_date <= max_dep_end:
+            new_start = SchedulingService.next_workday(
+                max_dep_end + timedelta(days=1), holidays
+            )
+
+            if story.duration:
+                new_end = SchedulingService.add_workdays(
+                    new_start, story.duration, holidays
+                )
+            else:
+                sp = (
+                    story.story_points.value
+                    if hasattr(story.story_points, "value")
+                    else story.story_points
+                )
+                duration = SchedulingService.calculate_duration(sp, config.velocity)
+                new_end = SchedulingService.add_workdays(new_start, duration, holidays)
+
+            object.__setattr__(story, "start_date", new_start)
+            object.__setattr__(story, "end_date", new_end)
+            metrics.date_adjustments += 1
+            return True
+
+        return False
+
+    @staticmethod
     def _final_dependency_check(
         stories: list[Story],
         dependency_graph: dict[str, list[str]],
@@ -882,6 +953,18 @@ class AllocationService:
             progress_made = False
 
             for story in eligible[:]:  # Copy list for safe iteration
+                # Ensure dependencies are finished before allocating
+                dep_adjusted = AllocationService._ensure_dependencies_finished(
+                    story,
+                    dependency_graph,
+                    story_map,
+                    holidays,
+                    config,
+                    metrics,
+                )
+                if dep_adjusted:
+                    progress_made = True
+
                 # Try to allocate
                 dev = AllocationService._select_developer(
                     developers,
@@ -964,6 +1047,18 @@ class AllocationService:
                 blocked_ids = [s.id for s in eligible]
                 warnings.append(DeadlockWarning(wave=wave, blocked_stories=blocked_ids))
                 break
+
+        # Check if max iterations exhausted with stories still pending
+        if eligible and iteration >= config.max_iterations:
+            metrics.deadlocks_detected += 1
+            blocked_ids = [s.id for s in eligible]
+            warnings.append(
+                DeadlockWarning(
+                    wave=wave,
+                    blocked_stories=blocked_ids,
+                    max_iterations_reached=True,
+                )
+            )
 
         metrics.total_iterations += iteration
         metrics.iterations_per_wave[wave] = iteration

@@ -94,8 +94,7 @@ src/backlog_manager/
 │   └── dto/
 │       └── allocation/           # NEW - EP-007
 │           ├── __init__.py
-│           ├── execute_allocation_dto.py
-│           └── allocation_metrics_dto.py
+│           └── execute_allocation_dto.py
 └── infrastructure/
     └── database/
         ├── repositories/
@@ -110,7 +109,7 @@ tests/
 └── integration/
     └── application/
         └── use_cases/
-            └── test_execute_allocation.py  # NEW - EP-007
+            └── test_allocation_use_cases.py  # NEW - EP-007
 \`\`\`
 
 **Structure Decision**: Seguindo estrutura existente de Clean Architecture com src layout. AllocationService no dominio seguindo padrao de SchedulingService. Use case coordena persistencia.
