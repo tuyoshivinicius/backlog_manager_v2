@@ -7,6 +7,7 @@ all dependencies needed by the presentation layer, following Constitution IV.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,10 @@ from backlog_manager.application.use_cases.developer import (
     DeleteDeveloperUseCase,
     ListDevelopersUseCase,
     UpdateDeveloperUseCase,
+)
+from backlog_manager.application.use_cases.excel import (
+    ExportExcelUseCase,
+    ImportExcelUseCase,
 )
 from backlog_manager.application.use_cases.feature import (
     CreateFeatureUseCase,
@@ -44,11 +49,13 @@ from backlog_manager.application.use_cases.story import (
     MovePriorityUseCase,
 )
 from backlog_manager.infrastructure.database.unit_of_work import SQLiteUnitOfWork
+from backlog_manager.infrastructure.excel import ExcelService
 
 if TYPE_CHECKING:
     from backlog_manager.presentation.viewmodels.allocation_viewmodel import (
         AllocationViewModel,
     )
+    from backlog_manager.presentation.viewmodels.excel_viewmodel import ExcelViewModel
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
     )
@@ -89,6 +96,7 @@ class DIContainer:
         self._main_window_viewmodel: MainWindowViewModel | None = None
         self._story_dialog_viewmodel: StoryDialogViewModel | None = None
         self._allocation_viewmodel: AllocationViewModel | None = None
+        self._excel_viewmodel: ExcelViewModel | None = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -421,18 +429,13 @@ class DIContainer:
         """
         return CalculateScheduleUseCase(uow)
 
-    def create_calculate_duration_use_case(
-        self, uow: SQLiteUnitOfWork
-    ) -> CalculateDurationUseCase:
+    def create_calculate_duration_use_case(self) -> CalculateDurationUseCase:
         """Create a CalculateDurationUseCase instance.
-
-        Args:
-            uow: Unit of Work for repository access.
 
         Returns:
             A new CalculateDurationUseCase instance.
         """
-        return CalculateDurationUseCase(uow)
+        return CalculateDurationUseCase()
 
     def create_calculate_story_dates_use_case(
         self, uow: SQLiteUnitOfWork
@@ -446,6 +449,36 @@ class DIContainer:
             A new CalculateStoryDatesUseCase instance.
         """
         return CalculateStoryDatesUseCase(uow)
+
+    # Excel Use Case Factories
+    def create_import_excel_use_case(
+        self,
+        uow: SQLiteUnitOfWork,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> ImportExcelUseCase:
+        """Create an ImportExcelUseCase instance.
+
+        Args:
+            uow: Unit of Work for repository access.
+            progress_callback: Optional callback for progress updates (0-100).
+
+        Returns:
+            A new ImportExcelUseCase instance.
+        """
+        excel_service = ExcelService()
+        return ImportExcelUseCase(uow, excel_service, progress_callback)
+
+    def create_export_excel_use_case(self, uow: SQLiteUnitOfWork) -> ExportExcelUseCase:
+        """Create an ExportExcelUseCase instance.
+
+        Args:
+            uow: Unit of Work for repository access.
+
+        Returns:
+            A new ExportExcelUseCase instance.
+        """
+        excel_service = ExcelService()
+        return ExportExcelUseCase(uow, excel_service)
 
     # ViewModels
     @property
@@ -480,3 +513,14 @@ class DIContainer:
 
             self._allocation_viewmodel = AllocationViewModel(self)
         return self._allocation_viewmodel
+
+    @property
+    def excel_viewmodel(self) -> ExcelViewModel:
+        """Get the ExcelViewModel instance (lazy loaded)."""
+        if self._excel_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.excel_viewmodel import (
+                ExcelViewModel,
+            )
+
+            self._excel_viewmodel = ExcelViewModel(self)
+        return self._excel_viewmodel
