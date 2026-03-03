@@ -1,1 +1,1 @@
-"""Presentation layer - Views e ViewModels."""
+"""Presentation layer for Backlog Manager GUI application."""
