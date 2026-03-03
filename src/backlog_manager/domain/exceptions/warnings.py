@@ -19,26 +19,41 @@ class DeadlockWarning(BacklogWarning):
     """Deadlock detectado na alocacao de historias.
 
     Emitido quando o algoritmo de alocacao detecta que nenhum
-    progresso e possivel em uma iteracao.
+    progresso e possivel em uma iteracao, ou quando o limite
+    maximo de iteracoes e atingido.
 
     Attributes:
         wave: Wave onde o deadlock foi detectado.
         blocked_stories: Lista de IDs de historias bloqueadas.
+        max_iterations_reached: True se o limite de iteracoes foi atingido.
     """
 
-    def __init__(self, wave: int, blocked_stories: list[str]) -> None:
+    def __init__(
+        self,
+        wave: int,
+        blocked_stories: list[str],
+        max_iterations_reached: bool = False,
+    ) -> None:
         """Initialize warning.
 
         Args:
             wave: Wave onde o deadlock foi detectado.
             blocked_stories: Lista de IDs de historias bloqueadas.
+            max_iterations_reached: True se o limite de iteracoes foi atingido.
         """
         self.wave = wave
         self.blocked_stories = blocked_stories
-        message = (
-            f"Deadlock detectado na wave {wave}: "
-            f"{len(blocked_stories)} historia(s) bloqueada(s)"
-        )
+        self.max_iterations_reached = max_iterations_reached
+        if max_iterations_reached:
+            message = (
+                f"Limite de iteracoes atingido na wave {wave}: "
+                f"{len(blocked_stories)} historia(s) nao alocada(s)"
+            )
+        else:
+            message = (
+                f"Deadlock detectado na wave {wave}: "
+                f"{len(blocked_stories)} historia(s) bloqueada(s)"
+            )
         super().__init__(message)
 
 

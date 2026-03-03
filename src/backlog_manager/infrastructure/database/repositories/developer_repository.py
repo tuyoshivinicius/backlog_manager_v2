@@ -95,9 +95,7 @@ class SQLiteDeveloperRepository:
         if not await self.exists(developer_id):
             raise ValueError(f"Desenvolvedor {developer_id} nao existe")
 
-        await self._conn.execute(
-            "DELETE FROM Developer WHERE id = ?", (developer_id,)
-        )
+        await self._conn.execute("DELETE FROM Developer WHERE id = ?", (developer_id,))
 
     async def exists(self, developer_id: int) -> bool:
         """Check if developer exists.
