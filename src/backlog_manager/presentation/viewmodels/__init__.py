@@ -3,6 +3,7 @@
 from backlog_manager.presentation.viewmodels.allocation_viewmodel import (
     AllocationViewModel,
 )
+from backlog_manager.presentation.viewmodels.excel_viewmodel import ExcelViewModel
 from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
     MainWindowViewModel,
 )
@@ -13,6 +14,7 @@ from backlog_manager.presentation.viewmodels.story_table_model import StoryTable
 
 __all__ = [
     "AllocationViewModel",
+    "ExcelViewModel",
     "MainWindowViewModel",
     "StoryDialogViewModel",
     "StoryTableModel",
