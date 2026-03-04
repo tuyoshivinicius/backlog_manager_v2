@@ -8,15 +8,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QSplitter,
     QTableView,
     QToolBar,
@@ -98,6 +101,11 @@ class MainWindow(QMainWindow):
 
         self._viewmodel = viewmodel
         self._container: DIContainer = viewmodel._container
+
+        # Excel operation state
+        self._excel_operation_in_progress: bool = False
+        self._progress_dialog: QProgressDialog | None = None
+
         self._setup_window()
         self._setup_toolbar()
         self._setup_central_widget()
@@ -182,6 +190,24 @@ class MainWindow(QMainWindow):
         self._action_allocate.setShortcut(QKeySequence("Ctrl+Shift+A"))
         self._action_allocate.triggered.connect(self._on_allocate)
         toolbar.addAction(self._action_allocate)
+
+        toolbar.addSeparator()
+
+        # Importar Excel action
+        self._action_import_excel = QAction("Importar Excel", self)
+        self._action_import_excel.setToolTip("Importar dados de arquivo Excel (Ctrl+I)")
+        self._action_import_excel.setShortcut(QKeySequence("Ctrl+I"))
+        self._action_import_excel.triggered.connect(self._on_import_excel_clicked)
+        toolbar.addAction(self._action_import_excel)
+
+        # Exportar Excel action
+        self._action_export_excel = QAction("Exportar Excel", self)
+        self._action_export_excel.setToolTip(
+            "Exportar dados para arquivo Excel (Ctrl+E)"
+        )
+        self._action_export_excel.setShortcut(QKeySequence("Ctrl+E"))
+        self._action_export_excel.triggered.connect(self._on_export_excel_clicked)
+        toolbar.addAction(self._action_export_excel)
 
     def _setup_central_widget(self) -> None:
         """Create and configure the central widget with splitter layout."""
@@ -276,6 +302,13 @@ class MainWindow(QMainWindow):
         allocation_vm.allocation_error.connect(self._on_error)
         allocation_vm.warnings_updated.connect(self._on_warnings_updated)
 
+        # Connect Excel viewmodel signals
+        excel_vm = self._container.excel_viewmodel
+        excel_vm.import_completed.connect(self._on_import_completed)
+        excel_vm.import_error.connect(self._on_import_error)
+        excel_vm.export_completed.connect(self._on_export_completed)
+        excel_vm.export_error.connect(self._on_export_error)
+
     @Slot()
     def _on_stories_changed(self) -> None:
         """Handle stories_changed signal."""
@@ -334,7 +367,9 @@ class MainWindow(QMainWindow):
         dialog = StoryDialog(self._container, self, mode="create")
         if dialog.exec():
             # Reload stories after creation
-            asyncio.create_task(self._viewmodel.load_stories())
+            QTimer.singleShot(
+                0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+            )
 
     @Slot()
     def _on_edit_story(self) -> None:
@@ -355,7 +390,9 @@ class MainWindow(QMainWindow):
         dialog = StoryDialog(self._container, self, mode="edit", story=story)
         if dialog.exec():
             # Reload stories after edit
-            asyncio.create_task(self._viewmodel.load_stories())
+            QTimer.singleShot(
+                0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+            )
 
     @Slot()
     def _on_delete_story(self) -> None:
@@ -376,8 +413,11 @@ class MainWindow(QMainWindow):
 
         dialog = ConfirmDeleteDialog(story.id, story.name, self)
         if dialog.exec():
-            asyncio.create_task(
-                self._viewmodel.delete_story(self._viewmodel.selected_story_id)
+            QTimer.singleShot(
+                0,
+                lambda: asyncio.create_task(
+                    self._viewmodel.delete_story(self._viewmodel.selected_story_id)
+                ),
             )
 
     @Slot()
@@ -418,13 +458,17 @@ class MainWindow(QMainWindow):
     def _on_data_changed(self) -> None:
         """Handle data changed from dialogs."""
         # Reload stories to reflect changes
-        asyncio.create_task(self._viewmodel.load_stories())
+        QTimer.singleShot(
+            0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+        )
 
     @Slot(str, str)
     def _on_dependency_changed(self, story_id: str, depends_on_id: str) -> None:
         """Handle dependency added/removed."""
         # Reload stories to reflect dependency changes
-        asyncio.create_task(self._viewmodel.load_stories())
+        QTimer.singleShot(
+            0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+        )
 
     @Slot()
     def _on_allocate(self) -> None:
@@ -438,7 +482,7 @@ class MainWindow(QMainWindow):
             return
 
         # Execute allocation
-        asyncio.create_task(self._execute_allocation())
+        QTimer.singleShot(0, lambda: asyncio.create_task(self._execute_allocation()))
 
     async def _execute_allocation(self) -> None:
         """Execute allocation with config panel values."""
@@ -489,3 +533,145 @@ class MainWindow(QMainWindow):
             The StoryTableView widget.
         """
         return self._story_table
+
+    # Excel operation helper methods
+
+    def _start_excel_operation(self, message: str) -> None:
+        """Start an Excel operation with progress dialog.
+
+        Args:
+            message: Progress dialog message.
+        """
+        self._excel_operation_in_progress = True
+        self._action_import_excel.setEnabled(False)
+        self._action_export_excel.setEnabled(False)
+        self.setCursor(Qt.CursorShape.WaitCursor)
+
+        self._progress_dialog = QProgressDialog(message, None, 0, 0, self)
+        self._progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+        self._progress_dialog.setMinimumDuration(0)
+        self._progress_dialog.show()
+
+    def _end_excel_operation(self) -> None:
+        """End an Excel operation and clean up."""
+        self._excel_operation_in_progress = False
+        self._action_import_excel.setEnabled(True)
+        self._action_export_excel.setEnabled(True)
+        self.unsetCursor()
+
+        if self._progress_dialog:
+            self._progress_dialog.close()
+            self._progress_dialog = None
+
+    # Excel import/export handlers
+
+    @Slot()
+    def _on_import_excel_clicked(self) -> None:
+        """Handle import Excel action."""
+        logger.debug("Import Excel action triggered")
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Importar Excel",
+            "",
+            "Arquivos Excel (*.xlsx);;Todos os arquivos (*.*)",
+        )
+        if file_path:
+            self._start_excel_operation("Importando dados do Excel...")
+            QTimer.singleShot(
+                0,
+                lambda: asyncio.create_task(
+                    self._container.excel_viewmodel.import_from_file(Path(file_path))
+                ),
+            )
+
+    @Slot()
+    def _on_export_excel_clicked(self) -> None:
+        """Handle export Excel action."""
+        logger.debug("Export Excel action triggered")
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exportar Excel",
+            "backlog_export.xlsx",
+            "Arquivos Excel (*.xlsx);;Todos os arquivos (*.*)",
+        )
+        if file_path:
+            # Check if file exists for overwrite confirmation
+            if Path(file_path).exists():
+                reply = QMessageBox.question(
+                    self,
+                    "Confirmar Substituicao",
+                    f"O arquivo {file_path} ja existe. Deseja sobrescrever?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+
+            self._start_excel_operation("Exportando dados para Excel...")
+            QTimer.singleShot(
+                0,
+                lambda: asyncio.create_task(
+                    self._container.excel_viewmodel.export_to_file(Path(file_path))
+                ),
+            )
+
+    @Slot(object)
+    def _on_import_completed(self, result) -> None:  # type: ignore[no-untyped-def]
+        """Handle import completed signal.
+
+        Args:
+            result: ImportExcelOutputDTO with import results.
+        """
+        self._end_excel_operation()
+        msg = (
+            f"Importacao concluida!\n\n"
+            f"{result.stories_imported} historias importadas\n"
+            f"{result.features_created} features criadas\n"
+            f"{result.developers_created} desenvolvedores criados"
+        )
+        if result.warnings:
+            msg += f"\n{len(result.warnings)} avisos"
+        QMessageBox.information(self, "Importacao Concluida", msg)
+        QTimer.singleShot(
+            0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+        )
+
+    @Slot(str)
+    def _on_import_error(self, error: str) -> None:
+        """Handle import error signal.
+
+        Args:
+            error: Error message.
+        """
+        self._end_excel_operation()
+        QMessageBox.critical(self, "Erro na Importacao", error)
+        logger.error("Import error: %s", error)
+
+    @Slot(object)
+    def _on_export_completed(self, result) -> None:  # type: ignore[no-untyped-def]
+        """Handle export completed signal.
+
+        Args:
+            result: ExportExcelOutputDTO with export results.
+        """
+        self._end_excel_operation()
+        msg = (
+            f"Exportacao concluida!\n\n"
+            f"{result.stories_exported} historias\n"
+            f"{result.features_exported} features\n"
+            f"{result.developers_exported} desenvolvedores\n\n"
+            f"Arquivo: {result.file_path}"
+        )
+        QMessageBox.information(self, "Exportacao Concluida", msg)
+
+    @Slot(str)
+    def _on_export_error(self, error: str) -> None:
+        """Handle export error signal.
+
+        Args:
+            error: Error message.
+        """
+        self._end_excel_operation()
+        QMessageBox.critical(self, "Erro na Exportacao", error)
+        logger.error("Export error: %s", error)
