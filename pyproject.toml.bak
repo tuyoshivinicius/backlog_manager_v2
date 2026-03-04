@@ -118,11 +118,7 @@ addopts = [
 markers = [
     "unit: Unit tests (no I/O)",
     "integration: Integration tests (with I/O)",
-    "e2e: End-to-end tests with GUI",
-    "perf: Performance tests",
-    "slow: Slow tests (> 10s)",
 ]
-timeout = 30
 
 [tool.coverage.run]
 source = ["src/backlog_manager"]
@@ -140,7 +136,7 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
     "@abstractmethod",
-    '\.\.\.\.',
+    "\\.\\.\\.",
 ]
 fail_under = 80
 show_missing = true
