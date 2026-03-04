@@ -4,7 +4,8 @@
       "Bash(bash:*)",
       "Bash(git fetch:*)",
       "Bash(ls:*)",
-      "Bash(./.specify/scripts/bash/create-new-feature.sh:*)"
+      "Bash(./.specify/scripts/bash/create-new-feature.sh:*)",
+      "Bash(python -m pytest:*)"
     ]
   }
 }
