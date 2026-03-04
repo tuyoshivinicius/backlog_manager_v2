@@ -80,6 +80,20 @@ async def run_application(db_path: Path | None = None) -> int:
         await asyncio.sleep(0.05)
 
     logger.info("Application shutting down")
+
+    # Cancel all pending tasks to avoid RuntimeError on shutdown
+    pending_tasks = [
+        task
+        for task in asyncio.all_tasks()
+        if task is not asyncio.current_task() and not task.done()
+    ]
+    if pending_tasks:
+        logger.debug("Cancelling %d pending tasks", len(pending_tasks))
+        for task in pending_tasks:
+            task.cancel()
+        # Wait briefly for tasks to be cancelled
+        await asyncio.gather(*pending_tasks, return_exceptions=True)
+
     return 0
 
 
@@ -115,6 +129,16 @@ def main(db_path: str | None = None) -> int:
     except KeyboardInterrupt:
         logger.info("Application interrupted by user")
         exit_code = 0
+    except RuntimeError as e:
+        # Handle qasync shutdown RuntimeError gracefully
+        if "Event loop stopped before Future completed" in str(e):
+            logger.debug(
+                "Application closed with pending async operations (normal shutdown)"
+            )
+            exit_code = 0
+        else:
+            logger.exception("Runtime error")
+            exit_code = 1
     except Exception:
         logger.exception("Application error")
         exit_code = 1

@@ -336,6 +336,12 @@ class MainWindow(QMainWindow):
         self.setCursor(
             Qt.CursorShape.WaitCursor if is_loading else Qt.CursorShape.ArrowCursor
         )
+        # Disable action buttons during loading to prevent double-clicks
+        self._action_new_story.setEnabled(not is_loading)
+        self._action_edit_story.setEnabled(not is_loading)
+        self._action_delete_story.setEnabled(not is_loading)
+        self._action_move_up.setEnabled(not is_loading)
+        self._action_move_down.setEnabled(not is_loading)
         self._action_allocate.setEnabled(not is_loading)
         logger.debug("Loading state: %s", is_loading)
 
