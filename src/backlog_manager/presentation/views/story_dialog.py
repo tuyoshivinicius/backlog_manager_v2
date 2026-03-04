@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Literal
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -77,7 +77,7 @@ class StoryDialog(QDialog):
             self.setWindowTitle("Nova Historia")
 
         # Load features for dropdown
-        asyncio.create_task(self._load_features())
+        QTimer.singleShot(0, lambda: asyncio.create_task(self._load_features()))
 
         logger.debug("StoryDialog initialized in %s mode", mode)
 

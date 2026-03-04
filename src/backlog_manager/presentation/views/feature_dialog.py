@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -73,7 +73,7 @@ class FeatureDialog(QDialog):
         self._connect_signals()
 
         # Load initial data
-        asyncio.create_task(self._load_features())
+        QTimer.singleShot(0, lambda: asyncio.create_task(self._load_features()))
 
         logger.debug("FeatureDialog initialized")
 

@@ -7,7 +7,6 @@ It integrates asyncio with Qt's event loop using qasync.
 from __future__ import annotations
 
 import asyncio
-import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,19 +15,19 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 from qasync import QEventLoop
 
+from backlog_manager.infrastructure.database.sqlite_connection import init_database
+from backlog_manager.infrastructure.logging.logger_config import (
+    get_logger,
+    setup_logging,
+)
 from backlog_manager.presentation.container import DIContainer
 
 if TYPE_CHECKING:
     from backlog_manager.presentation.views.main_window import MainWindow
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-
-logger = logging.getLogger(__name__)
+# Configure logging to use %APPDATA%/BacklogManager/logs
+setup_logging()
+logger = get_logger(__name__)
 
 # Default database filename
 DEFAULT_DB_NAME = "backlog_manager.db"
@@ -59,6 +58,9 @@ async def run_application(db_path: Path | None = None) -> int:
         db_path = get_default_db_path()
 
     logger.info("Starting Backlog Manager with database: %s", db_path)
+
+    # Initialize database (creates tables if they don't exist)
+    await init_database(db_path)
 
     # Initialize DI container
     container = DIContainer.initialize(db_path)

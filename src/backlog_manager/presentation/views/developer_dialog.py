@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -67,7 +67,7 @@ class DeveloperDialog(QDialog):
         self._connect_signals()
 
         # Load initial data
-        asyncio.create_task(self._load_developers())
+        QTimer.singleShot(0, lambda: asyncio.create_task(self._load_developers()))
 
         logger.debug("DeveloperDialog initialized")
 
