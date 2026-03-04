@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
@@ -164,7 +164,9 @@ class DependencyPanel(QWidget):
 
         if story_id:
             try:
-                asyncio.create_task(self._load_dependencies())
+                QTimer.singleShot(
+                    0, lambda: asyncio.create_task(self._load_dependencies())
+                )
             except RuntimeError:
                 # No event loop running (e.g., during tests)
                 logger.debug("No event loop to load dependencies for %s", story_id)
@@ -255,7 +257,9 @@ class DependencyPanel(QWidget):
         if not depends_on_id:
             return
 
-        asyncio.create_task(self._add_dependency(depends_on_id))
+        QTimer.singleShot(
+            0, lambda: asyncio.create_task(self._add_dependency(depends_on_id))
+        )
 
     async def _add_dependency(self, depends_on_id: str) -> None:
         """Add a dependency.
@@ -315,7 +319,9 @@ class DependencyPanel(QWidget):
             return
 
         depends_on_id = item.data(Qt.ItemDataRole.UserRole)
-        asyncio.create_task(self._remove_dependency(depends_on_id))
+        QTimer.singleShot(
+            0, lambda: asyncio.create_task(self._remove_dependency(depends_on_id))
+        )
 
     async def _remove_dependency(self, depends_on_id: str) -> None:
         """Remove a dependency.
