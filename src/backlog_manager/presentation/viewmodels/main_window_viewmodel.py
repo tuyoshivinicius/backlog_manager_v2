@@ -228,6 +228,17 @@ class MainWindowViewModel(QObject):
                 await self.load_stories()
                 logger.info("Deleted story: %s", story_id)
                 return True
+        except ValueError as e:
+            # Story not found - likely already deleted (e.g., double-click)
+            # Just refresh the list without showing error to user
+            if "nao encontrada" in str(e):
+                logger.debug("Story %s already deleted, refreshing list", story_id)
+                if self._selected_story_id == story_id:
+                    self._selected_story_id = None
+                await self.load_stories()
+                return True
+            self._handle_error(e, "deletar historia")
+            return False
         except Exception as e:
             self._handle_error(e, "deletar historia")
             return False

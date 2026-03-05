@@ -59,6 +59,9 @@ if TYPE_CHECKING:
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
     )
+    from backlog_manager.presentation.viewmodels.schedule_viewmodel import (
+        ScheduleViewModel,
+    )
     from backlog_manager.presentation.viewmodels.story_dialog_viewmodel import (
         StoryDialogViewModel,
     )
@@ -97,6 +100,7 @@ class DIContainer:
         self._story_dialog_viewmodel: StoryDialogViewModel | None = None
         self._allocation_viewmodel: AllocationViewModel | None = None
         self._excel_viewmodel: ExcelViewModel | None = None
+        self._schedule_viewmodel: ScheduleViewModel | None = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -524,3 +528,14 @@ class DIContainer:
 
             self._excel_viewmodel = ExcelViewModel(self)
         return self._excel_viewmodel
+
+    @property
+    def schedule_viewmodel(self) -> ScheduleViewModel:
+        """Get the ScheduleViewModel instance (lazy loaded)."""
+        if self._schedule_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.schedule_viewmodel import (
+                ScheduleViewModel,
+            )
+
+            self._schedule_viewmodel = ScheduleViewModel(self)
+        return self._schedule_viewmodel

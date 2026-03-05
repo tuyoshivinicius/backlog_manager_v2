@@ -37,6 +37,9 @@ from backlog_manager.presentation.views.story_dialog import StoryDialog
 from backlog_manager.presentation.views.warnings_panel import WarningsPanel
 
 if TYPE_CHECKING:
+    from backlog_manager.application.dto.scheduling.calculate_schedule_dto import (
+        CalculateScheduleOutputDTO,
+    )
     from backlog_manager.presentation.container import DIContainer
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
@@ -184,6 +187,15 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
+        # Calcular Cronograma action
+        self._action_schedule = QAction("Calcular Cronograma", self)
+        self._action_schedule.setToolTip(
+            "Calcular datas de inicio e fim das historias (Ctrl+Shift+C)"
+        )
+        self._action_schedule.setShortcut(QKeySequence("Ctrl+Shift+C"))
+        self._action_schedule.triggered.connect(self._on_calculate_schedule)
+        toolbar.addAction(self._action_schedule)
+
         # Alocar Automaticamente action
         self._action_allocate = QAction("Alocar Automaticamente", self)
         self._action_allocate.setToolTip("Executar alocacao automatica (Ctrl+Shift+A)")
@@ -302,6 +314,12 @@ class MainWindow(QMainWindow):
         allocation_vm.allocation_error.connect(self._on_error)
         allocation_vm.warnings_updated.connect(self._on_warnings_updated)
 
+        # Connect schedule viewmodel signals
+        schedule_vm = self._container.schedule_viewmodel
+        schedule_vm.schedule_started.connect(self._on_schedule_started)
+        schedule_vm.schedule_completed.connect(self._on_schedule_completed)
+        schedule_vm.schedule_error.connect(self._on_error)
+
         # Connect Excel viewmodel signals
         excel_vm = self._container.excel_viewmodel
         excel_vm.import_completed.connect(self._on_import_completed)
@@ -336,7 +354,14 @@ class MainWindow(QMainWindow):
         self.setCursor(
             Qt.CursorShape.WaitCursor if is_loading else Qt.CursorShape.ArrowCursor
         )
+        # Disable action buttons during loading to prevent double-clicks
+        self._action_new_story.setEnabled(not is_loading)
+        self._action_edit_story.setEnabled(not is_loading)
+        self._action_delete_story.setEnabled(not is_loading)
+        self._action_move_up.setEnabled(not is_loading)
+        self._action_move_down.setEnabled(not is_loading)
         self._action_allocate.setEnabled(not is_loading)
+        self._action_schedule.setEnabled(not is_loading)
         logger.debug("Loading state: %s", is_loading)
 
     @Slot(str)
@@ -469,6 +494,60 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(
             0, lambda: asyncio.create_task(self._viewmodel.load_stories())
         )
+
+    # Schedule calculation handlers
+
+    @Slot()
+    def _on_calculate_schedule(self) -> None:
+        """Handle schedule calculation action."""
+        logger.debug("Schedule calculation action triggered")
+
+        # Validate config
+        is_valid, error = self._config_panel.validate()
+        if not is_valid:
+            QMessageBox.warning(self, "Configuracao Invalida", error)
+            return
+
+        # Execute schedule calculation
+        QTimer.singleShot(
+            0, lambda: asyncio.create_task(self._execute_schedule_calculation())
+        )
+
+    async def _execute_schedule_calculation(self) -> None:
+        """Execute schedule calculation with config panel values."""
+        schedule_vm = self._container.schedule_viewmodel
+
+        await schedule_vm.execute(
+            velocity=self._config_panel.velocity,
+            start_date=self._config_panel.start_date,
+        )
+
+        # Reload stories after schedule calculation
+        await self._viewmodel.load_stories()
+
+    @Slot()
+    def _on_schedule_started(self) -> None:
+        """Handle schedule started signal."""
+        self._action_schedule.setEnabled(False)
+        self.setCursor(Qt.CursorShape.WaitCursor)
+
+    @Slot(object)
+    def _on_schedule_completed(self, result: CalculateScheduleOutputDTO) -> None:
+        """Handle schedule completed signal.
+
+        Args:
+            result: CalculateScheduleOutputDTO with calculation results.
+        """
+        self._action_schedule.setEnabled(True)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        QMessageBox.information(
+            self,
+            "Cronograma Calculado",
+            f"{result.stories_updated} historias tiveram datas calculadas.",
+        )
+
+    # Allocation handlers
 
     @Slot()
     def _on_allocate(self) -> None:
