@@ -53,6 +53,7 @@ class ImportExcelOutputDTO(BaseModel):
 
     stories_imported: int = 0
     features_created: int = 0
+    developers_created: int = 0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 

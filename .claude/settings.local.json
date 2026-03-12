@@ -5,7 +5,8 @@
       "Bash(git fetch:*)",
       "Bash(ls:*)",
       "Bash(./.specify/scripts/bash/create-new-feature.sh:*)",
-      "Bash(python -m pytest:*)"
+      "Bash(python -m pytest:*)",
+      "Bash(./.specify/scripts/bash/check-prerequisites.sh:*)"
     ]
   }
 }
