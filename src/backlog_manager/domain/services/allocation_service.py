@@ -6,6 +6,7 @@ All public methods are static and have no side effects.
 
 from __future__ import annotations
 
+import logging
 import random
 import time
 from collections.abc import Sequence
@@ -21,9 +22,13 @@ from backlog_manager.domain.exceptions.warnings import (
     IdlenessWarning,
 )
 from backlog_manager.domain.services.scheduling_service import SchedulingService
+from backlog_manager.infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
     from backlog_manager.domain.entities import Developer, Feature, Story
+
+# Module-level logger for allocation service (T011: FR-001 a FR-005)
+logger = get_logger("domain.services.allocation_service")
 
 # Security constants - prevent infinite loops in edge cases
 DEFAULT_MAX_ITERATIONS: int = 1000
@@ -700,6 +705,14 @@ class AllocationService:
                                 wave=current_wave,
                             )
                         )
+                        # T016: FR-004 - Log intra-wave idleness warning
+                        logger.warning(
+                            "Ociosidade detectada: dev %s (%d) - %d dias na onda %d",
+                            dev.name,
+                            dev_id,
+                            idle_days,
+                            current_wave,
+                        )
                     else:
                         # Inter-wave idleness - informative only
                         warnings.append(
@@ -710,6 +723,15 @@ class AllocationService:
                                 from_wave=current_wave,
                                 to_wave=next_wave,
                             )
+                        )
+                        # T016: FR-004 - Log inter-wave idleness info
+                        logger.info(
+                            "Ociosidade inter-wave: dev %s (%d) - %d dias entre ondas %d e %d",
+                            dev.name,
+                            dev_id,
+                            idle_days,
+                            current_wave,
+                            next_wave,
                         )
 
     @staticmethod
@@ -934,6 +956,7 @@ class AllocationService:
             Lista de historias alocadas nesta wave.
         """
         allocated_in_wave: list[Story] = []
+        wave_start_time = time.perf_counter()
 
         # Build dev_stories map for availability checking
         dev_stories: dict[int, list[Story]] = {}
@@ -946,6 +969,13 @@ class AllocationService:
         # Filter eligible stories
         eligible = [s for s in wave_stories if AllocationService._is_eligible(s)]
         metrics.stories_processed += len(eligible)
+
+        # T017: FR-005 - Log wave start
+        logger.info(
+            "Onda %d: iniciando alocacao de %d historias",
+            wave,
+            len(eligible),
+        )
 
         iteration = 0
         while eligible and iteration < config.max_iterations:
@@ -998,6 +1028,8 @@ class AllocationService:
                         eligible.remove(story)
                         metrics.stories_allocated += 1
 
+                        # Determine allocation reason for logging
+                        allocation_reason = "LOAD_BALANCING"
                         if (
                             config.allocation_criteria
                             == AllocationCriteria.DEPENDENCY_OWNER
@@ -1008,10 +1040,21 @@ class AllocationService:
                             )
                             if owner and owner.id == dev.id:
                                 metrics.allocations_by_dependency_owner += 1
+                                allocation_reason = "DEPENDENCY_OWNER"
                             else:
                                 metrics.allocations_by_load_balancing += 1
+                                allocation_reason = "FALLBACK_LOAD_BALANCING"
                         else:
                             metrics.allocations_by_load_balancing += 1
+
+                        # T014: FR-002 - Log developer selection with reason
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(
+                                "Historia %s: alocada para dev %d (%s)",
+                                story.id,
+                                dev.id,
+                                allocation_reason,
+                            )
 
                         progress_made = True
                     else:
@@ -1046,6 +1089,22 @@ class AllocationService:
                 metrics.deadlocks_detected += 1
                 blocked_ids = [s.id for s in eligible]
                 warnings.append(DeadlockWarning(wave=wave, blocked_stories=blocked_ids))
+                # T015: FR-003 - Log deadlock warning
+                logger.warning(
+                    "Onda %d: deadlock detectado - %d historias bloqueadas: %s",
+                    wave,
+                    len(blocked_ids),
+                    ", ".join(blocked_ids[:5])
+                    + ("..." if len(blocked_ids) > 5 else ""),
+                    extra={
+                        "deadlock": {
+                            "wave": wave,
+                            "blocked_count": len(blocked_ids),
+                            "blocked_stories": blocked_ids,
+                            "max_iterations_reached": False,
+                        }
+                    },
+                )
                 break
 
         # Check if max iterations exhausted with stories still pending
@@ -1059,6 +1118,34 @@ class AllocationService:
                     max_iterations_reached=True,
                 )
             )
+            # T015: FR-003 - Log deadlock warning (max iterations)
+            logger.warning(
+                "Onda %d: deadlock detectado - %d historias bloqueadas: %s",
+                wave,
+                len(blocked_ids),
+                ", ".join(blocked_ids[:5]) + ("..." if len(blocked_ids) > 5 else ""),
+                extra={
+                    "deadlock": {
+                        "wave": wave,
+                        "blocked_count": len(blocked_ids),
+                        "blocked_stories": blocked_ids,
+                        "max_iterations_reached": True,
+                    }
+                },
+            )
+
+        # Calculate wave time
+        wave_time = time.perf_counter() - wave_start_time
+
+        # T017: FR-005 - Log wave complete
+        logger.info(
+            "Onda %d: completa - %d/%d historias em %.2fs (%d iteracoes)",
+            wave,
+            len(allocated_in_wave),
+            len(wave_stories),
+            wave_time,
+            iteration,
+        )
 
         metrics.total_iterations += iteration
         metrics.iterations_per_wave[wave] = iteration
@@ -1274,6 +1361,42 @@ class AllocationService:
 
         # Record total time
         metrics.total_time_seconds = time.perf_counter() - start_time
+
+        # T013: FR-001 - Log allocation summary with all 16 metrics
+        logger.info(
+            "Alocacao completa: %d/%d historias (%.2fs, %d ondas, %d iteracoes)",
+            metrics.stories_allocated,
+            metrics.stories_processed,
+            metrics.total_time_seconds,
+            metrics.waves_processed,
+            metrics.total_iterations,
+        )
+
+        # T013: FR-001 - Log detailed metrics at DEBUG level
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Metricas detalhadas: "
+                "allocations_by_dependency_owner=%d, "
+                "allocations_by_load_balancing=%d, "
+                "deadlocks_detected=%d, "
+                "date_adjustments=%d, "
+                "validation_reallocations=%d, "
+                "validation_dependency_fixes=%d, "
+                "validation_conflict_fixes=%d, "
+                "max_idle_violations_detected=%d, "
+                "max_idle_violations_fixed=%d, "
+                "failed_reallocations=%d",
+                metrics.allocations_by_dependency_owner,
+                metrics.allocations_by_load_balancing,
+                metrics.deadlocks_detected,
+                metrics.date_adjustments,
+                metrics.validation_reallocations,
+                metrics.validation_dependency_fixes,
+                metrics.validation_conflict_fixes,
+                metrics.max_idle_violations_detected,
+                metrics.max_idle_violations_fixed,
+                metrics.failed_reallocations,
+            )
 
         return AllocationResult(
             allocated_stories=all_allocated,
