@@ -248,11 +248,35 @@ def diagnose_deadlock(
         "circular_dependencies_detected": len(cycles_found),
     }
 
-    result = {
+    # Detect contradictions (scenarios that indicate algorithm bugs)
+    contradictions = []
+    for story_data in blocked_stories_data:
+        available_devs = story_data.get("devs_available_in_period", [])
+        deps_ok = story_data.get("all_dependencies_allocated", False)
+        has_dates = story_data.get("period") is not None
+
+        # If devs are available, dependencies are OK, and story has dates,
+        # but story wasn't allocated - this is a contradiction (algorithm bug)
+        if len(available_devs) > 0 and deps_ok and has_dates:
+            contradictions.append(
+                {
+                    "story_id": story_data["story_id"],
+                    "type": "DEVS_AVAILABLE_BUT_NOT_ALLOCATED",
+                    "available_devs": len(available_devs),
+                    "message": "Ha desenvolvedores disponiveis mas story nao foi alocada - provavel BUG no algoritmo",
+                }
+            )
+
+    result: dict[str, Any] = {
         "blocked_stories": blocked_stories_data,
         "circular_dependencies": cycles_found if cycles_found else None,
         "summary": summary,
     }
+
+    # Add contradictions if any found
+    if contradictions:
+        result["contradictions"] = contradictions
+        result["has_algorithm_bug"] = True
 
     if verbose:
         result["context"] = {
@@ -500,6 +524,20 @@ async def run_allocation(
                     print()
 
                 print("=" * 60)
+
+                # Show contradictions if found (indicates algorithm bug)
+                if diagnosis_result.get("contradictions"):
+                    print()
+                    print("!" * 60)
+                    print("CONTRADICOES DETECTADAS (provavel BUG no algoritmo)")
+                    print("!" * 60)
+                    for contradiction in diagnosis_result["contradictions"]:
+                        print(f"  Story: {contradiction['story_id']}")
+                        print(f"  Tipo: {contradiction['type']}")
+                        print(f"  Devs disponiveis: {contradiction['available_devs']}")
+                        print(f"  {contradiction['message']}")
+                        print()
+                    print("!" * 60)
 
                 if verbose and "context" in diagnosis_result:
                     print()

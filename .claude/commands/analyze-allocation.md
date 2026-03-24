@@ -489,6 +489,45 @@ Se necessario, usar as queries da secao 14 para investigar mais a fundo:
 Com base nos dados coletados, formular hipotese sobre a causa raiz.
 A analise deve emergir dos dados, nao de categorias pre-definidas.
 
+### 8.2.2 Deteccao Automatica de Contradicoes
+
+Apos coletar diagnostico via `--diagnose --json`, verificar campo `contradictions`:
+
+```bash
+poetry run python scripts/extract_metrics.py --diagnose --json | jq '.diagnosis.contradictions'
+```
+
+**Se `contradictions` nao for null ou `has_algorithm_bug: true`**:
+
+| Campo | Significado | Acao |
+|-------|-------------|------|
+| `DEVS_AVAILABLE_BUT_NOT_ALLOCATED` | Dev disponivel mas nao alocado | **BUG NO ALGORITMO** |
+
+**Se CONTRADICAO detectada**:
+1. **ALERTAR**: "CONTRADICAO: Ha recursos disponiveis mas alocacao falhou - provavel BUG no algoritmo"
+2. **PULAR** classificacoes padrao (secao 8.3.3)
+3. **IR DIRETO** para investigacao de codigo (secao 8.2.3)
+
+### 8.2.3 Mapeamento Anomalia -> Codigo
+
+Ao detectar anomalia, consultar esta tabela para localizar codigo relevante:
+
+| Anomalia | Arquivo | Funcao | Linhas Aprox |
+|----------|---------|--------|--------------|
+| Deadlock com devs disponiveis | `allocation_service.py` | `_allocate_by_wave` | 924-1153 |
+| Deadlock sem devs disponiveis | `allocation_service.py` | `_adjust_date_for_availability` | 844-921 |
+| Conflito de periodo nao resolvido | `allocation_service.py` | `_resolve_allocation_conflicts` | 402-482 |
+| Violacao de ordem de dependencia | `allocation_service.py` | `_ensure_dependencies_finished` | 485-553 |
+| Ociosidade excessiva | `allocation_service.py` | `_check_and_fix_idle_violations` | 738-841 |
+| Selecao de dev incorreta | `allocation_service.py` | `_select_developer` | 265-309 |
+
+**Acao**: LER a funcao mapeada ANTES de formular hipotese de causa raiz.
+
+```bash
+# Exemplo: ler funcao _allocate_by_wave
+Read src/backlog_manager/domain/services/allocation_service.py linhas 924-1153
+```
+
 ### 8.3 Validacao de Aderencia aos Requisitos (OBRIGATORIO)
 
 **CRITICO**: Antes de propor qualquer correcao, verificar se o bug representa um **desvio de requisito** documentado.
@@ -556,6 +595,33 @@ Ler e consultar os seguintes requisitos ao diagnosticar anomalias:
 **Comportamento Observado**: {o que aconteceu}
 **Classificacao**: {Desvio | Ambiguo | Bug | Limitacao}
 **Evidencia**: {dados que comprovam}
+```
+
+---
+
+## 8.4 Capturar Baseline de Qualidade (se anomalia detectada)
+
+**ANTES** de investigar causa raiz, capturar baseline de complexidade:
+
+```bash
+poetry run radon cc src/backlog_manager/domain/services/allocation_service.py -s 2>&1 | head -20
+```
+
+**Registrar**:
+- Funcoes com CC > 15 (marcar como **PRE-EXISTENTES**)
+- CC medio atual
+
+Este baseline sera usado na secao 11.3 para comparar se a correcao aumentou complexidade.
+
+**Exemplo de registro**:
+```markdown
+### Baseline CC (antes da correcao)
+
+| Funcao | CC | Status |
+|--------|-------|--------|
+| _allocate_by_wave | 31 | PRE-EXISTENTE (> 15) |
+| _check_and_fix_idle_violations | 17 | PRE-EXISTENTE (> 15) |
+| _get_dependency_owner | 15 | OK |
 ```
 
 ---
