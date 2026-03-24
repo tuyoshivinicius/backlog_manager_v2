@@ -11,14 +11,25 @@ import asyncio
 import logging
 import random
 import sys
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import aiosqlite
 
-# Add src to path for imports
+# Add src and project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.common.db_path import (
+    add_db_path_argument,
+    get_analysis_db_path,
+    log_database_info,
+    validate_db_path,
+)
+
+from backlog_manager.domain.services import SchedulingService
+from backlog_manager.domain.value_objects import BRAZILIAN_HOLIDAYS_2026_2028
 from backlog_manager.infrastructure.database.sqlite_connection import (
     create_connection,
     init_database,
@@ -122,13 +133,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Remove existing data before seeding",
     )
-    parser.add_argument(
-        "--db-path",
-        type=Path,
-        default=None,
-        metavar="PATH",
-        help="Custom database path (default: app default)",
-    )
+    add_db_path_argument(parser)
     return parser.parse_args()
 
 
@@ -633,6 +638,72 @@ async def generate_dependencies(
     return len(dependencies)
 
 
+async def calculate_story_dates(
+    conn: aiosqlite.Connection,
+    stories: list[tuple[str, int, int]],
+    wave_to_feature: dict[int, int],
+    velocity: float = 2.0,
+    project_start: date | None = None,
+) -> None:
+    """Calculate start_date and end_date for all stories.
+
+    Uses SchedulingService to compute dates based on story points and velocity.
+    Stories are ordered by wave and priority within wave.
+
+    Args:
+        conn: Database connection.
+        stories: List of (story_id, wave, priority) tuples.
+        wave_to_feature: Mapping of wave number to feature_id.
+        velocity: Team velocity in story points per day (default: 2.0).
+        project_start: Project start date (default: 2026-03-23).
+    """
+    if project_start is None:
+        project_start = date(2026, 3, 23)
+
+    holidays = BRAZILIAN_HOLIDAYS_2026_2028
+
+    # Sort stories by wave then priority
+    sorted_stories = sorted(stories, key=lambda x: (x[1], x[2]))
+
+    current_date = project_start
+
+    for story_id, wave, priority in sorted_stories:
+        # Get story points from database
+        cursor = await conn.execute(
+            "SELECT story_points FROM Story WHERE id = ?", (story_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            continue
+
+        story_points = row[0]
+
+        # Calculate duration based on velocity
+        duration = SchedulingService.calculate_duration(story_points, velocity)
+
+        # Calculate start_date (next workday from current)
+        start_date = SchedulingService.next_workday(current_date, holidays)
+
+        # Calculate end_date
+        end_date = SchedulingService.add_workdays(start_date, duration, holidays)
+
+        # Update story in database
+        await conn.execute(
+            """
+            UPDATE Story
+            SET start_date = ?, end_date = ?, duration = ?
+            WHERE id = ?
+            """,
+            (start_date.isoformat(), end_date.isoformat(), duration, story_id),
+        )
+
+        # Move current date forward for next story (simplified - in reality
+        # would need to consider developer availability)
+        current_date = end_date
+
+    logger.info("Calculadas datas para %d historias", len(stories))
+
+
 # =============================================================================
 # Main Orchestration (T010, T011)
 # =============================================================================
@@ -683,6 +754,9 @@ async def seed_database(
             stories = await generate_stories(conn, wave_to_feature)
             dep_count = await generate_dependencies(conn, stories)
 
+            # Calculate dates for all stories (required for allocation eligibility)
+            await calculate_story_dates(conn, stories, wave_to_feature)
+
             await conn.commit()
 
             # Final summary (T021)
@@ -712,38 +786,25 @@ async def seed_database(
         await conn.close()
 
 
-def validate_db_path(db_path: Path | None) -> None:
-    """Validate that db_path directory exists.
-
-    Args:
-        db_path: Database path to validate.
-
-    Raises:
-        ValueError: If directory does not exist.
-    """
-    if db_path is not None:
-        parent = db_path.parent
-        if not parent.exists():
-            raise ValueError(
-                f"Diretorio nao existe: {parent}. Crie o diretorio primeiro."
-            )
-
-
 def main() -> None:
     """Entry point for the seed script."""
     setup_logging()
     args = parse_args()
 
-    # Validate --db-path (T019)
+    # Resolve and validate database path
     try:
-        validate_db_path(args.db_path)
+        db_path = get_analysis_db_path(args.db_path)
+        validate_db_path(db_path if args.db_path else None)
     except ValueError as e:
         logger.error(str(e))
         sys.exit(1)
 
+    # Log database info
+    log_database_info(db_path)
+
     # Run async seed
     try:
-        asyncio.run(seed_database(db_path=args.db_path, clean=args.clean))
+        asyncio.run(seed_database(db_path=db_path, clean=args.clean))
     except RuntimeError as e:
         logger.error(str(e))
         sys.exit(1)

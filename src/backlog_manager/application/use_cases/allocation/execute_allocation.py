@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from backlog_manager.application.dto.allocation.execute_allocation_dto import (
@@ -138,6 +140,49 @@ class ExecuteAllocationUseCase:
             "Allocation completed: %d stories allocated in %.2fs",
             result.metrics.stories_allocated,
             result.metrics.total_time_seconds,
+        )
+
+        # Log structured metrics (EP-015 FR-005 / EP-016 improvement)
+        metrics = result.metrics
+        total_alloc = (
+            metrics.allocations_by_dependency_owner
+            + metrics.allocations_by_load_balancing
+        )
+        skill_match_ratio = (
+            metrics.allocations_by_dependency_owner / total_alloc
+            if total_alloc > 0
+            else 0.0
+        )
+        metrics_dict = {
+            "total_time_seconds": round(metrics.total_time_seconds, 4),
+            "stories_processed": metrics.stories_processed,
+            "stories_allocated": metrics.stories_allocated,
+            "waves_processed": metrics.waves_processed,
+            "total_iterations": metrics.total_iterations,
+            "iterations_per_wave": dict(metrics.iterations_per_wave),
+            "allocations_by_dependency_owner": metrics.allocations_by_dependency_owner,
+            "allocations_by_load_balancing": metrics.allocations_by_load_balancing,
+            "skill_match_ratio": round(skill_match_ratio, 4),
+            "deadlocks_detected": metrics.deadlocks_detected,
+            "date_adjustments": metrics.date_adjustments,
+            "validation_reallocations": metrics.validation_reallocations,
+            "validation_dependency_fixes": metrics.validation_dependency_fixes,
+            "validation_conflict_fixes": metrics.validation_conflict_fixes,
+            "max_idle_violations_detected": metrics.max_idle_violations_detected,
+            "max_idle_violations_fixed": metrics.max_idle_violations_fixed,
+            "failed_reallocations": metrics.failed_reallocations,
+        }
+        logger.info("Allocation metrics: %s", metrics_dict)
+
+        # Log metrics in JSON format for easy extraction (EP-016 improvement)
+        logger.info(
+            "ALLOCATION_METRICS_JSON: %s",
+            json.dumps(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "metrics": metrics_dict,
+                }
+            ),
         )
 
         # Log deadlock warnings

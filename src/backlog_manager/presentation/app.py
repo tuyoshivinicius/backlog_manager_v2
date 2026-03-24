@@ -15,7 +15,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 from qasync import QEventLoop
 
-from backlog_manager.infrastructure.database.sqlite_connection import init_database
+from backlog_manager.infrastructure.database.sqlite_connection import (
+    get_database_path,
+    init_database,
+)
 from backlog_manager.infrastructure.logging.logger_config import (
     get_logger,
     setup_logging,
@@ -29,17 +32,14 @@ if TYPE_CHECKING:
 setup_logging()
 logger = get_logger(__name__)
 
-# Default database filename
-DEFAULT_DB_NAME = "backlog_manager.db"
-
 
 def get_default_db_path() -> Path:
-    """Get the default database path in the current working directory.
+    """Get the default database path from infrastructure layer.
 
     Returns:
         Path to the default database file.
     """
-    return Path.cwd() / DEFAULT_DB_NAME
+    return get_database_path()
 
 
 async def run_application(db_path: Path | None = None) -> int:

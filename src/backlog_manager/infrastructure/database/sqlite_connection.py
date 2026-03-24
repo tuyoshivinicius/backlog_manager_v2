@@ -17,9 +17,17 @@ _SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 def get_database_path() -> Path:
     """Get the database file path.
 
+    Priority:
+    1. BACKLOG_DB_PATH environment variable (if set)
+    2. Default app data location: %APPDATA%/BacklogManager/data/backlog.db
+
     Returns:
         Path to the SQLite database file.
     """
+    env_path = os.environ.get("BACKLOG_DB_PATH")
+    if env_path:
+        return Path(env_path)
+
     app_data = Path(os.environ.get("APPDATA", Path.home()))
     db_dir = app_data / "BacklogManager" / "data"
     db_dir.mkdir(parents=True, exist_ok=True)
