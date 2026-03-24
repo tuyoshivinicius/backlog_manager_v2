@@ -43,7 +43,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--persist",
         action="store_true",
-        help="Persist allocated stories to the database",
+        default=True,
+        help="Persist allocated stories to the database (default: True)",
+    )
+    parser.add_argument(
+        "--no-persist",
+        action="store_true",
+        help="Do not persist allocated stories (dry-run mode)",
     )
     parser.add_argument(
         "-v",
@@ -513,6 +519,9 @@ def main() -> None:
     # Resolve database path
     db_path = get_analysis_db_path(args.db_path)
 
+    # Determine persist mode (--no-persist overrides --persist)
+    persist = args.persist and not args.no_persist
+
     # Log database info (unless JSON output)
     if not args.json:
         log_database_info(db_path)
@@ -523,7 +532,7 @@ def main() -> None:
             db_path,
             diagnose=args.diagnose,
             output_json=args.json,
-            persist=args.persist,
+            persist=persist,
             verbose=args.verbose,
         )
     )
