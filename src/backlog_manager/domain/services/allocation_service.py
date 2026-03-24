@@ -995,26 +995,32 @@ class AllocationService:
                 if dep_adjusted:
                     progress_made = True
 
-                # Try to allocate
-                dev = AllocationService._select_developer(
-                    developers,
-                    story,
-                    dev_count,
-                    dependency_graph,
-                    story_map,
-                    config,
-                    rng,
-                )
-
-                if dev is not None and dev.id is not None:
-                    # Check for conflicts
+                # Filter developers available for this story's period
+                available_devs: list[Developer] = []
+                for candidate in developers:
+                    if candidate.id is None:
+                        continue
                     has_conflict = False
-                    for dev_story in dev_stories.get(dev.id, []):
+                    for dev_story in dev_stories.get(candidate.id, []):
                         if AllocationService._has_period_overlap(story, dev_story):
                             has_conflict = True
                             break
-
                     if not has_conflict:
+                        available_devs.append(candidate)
+
+                # Try to allocate with available developers
+                if available_devs:
+                    dev = AllocationService._select_developer(
+                        available_devs,
+                        story,
+                        dev_count,
+                        dependency_graph,
+                        story_map,
+                        config,
+                        rng,
+                    )
+
+                    if dev is not None and dev.id is not None:
                         # Allocate
                         object.__setattr__(story, "developer_id", dev.id)
                         dev_count[dev.id] = dev_count.get(dev.id, 0) + 1
@@ -1057,19 +1063,6 @@ class AllocationService:
                             )
 
                         progress_made = True
-                    else:
-                        # Conflict - try adjusting date
-                        adjusted = AllocationService._adjust_date_for_availability(
-                            story,
-                            developers,
-                            dev_count,
-                            dev_stories,
-                            holidays,
-                            config,
-                            metrics,
-                        )
-                        if adjusted:
-                            progress_made = True
                 else:
                     # No developer available - try adjusting date
                     adjusted = AllocationService._adjust_date_for_availability(
