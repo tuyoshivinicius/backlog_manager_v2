@@ -15,7 +15,8 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nImplement EP-014: Seed script for test backlog generation\n\nAdd seed script that generates realistic test data for allocation engine:\n- 7 developers, 7 features across 7 waves, 190 stories, 102 dependencies\n- DAG-based dependency generation \\(no cycles, respects wave rules\\)\n- CLI with --clean and --db-path options\n- Reproducible output via fixed random seed \\(42\\)\n- 6 integration tests covering all requirements\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
-      "Bash(gh pr create:*)"
+      "Bash(gh pr create:*)",
+      "Bash(python scripts/seed_test_backlog.py:*)"
     ]
   }
 }
