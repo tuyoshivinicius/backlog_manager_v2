@@ -82,8 +82,9 @@ Criar lista inicial:
 3. [pending] Executar seed script
 4. [pending] Executar alocacao e coletar metricas
 5. [pending] Detectar anomalias
-6. [pending] Gerar relatorio
-7. [pending] Propor correcoes (se necessario)
+6. [pending] Validar aderencia aos requisitos (se anomalia)
+7. [pending] Gerar relatorio
+8. [pending] Propor correcoes (se necessario)
 ```
 
 Atualizar status conforme progresso (`in_progress` -> `completed`).
@@ -488,6 +489,75 @@ Se necessario, usar as queries da secao 14 para investigar mais a fundo:
 Com base nos dados coletados, formular hipotese sobre a causa raiz.
 A analise deve emergir dos dados, nao de categorias pre-definidas.
 
+### 8.3 Validacao de Aderencia aos Requisitos (OBRIGATORIO)
+
+**CRITICO**: Antes de propor qualquer correcao, verificar se o bug representa um **desvio de requisito** documentado.
+
+#### 8.3.1 Fontes de Requisitos
+
+| Fonte | Caminho | Conteudo |
+|-------|---------|----------|
+| Constitution | `.specify/memory/constitution.md` | Principios arquiteturais (21 principios) |
+| SRS | `srs.md` | Requisitos funcionais (RF-*) e nao-funcionais (RNF-*) |
+
+#### 8.3.2 Requisitos Relevantes para Alocacao
+
+Ler e consultar os seguintes requisitos ao diagnosticar anomalias:
+
+**Do SRS (srs.md):**
+| Requisito | Descricao | Comportamento Esperado |
+|-----------|-----------|------------------------|
+| RF-ALOC-001 | Executar Alocacao Automatica | Todas historias elegiveis devem ter developer_id != NULL |
+| RF-ALOC-002 | Balanceamento de Carga | Alocar para dev com menos historias; desempate aleatorio |
+| RF-ALOC-003 | Criterio Proprietario Dependencia | Priorizar dev que implementou dependencias (se configurado) |
+| RF-ALOC-004 | Evitar Conflitos de Periodo | Dev nao pode ter duas historias no mesmo periodo |
+| RF-ALOC-005 | Ajustar Datas por Indisponibilidade | Incrementar start_date +1 dia util se nenhum dev disponivel |
+| RF-ALOC-006 | Processar por Ondas | Ondas processadas em ordem; deadlock nao bloqueia proximas |
+| RF-ALOC-007 | Detectar Deadlocks | Emitir warning se nenhuma historia pode ser alocada |
+| RF-ALOC-013 | Limites de Seguranca | MAX_ITERATIONS=1000, MAX_REALLOCATIONS=3, MAX_STABILIZATION=10 |
+
+**Da Constitution (.specify/memory/constitution.md):**
+| Principio | Relevancia para Alocacao |
+|-----------|--------------------------|
+| I. Clean Architecture | AllocationService em Domain, stateless, sem I/O |
+| II. DDD | Invariantes garantidas no construtor; entidades ricas |
+| IX. Simplicidade | Solucao mais simples preferida; evitar over-engineering |
+| XIV. Testes | Cobertura 100% para domain/services |
+| XVI. Tratamento de Erros | DeadlockWarning herda de BacklogWarning |
+| XXI. CI/CD | CC maximo 15 para funcoes de alocacao |
+
+#### 8.3.3 Processo de Diagnostico com Validacao de Requisitos
+
+**Passo 1: Identificar o comportamento anomalo**
+- Qual metrica esta fora do threshold?
+- O que o sistema esta fazendo vs. o que deveria fazer?
+
+**Passo 2: Mapear para requisito especifico**
+- Ler o SRS e identificar qual RF-ALOC-* descreve o comportamento esperado
+- Verificar se ha principio da Constitution sendo violado
+
+**Passo 3: Classificar o bug**
+
+| Classificacao | Descricao | Exemplo |
+|---------------|-----------|---------|
+| Desvio de Requisito | Codigo nao implementa o requisito corretamente | RF-ALOC-001 diz "todas elegiveis alocadas" mas PAY-005 ficou sem dev |
+| Requisito Ambiguo | Requisito nao cobre o cenario encontrado | RF-ALOC-005 nao especifica ordem de tentativa de devs |
+| Bug de Implementacao | Logica correta mas com defeito | Off-by-one error, condicao invertida |
+| Limitacao Conhecida | Comportamento esperado dado os requisitos | Deadlock quando todos devs ocupados |
+
+**Passo 4: Documentar evidencia**
+
+```markdown
+## Analise de Aderencia
+
+**Anomalia**: {descricao}
+**Requisito Relacionado**: {RF-XXX ou Principio X}
+**Comportamento Esperado (SRS/Constitution)**: {texto do requisito}
+**Comportamento Observado**: {o que aconteceu}
+**Classificacao**: {Desvio | Ambiguo | Bug | Limitacao}
+**Evidencia**: {dados que comprovam}
+```
+
 ---
 
 ## 9. Report Generation
@@ -540,7 +610,54 @@ Generate structured report:
 
 ## 10. Correction Proposal (se anomalia detectada)
 
-If anomalies detected, generate correction proposal:
+If anomalies detected, generate correction proposal.
+
+### 10.0 Validacao de Aderencia da Solucao (OBRIGATORIO)
+
+**CRITICO**: Antes de propor qualquer correcao, validar aderencia aos requisitos do projeto.
+
+#### 10.0.1 Consultar Fontes de Requisitos
+
+| Fonte | Caminho | Secoes Relevantes para Alocacao |
+|-------|---------|----------------------------------|
+| Constitution | `.specify/memory/constitution.md` | Principios I, II, IX, XIV, XVI, XXI |
+| SRS | `srs.md` | Secao 3.6 RF-ALOC (RF-ALOC-001 a RF-ALOC-013) |
+
+#### 10.0.2 Checklist de Validacao Pre-Proposta
+
+Antes de propor uma correcao, responder:
+
+| Pergunta | Resposta Esperada |
+|----------|-------------------|
+| A correcao viola algum principio da Constitution? | NAO |
+| A correcao esta alinhada com os requisitos RF-ALOC-*? | SIM |
+| A correcao respeita os limites de seguranca (RF-ALOC-013)? | SIM |
+| A correcao mantem complexidade ciclomatica <= 15 (Constitution XXI)? | SIM |
+| A correcao segue Clean Architecture (Constitution I)? | SIM |
+| A correcao e a solucao mais simples possivel (Constitution IX)? | SIM |
+
+#### 10.0.3 Formato da Analise de Aderencia
+
+Incluir no relatorio ANTES da proposta de correcao:
+
+```markdown
+## Analise de Aderencia aos Requisitos
+
+**Requisito Base**: {RF-ALOC-XXX ou Principio X da Constitution}
+**Texto do Requisito**: {citar trecho relevante do SRS ou Constitution}
+**Comportamento Atual vs Esperado**: {comparacao}
+
+### Validacao da Correcao Proposta
+
+| Criterio | Status | Justificativa |
+|----------|--------|---------------|
+| Alinhado com RF-ALOC-* | OK/NOK | {justificativa} |
+| Respeita Constitution | OK/NOK | {justificativa} |
+| Solucao minima | OK/NOK | {justificativa} |
+| Testavel | OK/NOK | {justificativa} |
+```
+
+**Se qualquer criterio for NOK**: Revisar proposta antes de apresentar ao usuario.
 
 ### 10.1 Proposal Format
 
