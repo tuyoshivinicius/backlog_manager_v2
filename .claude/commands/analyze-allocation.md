@@ -181,6 +181,7 @@ Parse `$ARGUMENTS` for the following flags:
 | `--skip-validation` | false | Skip data validation step (use with caution) |
 | `--json` | false | Output metrics in JSON format |
 | `--verbose` | false | Enable verbose output with detailed diagnostics |
+| `--allocation-criteria CRITERIA` | LOAD_BALANCING | Criterio de alocacao: LOAD_BALANCING ou DEPENDENCY_OWNER |
 
 **Mode Selection**:
 - If `--logs-only` present: Set `MODE=logs-only`
@@ -331,6 +332,11 @@ poetry run python scripts/extract_metrics.py --diagnose
 poetry run python scripts/extract_metrics.py --diagnose --json
 ```
 
+**Para usar criterio DEPENDENCY_OWNER**:
+```bash
+poetry run python scripts/extract_metrics.py --diagnose --allocation-criteria DEPENDENCY_OWNER
+```
+
 **Opcoes disponiveis**:
 | Flag | Comportamento |
 |------|---------------|
@@ -338,11 +344,12 @@ poetry run python scripts/extract_metrics.py --diagnose --json
 | `--json` | Output em formato JSON estruturado |
 | `--db-path PATH` | Usa caminho customizado para o banco |
 | `-v, --verbose` | Output detalhado com progresso |
+| `--allocation-criteria` | Criterio: LOAD_BALANCING (default) ou DEPENDENCY_OWNER |
 
 **Output JSON**:
 ```json
 {
-  "timestamp": "2026-03-23T...",
+  "allocation_criteria": "LOAD_BALANCING",
   "database": "/path/to/db",
   "metrics": { ... },
   "diagnosis": { ... }  // se --diagnose e deadlocks detectados
@@ -377,7 +384,8 @@ async def run():
     deps = await SQLiteStoryDependencyRepository(conn).get_all_dependencies()
     features = await SQLiteFeatureRepository(conn).get_all()
 
-    config = AllocationConfig(velocity=2.0, project_start_date=date.today(), max_idle_days=3, random_seed=42)
+    # Usar AllocationCriteria.LOAD_BALANCING ou AllocationCriteria.DEPENDENCY_OWNER
+    config = AllocationConfig(velocity=2.0, project_start_date=date.today(), max_idle_days=3, allocation_criteria=AllocationCriteria.LOAD_BALANCING, random_seed=42)
     result = AllocationService.allocate_stories(list(stories), list(devs), list(deps), list(features), [], config)
     m = result.metrics
     print(json.dumps({k: getattr(m, k) for k in ['stories_processed', 'stories_allocated', 'deadlocks_detected', 'skill_match_ratio']}, indent=2))
@@ -386,6 +394,8 @@ async def run():
 asyncio.run(run())
 "
 ```
+
+**Nota**: Para usar DEPENDENCY_OWNER no fallback, altere `AllocationCriteria.LOAD_BALANCING` para `AllocationCriteria.DEPENDENCY_OWNER` no codigo acima.
 
 ### 7.4 Metricas Esperadas
 

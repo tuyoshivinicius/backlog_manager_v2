@@ -57,6 +57,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable verbose output with detailed diagnostics",
     )
+    parser.add_argument(
+        "--allocation-criteria",
+        default="LOAD_BALANCING",
+        choices=["LOAD_BALANCING", "DEPENDENCY_OWNER"],
+        help="Allocation criteria: LOAD_BALANCING or DEPENDENCY_OWNER (default: LOAD_BALANCING)",
+    )
     return parser.parse_args()
 
 
@@ -295,6 +301,7 @@ async def run_allocation(
     output_json: bool = False,
     persist: bool = False,
     verbose: bool = False,
+    allocation_criteria: str = "LOAD_BALANCING",
 ):
     """Run allocation and extract metrics.
 
@@ -304,6 +311,7 @@ async def run_allocation(
         output_json: If True, output metrics in JSON format.
         persist: If True, save allocated stories to the database.
         verbose: If True, include detailed diagnostic info.
+        allocation_criteria: Allocation criteria (LOAD_BALANCING or DEPENDENCY_OWNER).
     """
     from backlog_manager.domain.services import (
         AllocationConfig,
@@ -339,12 +347,13 @@ async def run_allocation(
                 f"Stories: {len(stories)}, Developers: {len(developers)}, Dependencies: {len(dependencies)}"
             )
 
-        # Build AllocationConfig
+        # Build AllocationConfig with selected criteria
+        criteria = AllocationCriteria(allocation_criteria.lower())
         config = AllocationConfig(
             velocity=2.0,
             project_start_date=date.today(),
             max_idle_days=3,
-            allocation_criteria=AllocationCriteria.LOAD_BALANCING,
+            allocation_criteria=criteria,
             random_seed=42,
         )
 
@@ -421,6 +430,7 @@ async def run_allocation(
 
         if output_json:
             output = {
+                "allocation_criteria": allocation_criteria,
                 "metrics": metrics_dict,
                 "database": str(db_path),
                 "persisted": persist,
@@ -437,6 +447,7 @@ async def run_allocation(
             print("=" * 60)
             print("METRICAS DE ALOCACAO")
             print("=" * 60)
+            print(f"allocation_criteria: {allocation_criteria}")
             for key, value in metrics_dict.items():
                 print(f"{key}: {value}")
             print("=" * 60)
@@ -572,6 +583,7 @@ def main() -> None:
             output_json=args.json,
             persist=persist,
             verbose=args.verbose,
+            allocation_criteria=args.allocation_criteria,
         )
     )
 
