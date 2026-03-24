@@ -446,24 +446,47 @@ Apply thresholds to identify anomalies:
 
 ### 8.2 Deadlock Diagnosis (se deadlocks > 0)
 
-Se deadlocks forem detectados, analisar historias bloqueadas:
+Se deadlocks forem detectados, o script `extract_metrics.py --diagnose` coleta dados brutos para analise.
 
-```python
-# Identificar historias nao alocadas e suas dependencias
-blocked_stories = [s for s in stories if s.developer_id is None]
-for story in blocked_stories:
-    deps = [d for d in dependencies if d[0] == story.id]
-    print(f"{story.id}: depende de {[d[1] for d in deps]}")
+**Output do diagnostico** (dados brutos, sem classificacoes):
+- Lista de stories bloqueadas com seus periodos
+- Dependencias de cada story (alocadas ou nao)
+- Desenvolvedores disponiveis/ocupados no periodo de cada story
+- Ciclos de dependencia detectados (se houver)
+
+**Exemplo de uso**:
+```bash
+poetry run python scripts/extract_metrics.py --diagnose --json
 ```
 
-**Categorias de Causa**:
+### 8.2.1 Procedimento de Investigacao de Deadlock
 
-| Causa | Descricao | Correcao |
-|-------|-----------|----------|
-| MISSING_DATES | Stories sem start_date ou end_date | Run seed_test_backlog.py --clean |
-| UNSATISFIED_DEPENDENCIES | Dependencias para stories nao alocadas | Alocar dependencias primeiro |
-| PERIOD_CONFLICTS | Todos devs ocupados no periodo | Ajustar datas ou adicionar devs |
-| CIRCULAR_DEPENDENCIES | Ciclos de dependencia detectados | Remover uma dependencia do ciclo |
+Siga este procedimento para analisar a causa raiz:
+
+**Passo 1: Coletar dados da story bloqueada**
+```bash
+poetry run python scripts/extract_metrics.py --diagnose --json | jq '.diagnosis.blocked_stories'
+```
+
+**Passo 2: Analisar os dados coletados**
+
+Para cada story bloqueada, verificar:
+1. **Tem datas?** Se `period: null`, a story nao tem datas calculadas
+2. **Dependencias alocadas?** Verificar `all_dependencies_allocated`
+3. **Devs disponiveis?** Verificar `devs_available_in_period`
+4. **Ciclos?** Verificar `circular_dependencies` no output
+
+**Passo 3: Investigacao adicional via SQL**
+
+Se necessario, usar as queries da secao 14 para investigar mais a fundo:
+- Verificar dependencias da story bloqueada
+- Verificar disponibilidade de devs no periodo
+- Verificar historico de stories dos devs
+
+**Passo 4: Formular hipotese**
+
+Com base nos dados coletados, formular hipotese sobre a causa raiz.
+A analise deve emergir dos dados, nao de categorias pre-definidas.
 
 ---
 
@@ -685,6 +708,36 @@ Populate all sections:
 
 **SOLUCAO**: Usar metodo inline de extracao (secao 7.1) que executa alocacao diretamente e retorna metricas sem depender de logs.
 
+### Output vazio em comandos Python inline
+
+**Sintoma**: Comandos `poetry run python -c "..."` nao produzem output visivel no terminal.
+
+**Causa**: Problemas de buffering ou encoding no Git Bash/MINGW no Windows.
+
+**Solucoes**:
+1. **Preferir scripts externos** ao inves de comandos inline:
+   ```bash
+   # Ao inves de:
+   poetry run python -c "print('hello')"
+
+   # Usar:
+   poetry run python scripts/extract_metrics.py --json
+   ```
+
+2. **Forcar flush do output** em comandos inline:
+   ```python
+   import sys
+   print('hello')
+   sys.stdout.flush()
+   ```
+
+3. **Usar flag -u** para unbuffered output:
+   ```bash
+   poetry run python -u -c "print('hello')"
+   ```
+
+4. **Usar MCP SQLite** para queries ao banco (output mais confiavel)
+
 ---
 
 ## 14. Queries Uteis via MCP SQLite
@@ -736,17 +789,45 @@ LIMIT 20;
 UPDATE Story SET developer_id = NULL;
 ```
 
+### Verificar Disponibilidade de Devs para uma Story Especifica
+```sql
+-- Substitua as datas pelo periodo da story bloqueada
+-- Exemplo: PAY-005 com periodo 2027-04-15 a 2027-04-19
+SELECT
+  d.name as dev_name,
+  d.id as dev_id,
+  CASE WHEN COUNT(s.id) = 0 THEN 'DISPONIVEL' ELSE 'OCUPADO' END as status,
+  GROUP_CONCAT(s.id) as conflicting_stories
+FROM Developer d
+LEFT JOIN Story s ON s.developer_id = d.id
+  AND s.start_date <= '2027-04-19'  -- end_date da story bloqueada
+  AND s.end_date >= '2027-04-15'    -- start_date da story bloqueada
+GROUP BY d.id, d.name
+ORDER BY status DESC, d.name;
+```
+
+### Listar Stories de um Dev em um Periodo
+```sql
+-- Ver todas as stories de um dev especifico no periodo
+SELECT s.id, s.name, s.start_date, s.end_date
+FROM Story s
+WHERE s.developer_id = 113  -- ID do dev
+  AND s.start_date <= '2027-04-30'
+ORDER BY s.start_date;
+```
+
 ---
 
 ## Correlation Table: Behavior to Metric
 
 | Comportamento Observado | Metrica a Verificar | Acao Sugerida |
 |-------------------------|---------------------|---------------|
-| Historias nao alocadas | deadlocks_detected | Revisar dependencias circulares |
+| Historias nao alocadas | deadlocks_detected | Executar --diagnose e analisar dados coletados |
 | Distribuicao desbalanceada | skill_match_ratio | Ajustar criterio de alocacao |
 | Gaps no cronograma | max_idle_violations_detected | Ajustar max_idle_days |
 | Datas atrasadas | date_adjustments | Revisar dependencias entre ondas |
 | Muitas iteracoes | total_iterations | Verificar complexidade do backlog |
+| Muitas realocacoes falhas | failed_reallocations | Investigar dados do backlog |
 
 ---
 
