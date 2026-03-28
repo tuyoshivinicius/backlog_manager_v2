@@ -1,7 +1,3 @@
-
-## Active Technologies
-- Python 3.11 + pydantic ^2.0, aiosqlite ^0.19.0, aiofiles ^23.0 (005-ep005-dependency-services)
-- SQLite (via aiosqlite, tabela Story_Dependency existente) (005-ep005-dependency-services)
-
-## Recent Changes
-- 005-ep005-dependency-services: Added Python 3.11 + pydantic ^2.0, aiosqlite ^0.19.0, aiofiles ^23.0
+# INSTRUÇÕES
+- Sempre use caminhos relativos ao root do projeto para ler e escrever arquivos. **IMPORANTE**
+- Para escrever arquivos com conteúdo markdown, use sempre a ferramenta de escrita direta (write_file/create_file). Nunca use echo, cat << EOF, ou comandos bash para escrever conteúdo que contenha backticks, aspas ou caracteres especiais.

@@ -24,6 +24,11 @@ from backlog_manager.infrastructure.logging.logger_config import (
     setup_logging,
 )
 from backlog_manager.presentation.container import DIContainer
+from backlog_manager.presentation.theme import (
+    DESIGN_TOKENS,
+    _initialize_icon_manager,
+    apply_theme,
+)
 
 if TYPE_CHECKING:
     from backlog_manager.presentation.views.main_window import MainWindow
@@ -31,6 +36,31 @@ if TYPE_CHECKING:
 # Configure logging to use %APPDATA%/BacklogManager/logs
 setup_logging()
 logger = get_logger(__name__)
+
+
+def _load_and_apply_theme(app: QApplication) -> None:
+    """Load and apply the design system theme to the application.
+
+    Args:
+        app: The QApplication instance to apply the theme to.
+
+    This function loads the stylesheet.qss template, substitutes design tokens,
+    and applies the resulting stylesheet to the application. If loading fails,
+    it logs a warning and continues with default Qt styling.
+    """
+    try:
+        qss_path = Path(__file__).parent / "theme" / "stylesheet.qss"
+        if qss_path.exists():
+            qss_template = qss_path.read_text(encoding="utf-8")
+            stylesheet = apply_theme(qss_template, DESIGN_TOKENS)
+            app.setStyleSheet(stylesheet)
+            logger.debug("Design system theme applied successfully")
+        else:
+            logger.warning(
+                "stylesheet.qss not found at %s, using default styling", qss_path
+            )
+    except Exception as e:
+        logger.warning("Failed to load theme, using default styling: %s", e)
 
 
 def get_default_db_path() -> Path:
@@ -115,6 +145,13 @@ def main(db_path: str | None = None) -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Backlog Manager")
     app.setOrganizationName("BacklogManager")
+
+    # Apply design system theme (T032, T033)
+    _load_and_apply_theme(app)
+
+    # Initialize icon manager for eager loading (T078.1)
+    _initialize_icon_manager()
+    logger.debug("Icon manager initialized")
 
     # Set up qasync event loop
     loop = QEventLoop(app)
