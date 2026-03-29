@@ -1,42 +1,48 @@
 """Main Window View.
 
 This module provides the main application window implementing the
-QMainWindow with toolbar, story table, and side panels.
+QMainWindow with menu bar, toolbar, story table, and status bar.
+Layout vertical de 5 zonas conforme EP-018.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
-    QHBoxLayout,
     QHeaderView,
+    QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressDialog,
-    QSplitter,
+    QPushButton,
     QTableView,
     QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
-from backlog_manager.presentation.views.config_panel import ConfigPanel
+from backlog_manager.presentation.delegates import (
+    MonospaceDelegate,
+    StatusBadgeDelegate,
+)
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
-from backlog_manager.presentation.views.dependency_panel import DependencyPanel
 from backlog_manager.presentation.views.developer_dialog import DeveloperDialog
 from backlog_manager.presentation.views.feature_dialog import FeatureDialog
-from backlog_manager.presentation.views.metrics_panel import MetricsPanel
 from backlog_manager.presentation.views.story_dialog import StoryDialog
-from backlog_manager.presentation.views.warnings_panel import WarningsPanel
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import QPoint
+
+    from backlog_manager.application.dto.allocation import AllocationMetricsDTO
     from backlog_manager.application.dto.scheduling.calculate_schedule_dto import (
         CalculateScheduleOutputDTO,
     )
@@ -81,8 +87,8 @@ class StoryTableView(QTableView):
 class MainWindow(QMainWindow):
     """Main application window.
 
-    Displays the story backlog table with toolbar and side panels for
-    managing stories, developers, features, dependencies, and allocation.
+    Layout vertical de 5 zonas: Menu Bar, Toolbar, Filter Bar (placeholder),
+    Story Table, Status Bar. Paineis laterais migrados para dialogs modais.
 
     Attributes:
         viewmodel: The MainWindowViewModel instance.
@@ -111,7 +117,9 @@ class MainWindow(QMainWindow):
 
         self._setup_window()
         self._setup_toolbar()
+        self._setup_menu_bar()
         self._setup_central_widget()
+        self._setup_status_bar()
         self._setup_shortcuts()
         self._connect_signals()
 
@@ -132,146 +140,201 @@ class MainWindow(QMainWindow):
         self.resize(self.INITIAL_WIDTH, self.INITIAL_HEIGHT)
         self.setMinimumSize(self.MIN_WIDTH, self.MIN_HEIGHT)
 
+    def _setup_menu_bar(self) -> None:
+        """Configura menu bar com 4 menus."""
+        menu_bar = self.menuBar()
+
+        # Menu Arquivo
+        file_menu = menu_bar.addMenu("&Arquivo")
+        file_menu.addAction(self._action_import_excel)
+        file_menu.addAction(self._action_export_excel)
+        file_menu.addSeparator()
+        exit_action = QAction("Sair", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        # Menu Cadastros
+        cadastros_menu = menu_bar.addMenu("&Cadastros")
+        cadastros_menu.addAction(self._action_new_story)
+        cadastros_menu.addAction(self._action_features)
+        cadastros_menu.addAction(self._action_developers)
+        cadastros_menu.addSeparator()
+        self._action_config = QAction("Configuracao", self)
+        cadastros_menu.addAction(self._action_config)
+
+        # Menu Ferramentas
+        tools_menu = menu_bar.addMenu("&Ferramentas")
+        tools_menu.addAction(self._action_schedule)
+        tools_menu.addAction(self._action_allocate)
+
+        # Menu Ajuda
+        help_menu = menu_bar.addMenu("A&juda")
+        about_action = QAction("Sobre", self)
+        about_action.setEnabled(False)  # Placeholder EP-022
+        help_menu.addAction(about_action)
+
     def _setup_toolbar(self) -> None:
-        """Create and configure the main toolbar."""
-        toolbar = QToolBar("Acoes Principais")
+        """Configura toolbar com icones e 5 grupos separados."""
+        from backlog_manager.presentation.theme.theme import get_icon_manager
+
+        toolbar = QToolBar("Principal")
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        toolbar.setIconSize(QSize(20, 20))
         toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
-        # Nova Historia action
-        self._action_new_story = QAction("Nova Historia", self)
-        self._action_new_story.setToolTip("Criar nova historia (Ctrl+N)")
+        icon = get_icon_manager()
+
+        # Grupo 1: CRUD
+        self._action_new_story = QAction(icon.get("plus"), "Nova", self)
         self._action_new_story.setShortcut(QKeySequence("Ctrl+N"))
+        self._action_new_story.setToolTip("Nova Historia (Ctrl+N)")
         self._action_new_story.triggered.connect(self._on_new_story)
         toolbar.addAction(self._action_new_story)
 
-        # Editar action
-        self._action_edit_story = QAction("Editar", self)
-        self._action_edit_story.setToolTip("Editar historia selecionada (Enter/F2)")
+        self._action_edit_story = QAction(icon.get("pencil-simple"), "Editar", self)
+        self._action_edit_story.setShortcut(QKeySequence("F2"))
+        self._action_edit_story.setToolTip("Editar Historia (F2)")
         self._action_edit_story.triggered.connect(self._on_edit_story)
         toolbar.addAction(self._action_edit_story)
 
-        # Deletar action
-        self._action_delete_story = QAction("Deletar", self)
-        self._action_delete_story.setToolTip("Deletar historia selecionada (Delete)")
+        self._action_delete_story = QAction(icon.get("trash"), "Deletar", self)
+        self._action_delete_story.setShortcut(QKeySequence("Delete"))
+        self._action_delete_story.setToolTip("Deletar Historia (Delete)")
         self._action_delete_story.triggered.connect(self._on_delete_story)
         toolbar.addAction(self._action_delete_story)
 
         toolbar.addSeparator()
 
-        # Mover Cima action
-        self._action_move_up = QAction("Mover Cima", self)
-        self._action_move_up.setToolTip("Aumentar prioridade (Alt+Up)")
+        # Grupo 2: Priorizacao
+        self._action_move_up = QAction(icon.get("arrow-up"), "Mover Cima", self)
+        self._action_move_up.setToolTip("Mover Prioridade Acima (Alt+Up)")
         self._action_move_up.triggered.connect(self._on_move_up)
         toolbar.addAction(self._action_move_up)
 
-        # Mover Baixo action
-        self._action_move_down = QAction("Mover Baixo", self)
-        self._action_move_down.setToolTip("Diminuir prioridade (Alt+Down)")
+        self._action_move_down = QAction(icon.get("arrow-down"), "Mover Baixo", self)
+        self._action_move_down.setToolTip("Mover Prioridade Abaixo (Alt+Down)")
         self._action_move_down.triggered.connect(self._on_move_down)
         toolbar.addAction(self._action_move_down)
 
         toolbar.addSeparator()
 
-        # Desenvolvedores action
-        self._action_developers = QAction("Desenvolvedores", self)
-        self._action_developers.setToolTip("Gerenciar desenvolvedores")
+        # Grupo 3: Cadastros
+        self._action_developers = QAction(icon.get("users"), "Desenvolvedores", self)
+        self._action_developers.setToolTip("Gerenciar Desenvolvedores")
         self._action_developers.triggered.connect(self._on_developers)
         toolbar.addAction(self._action_developers)
 
-        # Features action
-        self._action_features = QAction("Features", self)
-        self._action_features.setToolTip("Gerenciar features")
+        self._action_features = QAction(icon.get("package"), "Features", self)
+        self._action_features.setToolTip("Gerenciar Features")
         self._action_features.triggered.connect(self._on_features)
         toolbar.addAction(self._action_features)
 
+        self._action_config_toolbar = QAction(icon.get("gear"), "Configuracao", self)
+        self._action_config_toolbar.setToolTip("Configuracao")
+        self._action_config_toolbar.triggered.connect(self._on_config)
+        toolbar.addAction(self._action_config_toolbar)
+
         toolbar.addSeparator()
 
-        # Calcular Cronograma action
-        self._action_schedule = QAction("Calcular Cronograma", self)
-        self._action_schedule.setToolTip(
-            "Calcular datas de inicio e fim das historias (Ctrl+Shift+C)"
+        # Grupo 4: Processamento
+        self._action_schedule = QAction(
+            icon.get("calendar-check"), "Calcular Cronograma", self
         )
         self._action_schedule.setShortcut(QKeySequence("Ctrl+Shift+C"))
+        self._action_schedule.setToolTip("Calcular Cronograma (Ctrl+Shift+C)")
         self._action_schedule.triggered.connect(self._on_calculate_schedule)
         toolbar.addAction(self._action_schedule)
 
-        # Alocar Automaticamente action
-        self._action_allocate = QAction("Alocar Automaticamente", self)
-        self._action_allocate.setToolTip("Executar alocacao automatica (Ctrl+Shift+A)")
+        self._action_allocate = QAction(icon.get("shuffle"), "Alocar", self)
         self._action_allocate.setShortcut(QKeySequence("Ctrl+Shift+A"))
+        self._action_allocate.setToolTip("Alocar Desenvolvedores (Ctrl+Shift+A)")
         self._action_allocate.triggered.connect(self._on_allocate)
         toolbar.addAction(self._action_allocate)
 
         toolbar.addSeparator()
 
-        # Importar Excel action
-        self._action_import_excel = QAction("Importar Excel", self)
-        self._action_import_excel.setToolTip("Importar dados de arquivo Excel (Ctrl+I)")
+        # Grupo 5: Excel
+        self._action_import_excel = QAction(
+            icon.get("download-simple"), "Importar", self
+        )
         self._action_import_excel.setShortcut(QKeySequence("Ctrl+I"))
+        self._action_import_excel.setToolTip("Importar Excel (Ctrl+I)")
         self._action_import_excel.triggered.connect(self._on_import_excel_clicked)
         toolbar.addAction(self._action_import_excel)
 
-        # Exportar Excel action
-        self._action_export_excel = QAction("Exportar Excel", self)
-        self._action_export_excel.setToolTip(
-            "Exportar dados para arquivo Excel (Ctrl+E)"
-        )
+        self._action_export_excel = QAction(icon.get("upload-simple"), "Exportar", self)
         self._action_export_excel.setShortcut(QKeySequence("Ctrl+E"))
+        self._action_export_excel.setToolTip("Exportar Excel (Ctrl+E)")
         self._action_export_excel.triggered.connect(self._on_export_excel_clicked)
         toolbar.addAction(self._action_export_excel)
 
     def _setup_central_widget(self) -> None:
-        """Create and configure the central widget with splitter layout."""
+        """Configura widget central com layout vertical: filtro + tabela."""
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Main layout
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(5, 5, 5, 5)
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        # Create splitter for table and side panels
-        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Filter bar placeholder (36px) — sera implementado em EP-020
+        self._filter_bar = QWidget()
+        self._filter_bar.setFixedHeight(36)
+        self._filter_bar.setObjectName("filter-bar-placeholder")
+        layout.addWidget(self._filter_bar)
 
-        # Story table (left side)
+        # Story table (stretch para ocupar 100% da largura e altura restante)
         self._story_table = StoryTableView()
         self._story_table.setModel(self._viewmodel.table_model)
-        self._splitter.addWidget(self._story_table)
+        layout.addWidget(self._story_table, stretch=1)
 
-        # Side panel container (right side)
-        self._side_panel = QWidget()
-        side_layout = QVBoxLayout(self._side_panel)
-        side_layout.setContentsMargins(5, 0, 0, 0)
+        # Delegates — ID column monospace, Status column badges
+        self._monospace_delegate = MonospaceDelegate(self._story_table)
+        self._status_badge_delegate = StatusBadgeDelegate(self._story_table)
 
-        # Config Panel
-        self._config_panel = ConfigPanel()
-        side_layout.addWidget(self._config_panel)
+        # Column 0 = ID (monospace)
+        self._story_table.setItemDelegateForColumn(0, self._monospace_delegate)
 
-        # Dependency Panel
-        self._dependency_panel = DependencyPanel(self._container)
-        side_layout.addWidget(self._dependency_panel)
+        # Find Status column dynamically
+        model = self._viewmodel.table_model
+        for col in range(model.columnCount()):
+            header_text = model.headerData(col, Qt.Orientation.Horizontal)
+            if header_text == "Status":
+                self._story_table.setItemDelegateForColumn(
+                    col, self._status_badge_delegate
+                )
+                break
 
-        # Metrics Panel
-        self._metrics_panel = MetricsPanel()
-        side_layout.addWidget(self._metrics_panel)
-
-        # Warnings Panel
-        self._warnings_panel = WarningsPanel()
-        side_layout.addWidget(self._warnings_panel)
-
-        side_layout.addStretch()
-
-        self._splitter.addWidget(self._side_panel)
-
-        # Set initial splitter sizes (70% table, 30% side panel)
-        self._splitter.setSizes([700, 300])
-
-        main_layout.addWidget(self._splitter)
+        # Context menu for dependency dialog
+        self._story_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._story_table.customContextMenuRequested.connect(
+            self._on_table_context_menu
+        )
 
         # Connect table selection
         selection_model = self._story_table.selectionModel()
         if selection_model:
             selection_model.currentRowChanged.connect(self._on_story_selection_changed)
+
+    def _setup_status_bar(self) -> None:
+        """Configura status bar com estatisticas e badge de warnings."""
+        status = self.statusBar()
+
+        # Estatisticas a esquerda
+        self._stats_label = QLabel("0 historias \u00b7 0 SP \u00b7 Sem alocacao")
+        status.addWidget(self._stats_label, 1)
+
+        # Badge de warnings a direita
+        self._warnings_badge = QPushButton()
+        self._warnings_badge.setFlat(True)
+        self._warnings_badge.setObjectName("warnings-badge")
+        self._warnings_badge.setVisible(False)
+        self._warnings_badge.clicked.connect(self._show_warnings_popup)
+        status.addPermanentWidget(self._warnings_badge)
+
+        # Armazena warnings para popup
+        self._current_warnings: list[str] = []
 
     def _setup_shortcuts(self) -> None:
         """Configure keyboard shortcuts."""
@@ -283,17 +346,9 @@ class MainWindow(QMainWindow):
         shortcut_down = QShortcut(QKeySequence("Alt+Down"), self)
         shortcut_down.activated.connect(self._on_move_down)
 
-        # Delete key for delete
-        shortcut_delete = QShortcut(QKeySequence("Delete"), self)
-        shortcut_delete.activated.connect(self._on_delete_story)
-
         # Enter for edit
         shortcut_enter = QShortcut(QKeySequence("Return"), self._story_table)
         shortcut_enter.activated.connect(self._on_edit_story)
-
-        # F2 for edit
-        shortcut_f2 = QShortcut(QKeySequence("F2"), self._story_table)
-        shortcut_f2.activated.connect(self._on_edit_story)
 
     def _connect_signals(self) -> None:
         """Connect ViewModel signals to view slots."""
@@ -301,11 +356,6 @@ class MainWindow(QMainWindow):
         self._viewmodel.story_selected.connect(self._on_viewmodel_story_selected)
         self._viewmodel.loading.connect(self._on_loading_changed)
         self._viewmodel.error_occurred.connect(self._on_error)
-
-        # Connect dependency panel signals
-        self._dependency_panel.dependency_added.connect(self._on_dependency_changed)
-        self._dependency_panel.dependency_removed.connect(self._on_dependency_changed)
-        self._dependency_panel.error_occurred.connect(self._on_error)
 
         # Connect allocation viewmodel signals
         allocation_vm = self._container.allocation_viewmodel
@@ -327,34 +377,29 @@ class MainWindow(QMainWindow):
         excel_vm.export_completed.connect(self._on_export_completed)
         excel_vm.export_error.connect(self._on_export_error)
 
+        # Connect config action from menu to handler
+        self._action_config.triggered.connect(self._on_config)
+
+    # --- Story handlers ---
+
     @Slot()
     def _on_stories_changed(self) -> None:
         """Handle stories_changed signal."""
-        # Table model is already updated by ViewModel
-        # Resize columns to content
         self._story_table.resizeColumnsToContents()
-
-        # Update dependency panel with current stories
-        self._dependency_panel.set_stories(self._viewmodel.stories)
-
+        self._update_status_bar_stats()
         logger.debug("Stories changed, table updated")
 
     @Slot(str)
     def _on_viewmodel_story_selected(self, story_id: str) -> None:
         """Handle story selection from ViewModel."""
-        self._dependency_panel.set_current_story(story_id)
+        pass  # No side panels to update
 
     @Slot(bool)
     def _on_loading_changed(self, is_loading: bool) -> None:
-        """Handle loading state changes.
-
-        Args:
-            is_loading: True if loading, False otherwise.
-        """
+        """Handle loading state changes."""
         self.setCursor(
             Qt.CursorShape.WaitCursor if is_loading else Qt.CursorShape.ArrowCursor
         )
-        # Disable action buttons during loading to prevent double-clicks
         self._action_new_story.setEnabled(not is_loading)
         self._action_edit_story.setEnabled(not is_loading)
         self._action_delete_story.setEnabled(not is_loading)
@@ -366,11 +411,7 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def _on_error(self, message: str) -> None:
-        """Handle error_occurred signal.
-
-        Args:
-            message: Error message to display.
-        """
+        """Handle error_occurred signal."""
         QMessageBox.warning(self, "Erro", message)
         logger.warning("Error displayed: %s", message)
 
@@ -391,7 +432,6 @@ class MainWindow(QMainWindow):
         logger.debug("New story action triggered")
         dialog = StoryDialog(self._container, self, mode="create")
         if dialog.exec():
-            # Reload stories after creation
             QTimer.singleShot(
                 0, lambda: asyncio.create_task(self._viewmodel.load_stories())
             )
@@ -414,7 +454,6 @@ class MainWindow(QMainWindow):
         )
         dialog = StoryDialog(self._container, self, mode="edit", story=story)
         if dialog.exec():
-            # Reload stories after edit
             QTimer.singleShot(
                 0, lambda: asyncio.create_task(self._viewmodel.load_stories())
             )
@@ -480,49 +519,95 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     @Slot()
+    def _on_config(self) -> None:
+        """Handle config action — opens ConfigDialog."""
+        from backlog_manager.presentation.views.config_dialog import ConfigDialog
+
+        logger.debug("Config action triggered")
+        dialog = ConfigDialog(self._container, self)
+        dialog.exec()
+
+    @Slot()
     def _on_data_changed(self) -> None:
         """Handle data changed from dialogs."""
-        # Reload stories to reflect changes
         QTimer.singleShot(
             0, lambda: asyncio.create_task(self._viewmodel.load_stories())
         )
 
-    @Slot(str, str)
-    def _on_dependency_changed(self, story_id: str, depends_on_id: str) -> None:
-        """Handle dependency added/removed."""
+    # --- Context menu ---
+
+    @Slot()
+    def _on_table_context_menu(self, position: QPoint) -> None:
+        """Exibe menu de contexto na tabela."""
+        index = self._story_table.indexAt(position)
+        if not index.isValid():
+            return
+
+        story_id = self._viewmodel.table_model.data(index, Qt.ItemDataRole.UserRole)
+        if not story_id:
+            return
+
+        menu = QMenu(self)
+        deps_action = menu.addAction("Dependencias")
+        deps_action.triggered.connect(lambda: self._open_dependency_dialog(story_id))
+        menu.exec(self._story_table.viewport().mapToGlobal(position))
+
+    def _open_dependency_dialog(self, story_id: str) -> None:
+        """Abre DependencyDialog para a historia selecionada."""
+        from backlog_manager.presentation.views.dependency_dialog import (
+            DependencyDialog,
+        )
+
+        story = None
+        for s in self._viewmodel.stories:
+            if s.id == story_id:
+                story = s
+                break
+
+        if not story:
+            return
+
+        dialog = DependencyDialog(
+            container=self._container,
+            story_id=story.id,
+            story_name=story.name,
+            all_stories=self._viewmodel.stories,
+            parent=self,
+        )
+        dialog.exec()
         # Reload stories to reflect dependency changes
         QTimer.singleShot(
             0, lambda: asyncio.create_task(self._viewmodel.load_stories())
         )
 
-    # Schedule calculation handlers
+    # --- Schedule handlers ---
 
     @Slot()
     def _on_calculate_schedule(self) -> None:
         """Handle schedule calculation action."""
         logger.debug("Schedule calculation action triggered")
 
-        # Validate config
-        is_valid, error = self._config_panel.validate()
+        # Get config from ConfigDialogViewModel
+        config_vm = self._container.config_dialog_viewmodel
+        is_valid, error = config_vm.validate()
         if not is_valid:
             QMessageBox.warning(self, "Configuracao Invalida", error)
             return
 
-        # Execute schedule calculation
         QTimer.singleShot(
             0, lambda: asyncio.create_task(self._execute_schedule_calculation())
         )
 
     async def _execute_schedule_calculation(self) -> None:
-        """Execute schedule calculation with config panel values."""
+        """Execute schedule calculation with config values."""
+        config_vm = self._container.config_dialog_viewmodel
         schedule_vm = self._container.schedule_viewmodel
 
         await schedule_vm.execute(
-            velocity=self._config_panel.velocity,
-            start_date=self._config_panel.start_date,
+            velocity=config_vm.velocity,
+            start_date=config_vm.start_date,
         )
 
-        # Reload stories after schedule calculation
         await self._viewmodel.load_stories()
 
     @Slot()
@@ -533,11 +618,7 @@ class MainWindow(QMainWindow):
 
     @Slot(object)
     def _on_schedule_completed(self, result: CalculateScheduleOutputDTO) -> None:
-        """Handle schedule completed signal.
-
-        Args:
-            result: CalculateScheduleOutputDTO with calculation results.
-        """
+        """Handle schedule completed signal."""
         self._action_schedule.setEnabled(True)
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
@@ -547,33 +628,33 @@ class MainWindow(QMainWindow):
             f"{result.stories_updated} historias tiveram datas calculadas.",
         )
 
-    # Allocation handlers
+    # --- Allocation handlers ---
 
     @Slot()
     def _on_allocate(self) -> None:
         """Handle automatic allocation action."""
         logger.debug("Allocate action triggered")
 
-        # Validate config
-        is_valid, error = self._config_panel.validate()
+        # Get config from ConfigDialogViewModel
+        config_vm = self._container.config_dialog_viewmodel
+        is_valid, error = config_vm.validate()
         if not is_valid:
             QMessageBox.warning(self, "Configuracao Invalida", error)
             return
 
-        # Execute allocation
         QTimer.singleShot(0, lambda: asyncio.create_task(self._execute_allocation()))
 
     async def _execute_allocation(self) -> None:
-        """Execute allocation with config panel values."""
+        """Execute allocation with config values."""
+        config_vm = self._container.config_dialog_viewmodel
         allocation_vm = self._container.allocation_viewmodel
 
         await allocation_vm.execute(
-            velocity=self._config_panel.velocity,
-            start_date=self._config_panel.start_date,
-            max_idle_days=self._config_panel.max_idle_days,
+            velocity=config_vm.velocity,
+            start_date=config_vm.start_date,
+            max_idle_days=config_vm.max_idle_days,
         )
 
-        # Reload stories after allocation
         await self._viewmodel.load_stories()
 
     @Slot()
@@ -581,46 +662,70 @@ class MainWindow(QMainWindow):
         """Handle allocation started signal."""
         self._action_allocate.setEnabled(False)
         self.setCursor(Qt.CursorShape.WaitCursor)
-        self._metrics_panel.clear()
-        self._warnings_panel.clear()
 
     @Slot(object)
-    def _on_allocation_completed(self, metrics) -> None:  # type: ignore[no-untyped-def]
-        """Handle allocation completed signal."""
+    def _on_allocation_completed(self, metrics: AllocationMetricsDTO) -> None:
+        """Handle allocation completed signal. Auto-show MetricsDialog se sucesso."""
         self._action_allocate.setEnabled(True)
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        self._metrics_panel.set_metrics(metrics)
 
-        QMessageBox.information(
-            self,
-            "Alocacao Concluida",
-            f"Alocacao concluida com sucesso!\n\n"
-            f"Historias alocadas: {metrics.stories_allocated}\n"
-            f"Tempo: {metrics.total_time_seconds:.2f}s",
-        )
+        # Update status bar with allocation timestamp
+        self._last_allocation_time = datetime.now()
+        self._update_status_bar_stats()
+
+        # Auto-show MetricsDialog if stories were allocated (FR-021/FR-022)
+        if metrics.stories_allocated > 0:
+            from backlog_manager.presentation.views.metrics_dialog import MetricsDialog
+
+            dialog = MetricsDialog(metrics, parent=self)
+            dialog.exec()
 
     @Slot(list)
     def _on_warnings_updated(self, warnings: list[str]) -> None:
         """Handle warnings updated signal."""
-        self._warnings_panel.set_warnings(warnings)
+        self._current_warnings = warnings
+        if warnings:
+            self._warnings_badge.setText(f"\u26a0 {len(warnings)} avisos")
+            self._warnings_badge.setVisible(True)
+        else:
+            self._warnings_badge.setVisible(False)
+
+    def _show_warnings_popup(self) -> None:
+        """Exibe popup com lista de warnings."""
+        if not self._current_warnings:
+            return
+
+        text = "\n".join(f"\u2022 {w}" for w in self._current_warnings)
+        QMessageBox.information(self, "Avisos da Alocacao", text)
+
+    # --- Status bar ---
+
+    def _update_status_bar_stats(self) -> None:
+        """Atualiza label de estatisticas na status bar."""
+        stories = self._viewmodel.stories
+        story_count = len(stories)
+        total_sp = sum(s.story_points or 0 for s in stories)
+
+        allocation_text = "Sem alocacao"
+        if hasattr(self, "_last_allocation_time") and self._last_allocation_time:
+            allocation_text = (
+                f"Ultima alocacao: "
+                f"{self._last_allocation_time.strftime('%d/%m/%Y %H:%M')}"
+            )
+
+        self._stats_label.setText(
+            f"{story_count} historias \u00b7 {total_sp} SP \u00b7 {allocation_text}"
+        )
+
+    # --- Excel handlers ---
 
     @property
     def story_table(self) -> StoryTableView:
-        """Get the story table view.
-
-        Returns:
-            The StoryTableView widget.
-        """
+        """Get the story table view."""
         return self._story_table
 
-    # Excel operation helper methods
-
     def _start_excel_operation(self, message: str) -> None:
-        """Start an Excel operation with progress dialog.
-
-        Args:
-            message: Progress dialog message.
-        """
+        """Start an Excel operation with progress dialog."""
         self._excel_operation_in_progress = True
         self._action_import_excel.setEnabled(False)
         self._action_export_excel.setEnabled(False)
@@ -641,8 +746,6 @@ class MainWindow(QMainWindow):
         if self._progress_dialog:
             self._progress_dialog.close()
             self._progress_dialog = None
-
-    # Excel import/export handlers
 
     @Slot()
     def _on_import_excel_clicked(self) -> None:
@@ -676,7 +779,6 @@ class MainWindow(QMainWindow):
             "Arquivos Excel (*.xlsx);;Todos os arquivos (*.*)",
         )
         if file_path:
-            # Check if file exists for overwrite confirmation
             if Path(file_path).exists():
                 reply = QMessageBox.question(
                     self,
@@ -697,11 +799,7 @@ class MainWindow(QMainWindow):
 
     @Slot(object)
     def _on_import_completed(self, result) -> None:  # type: ignore[no-untyped-def]
-        """Handle import completed signal.
-
-        Args:
-            result: ImportExcelOutputDTO with import results.
-        """
+        """Handle import completed signal."""
         self._end_excel_operation()
         msg = (
             f"Importacao concluida!\n\n"
@@ -718,22 +816,14 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def _on_import_error(self, error: str) -> None:
-        """Handle import error signal.
-
-        Args:
-            error: Error message.
-        """
+        """Handle import error signal."""
         self._end_excel_operation()
         QMessageBox.critical(self, "Erro na Importacao", error)
         logger.error("Import error: %s", error)
 
     @Slot(object)
     def _on_export_completed(self, result) -> None:  # type: ignore[no-untyped-def]
-        """Handle export completed signal.
-
-        Args:
-            result: ExportExcelOutputDTO with export results.
-        """
+        """Handle export completed signal."""
         self._end_excel_operation()
         msg = (
             f"Exportacao concluida!\n\n"
@@ -746,11 +836,7 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def _on_export_error(self, error: str) -> None:
-        """Handle export error signal.
-
-        Args:
-            error: Error message.
-        """
+        """Handle export error signal."""
         self._end_excel_operation()
         QMessageBox.critical(self, "Erro na Exportacao", error)
         logger.error("Export error: %s", error)

@@ -55,12 +55,21 @@ if TYPE_CHECKING:
     from backlog_manager.presentation.viewmodels.allocation_viewmodel import (
         AllocationViewModel,
     )
+    from backlog_manager.presentation.viewmodels.config_dialog_viewmodel import (
+        ConfigDialogViewModel,
+    )
+    from backlog_manager.presentation.viewmodels.dependency_dialog_viewmodel import (
+        DependencyDialogViewModel,
+    )
     from backlog_manager.presentation.viewmodels.excel_viewmodel import ExcelViewModel
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
     )
     from backlog_manager.presentation.viewmodels.schedule_viewmodel import (
         ScheduleViewModel,
+    )
+    from backlog_manager.presentation.viewmodels.status_bar_viewmodel import (
+        StatusBarViewModel,
     )
     from backlog_manager.presentation.viewmodels.story_dialog_viewmodel import (
         StoryDialogViewModel,
@@ -101,6 +110,9 @@ class DIContainer:
         self._allocation_viewmodel: AllocationViewModel | None = None
         self._excel_viewmodel: ExcelViewModel | None = None
         self._schedule_viewmodel: ScheduleViewModel | None = None
+        self._config_dialog_viewmodel: ConfigDialogViewModel | None = None
+        self._dependency_dialog_viewmodel: DependencyDialogViewModel | None = None
+        self._status_bar_viewmodel: StatusBarViewModel | None = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -539,3 +551,36 @@ class DIContainer:
 
             self._schedule_viewmodel = ScheduleViewModel(self)
         return self._schedule_viewmodel
+
+    @property
+    def config_dialog_viewmodel(self) -> ConfigDialogViewModel:
+        """Get the ConfigDialogViewModel instance (lazy loaded)."""
+        if self._config_dialog_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.config_dialog_viewmodel import (
+                ConfigDialogViewModel,
+            )
+
+            self._config_dialog_viewmodel = ConfigDialogViewModel(self)
+        return self._config_dialog_viewmodel
+
+    @property
+    def dependency_dialog_viewmodel(self) -> DependencyDialogViewModel:
+        """Get the DependencyDialogViewModel instance (lazy loaded)."""
+        if self._dependency_dialog_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.dependency_dialog_viewmodel import (
+                DependencyDialogViewModel,
+            )
+
+            self._dependency_dialog_viewmodel = DependencyDialogViewModel(self)
+        return self._dependency_dialog_viewmodel
+
+    @property
+    def status_bar_viewmodel(self) -> StatusBarViewModel:
+        """Get the StatusBarViewModel instance (lazy loaded)."""
+        if self._status_bar_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.status_bar_viewmodel import (
+                StatusBarViewModel,
+            )
+
+            self._status_bar_viewmodel = StatusBarViewModel()
+        return self._status_bar_viewmodel

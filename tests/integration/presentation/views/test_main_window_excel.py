@@ -64,7 +64,7 @@ class TestMainWindowExcelToolbarButtons:
         qtbot.addWidget(window)
 
         assert window._action_import_excel is not None
-        assert window._action_import_excel.text() == "Importar Excel"
+        assert window._action_import_excel.text() == "Importar"
 
     def test_toolbar_has_export_excel_button(
         self, container: DIContainer, qapp, qtbot
@@ -75,7 +75,7 @@ class TestMainWindowExcelToolbarButtons:
         qtbot.addWidget(window)
 
         assert window._action_export_excel is not None
-        assert window._action_export_excel.text() == "Exportar Excel"
+        assert window._action_export_excel.text() == "Exportar"
 
     def test_import_button_has_correct_tooltip(
         self, container: DIContainer, qapp, qtbot
@@ -85,9 +85,7 @@ class TestMainWindowExcelToolbarButtons:
         window = MainWindow(viewmodel)
         qtbot.addWidget(window)
 
-        assert (
-            "Importar dados de arquivo Excel" in window._action_import_excel.toolTip()
-        )
+        assert "Importar Excel" in window._action_import_excel.toolTip()
         assert "Ctrl+I" in window._action_import_excel.toolTip()
 
     def test_export_button_has_correct_tooltip(
@@ -98,9 +96,7 @@ class TestMainWindowExcelToolbarButtons:
         window = MainWindow(viewmodel)
         qtbot.addWidget(window)
 
-        assert (
-            "Exportar dados para arquivo Excel" in window._action_export_excel.toolTip()
-        )
+        assert "Exportar Excel" in window._action_export_excel.toolTip()
         assert "Ctrl+E" in window._action_export_excel.toolTip()
 
 

@@ -12,10 +12,10 @@
     },
     // Prevenir conflitos com Claude Code
     "editor.formatOnSave": false,
-    "editor.autoSave": "off",
     "editor.formatOnPaste": false,
     "editor.codeActionsOnSave": {},
-    "files.autoSave": "off",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
     "python-envs.defaultEnvManager": "ms-python.python:poetry",
     "python-envs.defaultPackageManager": "ms-python.python:poetry",
     "python.testing.pytestArgs": [
@@ -26,7 +26,16 @@
     "git.autoRefresh": false,
 
     "files.watcherExclude": {
-        "**/specs/**": true
+        "**/specs/**": true,
+        "**/__pycache__/**": true,
+        "**/.git/objects/**": true,
+        "**/.mypy_cache/**": true,
+        "**/.pytest_cache/**": true,
+        "**/.ruff_cache/**": true,
+        "**/build/**": true,
+        "**/dist/**": true,
+        "**/.venv/**": true,
+        "**/.eggs/**": true
     }
 
 }

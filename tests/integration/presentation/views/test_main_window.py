@@ -1,7 +1,7 @@
 """Integration tests for MainWindow.
 
 This module contains integration tests for the MainWindow class,
-verifying correct behavior with real database operations.
+verifying correct behavior with the new 5-zone vertical layout (EP-018).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QLabel, QMessageBox, QPushButton, QToolBar, QVBoxLayout
 
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.container import DIContainer
@@ -61,19 +61,113 @@ class TestMainWindowDisplay:
         assert window.minimumHeight() == 600
 
 
-class TestMainWindowToolbar:
-    """Tests for MainWindow toolbar."""
+class TestMainWindowVerticalLayout:
+    """Tests for the 5-zone vertical layout (EP-018 US2)."""
 
-    def test_toolbar_has_nova_historia_action(
+    def test_central_widget_uses_vbox_layout(
         self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
     ) -> None:
-        """Test that toolbar has Nova Historia action."""
+        """Test that central widget uses QVBoxLayout."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        central = window.centralWidget()
+        assert central is not None
+        layout = central.layout()
+        assert isinstance(layout, QVBoxLayout)
+
+    def test_no_splitter_in_layout(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that QSplitter is no longer used."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert not hasattr(window, "_splitter")
+
+    def test_no_side_panels(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that legacy side panels are not instantiated."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert not hasattr(window, "_config_panel")
+        assert not hasattr(window, "_dependency_panel")
+        assert not hasattr(window, "_metrics_panel")
+        assert not hasattr(window, "_warnings_panel")
+        assert not hasattr(window, "_side_panel")
+
+    def test_filter_bar_placeholder_exists(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that filter bar placeholder is present with correct height."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert hasattr(window, "_filter_bar")
+        assert window._filter_bar.maximumHeight() == 36
+
+    def test_story_table_in_central_layout(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that story table is in the central layout."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert window._story_table is not None
+        assert window._story_table.model() is not None
+
+
+class TestMainWindowMenuBar:
+    """Tests for the Menu Bar (EP-018 US1)."""
+
+    def test_menu_bar_has_four_menus(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that menu bar has 4 menus."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        menu_bar = window.menuBar()
+        actions = [a for a in menu_bar.actions() if a.menu()]
+        assert len(actions) == 4
+
+    def test_menu_bar_menu_names(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that menus have correct names."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        menu_bar = window.menuBar()
+        menu_names = [a.text() for a in menu_bar.actions() if a.menu()]
+        assert "&Arquivo" in menu_names
+        assert "&Cadastros" in menu_names
+        assert "&Ferramentas" in menu_names
+        assert "A&juda" in menu_names
+
+
+class TestMainWindowToolbar:
+    """Tests for MainWindow toolbar with icons and groups."""
+
+    def test_toolbar_has_nova_action(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that toolbar has Nova action."""
         viewmodel = MainWindowViewModel(container)
         window = MainWindow(viewmodel)
         qtbot.addWidget(window)
 
         assert window._action_new_story is not None
-        assert window._action_new_story.text() == "Nova Historia"
+        assert window._action_new_story.text() == "Nova"
 
     def test_toolbar_has_editar_action(
         self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
@@ -122,13 +216,97 @@ class TestMainWindowToolbar:
     def test_toolbar_has_alocar_action(
         self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
     ) -> None:
-        """Test that toolbar has Alocar Automaticamente action."""
+        """Test that toolbar has Alocar action."""
         viewmodel = MainWindowViewModel(container)
         window = MainWindow(viewmodel)
         qtbot.addWidget(window)
 
         assert window._action_allocate is not None
-        assert window._action_allocate.text() == "Alocar Automaticamente"
+        assert window._action_allocate.text() == "Alocar"
+
+    def test_toolbar_uses_text_beside_icon_style(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that toolbar uses ToolButtonTextBesideIcon style."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        toolbars = window.findChildren(QToolBar)
+        assert len(toolbars) >= 1
+        assert (
+            toolbars[0].toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+
+    def test_toolbar_icon_size(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that toolbar icon size is 20x20."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        toolbars = window.findChildren(QToolBar)
+        assert toolbars[0].iconSize().width() == 20
+        assert toolbars[0].iconSize().height() == 20
+
+
+class TestMainWindowStatusBar:
+    """Tests for Status Bar (EP-018 US4)."""
+
+    def test_status_bar_has_stats_label(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that status bar has stats label."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert hasattr(window, "_stats_label")
+        assert isinstance(window._stats_label, QLabel)
+        assert "0 historias" in window._stats_label.text()
+
+    def test_status_bar_has_warnings_badge(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that status bar has warnings badge (hidden by default)."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert hasattr(window, "_warnings_badge")
+        assert isinstance(window._warnings_badge, QPushButton)
+        assert not window._warnings_badge.isVisible()
+
+    def test_warnings_badge_visible_when_warnings(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that warnings badge becomes visible when warnings arrive."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+        qtbot.waitExposed(window)
+
+        window._on_warnings_updated(["Warning 1", "Warning 2"])
+        assert window._warnings_badge.isVisible()
+        assert "2 avisos" in window._warnings_badge.text()
+
+    def test_warnings_badge_hidden_when_no_warnings(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that warnings badge is hidden when warnings are cleared."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+        qtbot.waitExposed(window)
+
+        window._on_warnings_updated(["Warning 1"])
+        assert window._warnings_badge.isVisible()
+
+        window._on_warnings_updated([])
+        assert not window._warnings_badge.isVisible()
 
 
 class TestMainWindowTable:
@@ -157,6 +335,19 @@ class TestMainWindowTable:
         qtbot.addWidget(window)
 
         assert window.story_table.model().rowCount() == 3
+
+    def test_table_has_context_menu_policy(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that table has custom context menu policy."""
+        viewmodel = MainWindowViewModel(container)
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+
+        assert (
+            window._story_table.contextMenuPolicy()
+            == Qt.ContextMenuPolicy.CustomContextMenu
+        )
 
 
 class TestMainWindowSelectionHandling:

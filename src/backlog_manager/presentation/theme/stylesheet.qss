@@ -710,10 +710,32 @@ QStatusBar {
     background-color: @surface;
     color: @text-secondary;
     border-top: 1px solid @border;
+    font-size: @font-size-sm;
 }
 
 QStatusBar::item {
     border: none;
+}
+
+QStatusBar QLabel {
+    color: @text-secondary;
+    padding: 0 @spacing-2;
+}
+
+QPushButton#warnings-badge {
+    background-color: @warning-bg;
+    color: @warning-fg;
+    border: 1px solid @warning-fg;
+    border-radius: @radius-sm;
+    padding: @spacing-1 @spacing-2;
+    font-size: @font-size-sm;
+    font-weight: @font-weight-medium;
+    min-height: 20px;
+}
+
+QPushButton#warnings-badge:hover {
+    background-color: @warning-fg;
+    color: @background;
 }
 
 QToolTip {
