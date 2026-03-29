@@ -16,9 +16,13 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QButtonGroup,
+    QComboBox,
     QFileDialog,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -34,6 +38,7 @@ from backlog_manager.presentation.delegates import (
     MonospaceDelegate,
     StatusBadgeDelegate,
 )
+from backlog_manager.presentation.viewmodels.filter_proxy_model import FilterProxyModel
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
 from backlog_manager.presentation.views.developer_dialog import DeveloperDialog
@@ -216,6 +221,12 @@ class MainWindow(QMainWindow):
         self._action_delete_story.triggered.connect(self._on_delete_story)
         toolbar.addAction(self._action_delete_story)
 
+        self._action_duplicate_story = QAction(icon.get("copy"), "Duplicar", self)
+        self._action_duplicate_story.setShortcut(QKeySequence("Ctrl+D"))
+        self._action_duplicate_story.setToolTip("Duplicar Historia (Ctrl+D)")
+        self._action_duplicate_story.triggered.connect(self._on_duplicate_story)
+        toolbar.addAction(self._action_duplicate_story)
+
         toolbar.addSeparator()
 
         # Grupo 2: Priorizacao
@@ -290,18 +301,23 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Filter bar placeholder (36px) — sera implementado em EP-020
+        # Filter bar (zona 3, 36px height)
         self._filter_bar = QWidget()
         self._filter_bar.setFixedHeight(36)
-        self._filter_bar.setObjectName("filter-bar-placeholder")
+        self._filter_bar.setObjectName("filter-bar")
         layout.addWidget(self._filter_bar)
+        self._setup_filter_bar()
 
         # Story table (stretch para ocupar 100% da largura e altura restante)
         self._story_table = StoryTableView()
-        self._story_table.setModel(self._viewmodel.table_model)
+
+        # FilterProxyModel between source model and view (ADR-001)
+        self._filter_proxy = FilterProxyModel(self)
+        self._filter_proxy.setSourceModel(self._viewmodel.table_model)
+        self._story_table.setModel(self._filter_proxy)
         layout.addWidget(self._story_table, stretch=1)
 
-        # Delegates — assign by header text lookup
+        # Delegates — assign AFTER setModel(proxy) per ADR-001
         self._monospace_delegate = MonospaceDelegate(self._story_table)
         self._status_badge_delegate = StatusBadgeDelegate(self._story_table)
 
@@ -353,6 +369,141 @@ class MainWindow(QMainWindow):
         if selection_model:
             selection_model.currentRowChanged.connect(self._on_story_selection_changed)
 
+    def _setup_filter_bar(self) -> None:
+        """Configure zona 3 filter bar with search field, status chips, and feature combo."""
+        layout = QHBoxLayout(self._filter_bar)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(8)
+
+        # SearchField (T004)
+        self._search_field = QLineEdit()
+        self._search_field.setObjectName("searchField")
+        self._search_field.setFixedWidth(240)
+        self._search_field.setPlaceholderText("Buscar por ID, nome ou componente...")
+        self._search_field.setClearButtonEnabled(True)
+        layout.addWidget(self._search_field)
+
+        # Debounce timer (T005)
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(150)
+        self._search_timer.timeout.connect(self._apply_text_filter)
+        self._pending_search_text: str = ""
+        self._search_field.textChanged.connect(self._on_search_text_changed)
+
+        layout.addSpacing(16)
+
+        # Status filter chips (T007)
+        self._chip_group = QButtonGroup(self)
+        self._chip_group.setExclusive(True)
+
+        chip_definitions: list[tuple[str, str | None]] = [
+            ("Todos", None),
+            ("Backlog", "BACKLOG"),
+            ("Execucao", "EXECUCAO"),
+            ("Testes", "TESTES"),
+            ("Concluido", "CONCLUIDO"),
+            ("Impedido", "IMPEDIDO"),
+        ]
+
+        self._filter_chips: list[tuple[QPushButton, str | None]] = []
+        for label, status_value in chip_definitions:
+            chip = QPushButton(label)
+            chip.setCheckable(True)
+            chip.setProperty("class", "filterChip")
+            chip.setProperty("status_value", status_value)
+            self._chip_group.addButton(chip)
+            layout.addWidget(chip)
+            self._filter_chips.append((chip, status_value))
+
+        # "Todos" checked by default
+        self._filter_chips[0][0].setChecked(True)
+
+        self._chip_group.buttonClicked.connect(self._on_chip_clicked)
+
+        layout.addSpacing(16)
+
+        # Feature combo (T015)
+        self._feature_combo = QComboBox()
+        self._feature_combo.setMinimumWidth(180)
+        self._feature_combo.addItem("Todas as features", None)
+        self._feature_combo.currentIndexChanged.connect(self._on_feature_changed)
+        layout.addWidget(self._feature_combo)
+
+        layout.addStretch()
+
+    def _on_search_text_changed(self, text: str) -> None:
+        """Handle search field text change with debounce."""
+        self._pending_search_text = text
+        self._search_timer.start()
+
+    @Slot()
+    def _apply_text_filter(self) -> None:
+        """Apply the pending text filter to the proxy model."""
+        self._filter_proxy.set_text_filter(self._pending_search_text)
+        self._update_move_actions_state()
+
+    @Slot()
+    def _on_chip_clicked(self, button: QPushButton) -> None:
+        """Handle status chip click."""
+        status_value = button.property("status_value")
+        self._filter_proxy.set_status_filter(status_value)
+        self._update_move_actions_state()
+
+    @Slot()
+    def _on_feature_changed(self) -> None:
+        """Handle feature combo selection change."""
+        feature_id = self._feature_combo.currentData()
+        self._filter_proxy.set_feature_filter(feature_id)
+        self._update_move_actions_state()
+
+    def _update_chip_counts(self) -> None:
+        """Update chip labels with story counts from unfiltered source."""
+        stories = self._viewmodel.stories
+        total = len(stories)
+
+        status_counts: dict[str, int] = {}
+        for story in stories:
+            status_counts[story.status] = status_counts.get(story.status, 0) + 1
+
+        for chip, status_value in self._filter_chips:
+            if status_value is None:
+                chip.setText(f"Todos ({total})")
+            else:
+                count = status_counts.get(status_value, 0)
+                chip.setText(f"{chip.text().split('(')[0].strip()} ({count})")
+
+    def _update_feature_dropdown(self) -> None:
+        """Update feature combo with unique features from stories."""
+        current_data = self._feature_combo.currentData()
+
+        self._feature_combo.blockSignals(True)
+        self._feature_combo.clear()
+        self._feature_combo.addItem("Todas as features", None)
+
+        features: dict[int, tuple[str, int]] = {}
+        for story in self._viewmodel.stories:
+            if story.feature_id and story.feature_name:
+                features[story.feature_id] = (story.feature_name, story.wave)
+
+        for fid, (name, wave) in sorted(features.items(), key=lambda x: x[1][1]):
+            self._feature_combo.addItem(f"Onda {wave} - {name}", fid)
+
+        # Restore previous selection if still available
+        idx = self._feature_combo.findData(current_data)
+        if idx >= 0:
+            self._feature_combo.setCurrentIndex(idx)
+
+        self._feature_combo.blockSignals(False)
+
+    def _update_move_actions_state(self) -> None:
+        """Update move up/down actions based on filter state and selection."""
+        has_filters = self._filter_proxy.has_active_filters
+        has_selection = self._viewmodel.selected_story_id is not None
+        enabled = not has_filters and has_selection
+        self._action_move_up.setEnabled(enabled)
+        self._action_move_down.setEnabled(enabled)
+
     def _setup_status_bar(self) -> None:
         """Configura status bar com estatisticas e badge de warnings."""
         status = self.statusBar()
@@ -385,6 +536,10 @@ class MainWindow(QMainWindow):
         # Enter for edit
         shortcut_enter = QShortcut(QKeySequence("Return"), self._story_table)
         shortcut_enter.activated.connect(self._on_edit_story)
+
+        # Ctrl+F to focus search field
+        shortcut_search = QShortcut(QKeySequence("Ctrl+F"), self)
+        shortcut_search.activated.connect(self._search_field.setFocus)
 
     def _connect_signals(self) -> None:
         """Connect ViewModel signals to view slots."""
@@ -423,6 +578,9 @@ class MainWindow(QMainWindow):
         """Handle stories_changed signal."""
         self._update_status_bar_stats()
         self._update_empty_state()
+        self._update_chip_counts()
+        self._update_feature_dropdown()
+        self._update_move_actions_state()
         logger.debug("Stories changed, table updated")
 
     def _update_empty_state(self) -> None:
@@ -446,6 +604,7 @@ class MainWindow(QMainWindow):
         self._action_new_story.setEnabled(not is_loading)
         self._action_edit_story.setEnabled(not is_loading)
         self._action_delete_story.setEnabled(not is_loading)
+        self._action_duplicate_story.setEnabled(not is_loading)
         self._action_move_up.setEnabled(not is_loading)
         self._action_move_down.setEnabled(not is_loading)
         self._action_allocate.setEnabled(not is_loading)
@@ -463,11 +622,10 @@ class MainWindow(QMainWindow):
         """Handle story selection change in table."""
         current_index = self._story_table.currentIndex()
         if current_index.isValid():
-            story_id = self._viewmodel.table_model.data(
-                current_index, Qt.ItemDataRole.UserRole
-            )
+            story_id = self._filter_proxy.data(current_index, Qt.ItemDataRole.UserRole)
             if story_id:
                 self._viewmodel.select_story(story_id)
+        self._update_move_actions_state()
 
     @Slot()
     def _on_new_story(self) -> None:
@@ -528,6 +686,24 @@ class MainWindow(QMainWindow):
             )
 
     @Slot()
+    def _on_duplicate_story(self) -> None:
+        """Handle duplicate story action."""
+        if not self._viewmodel.selected_story_id:
+            return
+
+        story_id = self._viewmodel.selected_story_id
+        logger.debug("Duplicate story action triggered for %s", story_id)
+
+        async def _do_duplicate() -> None:
+            result = await self._viewmodel.duplicate_story(story_id)
+            if result:
+                self.statusBar().showMessage(
+                    f"Historia duplicada: {story_id} -> {result.id}", 5000
+                )
+
+        asyncio.create_task(_do_duplicate())
+
+    @Slot()
     def _on_move_up(self) -> None:
         """Handle move priority up action."""
         if not self._viewmodel.selected_story_id:
@@ -581,18 +757,53 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _on_table_context_menu(self, position: QPoint) -> None:
-        """Exibe menu de contexto na tabela."""
+        """Exibe menu de contexto na tabela com 6 acoes."""
         index = self._story_table.indexAt(position)
         if not index.isValid():
             return
 
-        story_id = self._viewmodel.table_model.data(index, Qt.ItemDataRole.UserRole)
+        # Select the clicked row
+        self._story_table.selectRow(index.row())
+
+        story_id = self._filter_proxy.data(index, Qt.ItemDataRole.UserRole)
         if not story_id:
             return
 
         menu = QMenu(self)
-        deps_action = menu.addAction("Dependencias")
+
+        # Editar
+        edit_action = menu.addAction("Editar\tEnter")
+        edit_action.triggered.connect(self._on_edit_story)
+
+        # Duplicar
+        duplicate_action = menu.addAction("Duplicar\tCtrl+D")
+        duplicate_action.triggered.connect(self._on_duplicate_story)
+
+        menu.addSeparator()
+
+        # Mover Acima / Abaixo — disabled when filters are active
+        has_filters = self._filter_proxy.has_active_filters
+        move_up_action = menu.addAction("Mover Acima\tAlt+Up")
+        move_up_action.setEnabled(not has_filters)
+        move_up_action.triggered.connect(self._on_move_up)
+
+        move_down_action = menu.addAction("Mover Abaixo\tAlt+Down")
+        move_down_action.setEnabled(not has_filters)
+        move_down_action.triggered.connect(self._on_move_down)
+
+        menu.addSeparator()
+
+        # Dependencias
+        deps_action = menu.addAction("Dependencias...")
         deps_action.triggered.connect(lambda: self._open_dependency_dialog(story_id))
+
+        menu.addSeparator()
+
+        # Deletar — styled as destructive via property
+        delete_action = menu.addAction("Deletar\tDelete")
+        delete_action.setProperty("destructive", "true")
+        delete_action.triggered.connect(self._on_delete_story)
+
         menu.exec(self._story_table.viewport().mapToGlobal(position))
 
     def _open_dependency_dialog(self, story_id: str) -> None:

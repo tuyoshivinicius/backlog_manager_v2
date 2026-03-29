@@ -738,6 +738,52 @@ QPushButton#warnings-badge:hover {
     color: @background;
 }
 
+/* =============================================================================
+ * EP-020: SearchField
+ * =============================================================================
+ */
+
+QLineEdit#searchField {
+    padding-left: 8px;
+    min-width: 240px;
+    max-width: 240px;
+}
+
+/* =============================================================================
+ * EP-020: FilterChip
+ * =============================================================================
+ */
+
+QPushButton[class="filterChip"] {
+    background-color: @surface;
+    color: @text-secondary;
+    border: 1px solid @border;
+    border-radius: @radius-full;
+    padding: @spacing-1 @spacing-3;
+    font-size: @font-size-xs;
+    min-height: 24px;
+}
+
+QPushButton[class="filterChip"]:checked {
+    background-color: @primary;
+    color: @background;
+    border-color: @primary;
+}
+
+QPushButton[class="filterChip"]:hover:!checked {
+    background-color: @neutral-100;
+    border-color: @neutral-300;
+}
+
+/* =============================================================================
+ * EP-020: Context Menu Destructive Action
+ * =============================================================================
+ */
+
+QMenu::item[destructive="true"] {
+    color: @error-fg;
+}
+
 QLabel#empty-state-label {
     color: @neutral-500;
     font-size: 14px;

@@ -340,6 +340,29 @@ class MainWindowViewModel(QObject):
         finally:
             self._set_loading(False)
 
+    async def duplicate_story(self, story_id: str) -> StoryOutputDTO | None:
+        """Duplicate a story.
+
+        Args:
+            story_id: ID of the story to duplicate.
+
+        Returns:
+            Duplicated story DTO on success, None on failure.
+        """
+        self._set_loading(True)
+        try:
+            async with self._container.create_unit_of_work() as uow:
+                use_case = self._container.create_duplicate_story_use_case(uow)
+                story = await use_case.execute(story_id)
+                await self.load_stories()
+                logger.info("Duplicated story: %s -> %s", story_id, story.id)
+                return story
+        except Exception as e:
+            self._handle_error(e, "duplicar historia")
+            return None
+        finally:
+            self._set_loading(False)
+
     def get_stories_by_status(self, status: str) -> Sequence[StoryOutputDTO]:
         """Filter stories by status (in-memory).
 
