@@ -289,22 +289,50 @@ class MainWindow(QMainWindow):
         self._story_table.setModel(self._viewmodel.table_model)
         layout.addWidget(self._story_table, stretch=1)
 
-        # Delegates — ID column monospace, Status column badges
+        # Delegates — assign by header text lookup
         self._monospace_delegate = MonospaceDelegate(self._story_table)
         self._status_badge_delegate = StatusBadgeDelegate(self._story_table)
 
-        # Column 0 = ID (monospace)
-        self._story_table.setItemDelegateForColumn(0, self._monospace_delegate)
-
-        # Find Status column dynamically
         model = self._viewmodel.table_model
+        delegate_map = {
+            "ID": self._monospace_delegate,
+            "Status": self._status_badge_delegate,
+        }
         for col in range(model.columnCount()):
             header_text = model.headerData(col, Qt.Orientation.Horizontal)
-            if header_text == "Status":
+            if header_text in delegate_map:
                 self._story_table.setItemDelegateForColumn(
-                    col, self._status_badge_delegate
+                    col, delegate_map[header_text]
                 )
-                break
+
+        # Configure column widths: fixed for all except Nome (stretch)
+        from backlog_manager.presentation.viewmodels.story_table_model import (
+            StoryTableModel,
+        )
+
+        header = self._story_table.horizontalHeader()
+        if header:
+            header.setStretchLastSection(False)
+            for col, width in enumerate(StoryTableModel.COLUMN_WIDTHS):
+                if width == -1:
+                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+                else:
+                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
+                    header.resizeSection(col, width)
+
+        # Enable text elision for truncated columns
+        self._story_table.setTextElideMode(Qt.TextElideMode.ElideRight)
+
+        # Empty state overlay
+        self._empty_state_label = QLabel(
+            "Nenhuma historia cadastrada. Clique em '+ Nova' ou importe "
+            "um arquivo Excel para comecar.",
+            self._story_table,
+        )
+        self._empty_state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_state_label.setWordWrap(True)
+        self._empty_state_label.setObjectName("empty-state-label")
+        self._empty_state_label.setVisible(True)
 
         # Context menu for dependency dialog
         self._story_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -385,9 +413,16 @@ class MainWindow(QMainWindow):
     @Slot()
     def _on_stories_changed(self) -> None:
         """Handle stories_changed signal."""
-        self._story_table.resizeColumnsToContents()
         self._update_status_bar_stats()
+        self._update_empty_state()
         logger.debug("Stories changed, table updated")
+
+    def _update_empty_state(self) -> None:
+        """Toggle empty state overlay and processing buttons."""
+        has_stories = self._viewmodel.table_model.rowCount() > 0
+        self._empty_state_label.setVisible(not has_stories)
+        self._action_schedule.setEnabled(has_stories)
+        self._action_allocate.setEnabled(has_stories)
 
     @Slot(str)
     def _on_viewmodel_story_selected(self, story_id: str) -> None:

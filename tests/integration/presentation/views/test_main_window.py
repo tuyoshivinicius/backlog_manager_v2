@@ -321,7 +321,7 @@ class TestMainWindowTable:
         qtbot.addWidget(window)
 
         model = window.story_table.model()
-        assert model.columnCount() == 8
+        assert model.columnCount() == 13
 
     def test_table_displays_stories(
         self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]

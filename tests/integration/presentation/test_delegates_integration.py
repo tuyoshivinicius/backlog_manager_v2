@@ -2,6 +2,7 @@
 
 Tests cover:
 - T080: Delegates work correctly with QTableView
+- T025: Updated delegate indices for 13-column model
 - Performance validation
 """
 
@@ -16,7 +17,7 @@ from backlog_manager.presentation.delegates import (
 
 
 class SimpleTableModel(QAbstractTableModel):
-    """Simple model for testing delegates."""
+    """Simple model for testing delegates with 13 columns."""
 
     def __init__(self, data: list[list[str]]) -> None:
         super().__init__()
@@ -34,92 +35,151 @@ class SimpleTableModel(QAbstractTableModel):
         return None
 
 
+def _make_13col_data() -> list[list[str]]:
+    """Create sample 13-column data matching the new column order."""
+    return [
+        [
+            "1",
+            "Feature A",
+            "1",
+            "STORY-001",
+            "COMP",
+            "Story Name",
+            "BACKLOG",
+            "Dev 1",
+            "DEP-001",
+            "5",
+            "15/01/2026",
+            "16/01/2026",
+            "2",
+        ],
+        [
+            "2",
+            "Feature B",
+            "2",
+            "STORY-002",
+            "API",
+            "Another Story",
+            "EXECUCAO",
+            "Dev 2",
+            "\u2014",
+            "8",
+            "\u2014",
+            "\u2014",
+            "\u2014",
+        ],
+        [
+            "3",
+            "\u2014",
+            "\u2014",
+            "STORY-003",
+            "UI",
+            "Third Story",
+            "TESTES",
+            "\u2014",
+            "\u2014",
+            "3",
+            "17/01/2026",
+            "20/01/2026",
+            "4",
+        ],
+        [
+            "4",
+            "Feature A",
+            "1",
+            "STORY-004",
+            "COMP",
+            "Fourth Story",
+            "CONCLUIDO",
+            "Dev 1",
+            "STORY-001, STORY-002",
+            "13",
+            "21/01/2026",
+            "25/01/2026",
+            "5",
+        ],
+        [
+            "5",
+            "\u2014",
+            "\u2014",
+            "STORY-005",
+            "DB",
+            "Fifth Story",
+            "IMPEDIDO",
+            "\u2014",
+            "\u2014",
+            "5",
+            "\u2014",
+            "\u2014",
+            "\u2014",
+        ],
+    ]
+
+
 class TestDelegatesWithTableView:
-    """Integration tests for delegates with QTableView (T080)."""
+    """Integration tests for delegates with QTableView."""
 
     @pytest.fixture
     def table_view(self, qtbot: pytest.fixture) -> QTableView:
-        """Create and return a QTableView."""
         view = QTableView()
         qtbot.addWidget(view)
         return view
 
     @pytest.fixture
     def sample_data(self) -> list[list[str]]:
-        """Sample data with ID and status columns."""
-        return [
-            ["STORY-001", "BACKLOG"],
-            ["STORY-002", "EXECUCAO"],
-            ["STORY-003", "TESTES"],
-            ["STORY-004", "CONCLUIDO"],
-            ["STORY-005", "IMPEDIDO"],
-        ]
+        return _make_13col_data()
 
-    def test_status_badge_delegate_in_table(
+    def test_status_badge_delegate_at_column_6(
         self,
         table_view: QTableView,
         sample_data: list[list[str]],
         qtbot: pytest.fixture,
     ) -> None:
-        """StatusBadgeDelegate renders in QTableView without errors."""
-        # Arrange
+        """StatusBadgeDelegate renders at column 6 (Status) without errors."""
         model = SimpleTableModel(sample_data)
         table_view.setModel(model)
-
         delegate = StatusBadgeDelegate(table_view)
-        table_view.setItemDelegateForColumn(1, delegate)
-
-        # Act
+        table_view.setItemDelegateForColumn(6, delegate)
         table_view.show()
-
-        # Assert - no exceptions, table is visible
         assert table_view.isVisible()
-        assert table_view.model() == model
+        assert table_view.itemDelegateForColumn(6) == delegate
 
-    def test_monospace_delegate_in_table(
+    def test_monospace_delegate_at_column_3(
         self,
         table_view: QTableView,
         sample_data: list[list[str]],
         qtbot: pytest.fixture,
     ) -> None:
-        """MonospaceDelegate renders in QTableView without errors."""
-        # Arrange
+        """MonospaceDelegate renders at column 3 (ID) without errors."""
         model = SimpleTableModel(sample_data)
         table_view.setModel(model)
-
         delegate = MonospaceDelegate(table_view)
-        table_view.setItemDelegateForColumn(0, delegate)
-
-        # Act
+        table_view.setItemDelegateForColumn(3, delegate)
         table_view.show()
-
-        # Assert - no exceptions, table is visible
         assert table_view.isVisible()
-        assert table_view.model() == model
+        assert table_view.itemDelegateForColumn(3) == delegate
 
-    def test_both_delegates_in_table(
+    def test_both_delegates_at_new_indices(
         self,
         table_view: QTableView,
         sample_data: list[list[str]],
         qtbot: pytest.fixture,
     ) -> None:
-        """Both delegates work together in the same QTableView."""
-        # Arrange
+        """Both delegates work at new indices (ID=3, Status=6) in 13-column table."""
         model = SimpleTableModel(sample_data)
         table_view.setModel(model)
 
         monospace_delegate = MonospaceDelegate(table_view)
         status_delegate = StatusBadgeDelegate(table_view)
 
-        table_view.setItemDelegateForColumn(0, monospace_delegate)
-        table_view.setItemDelegateForColumn(1, status_delegate)
+        table_view.setItemDelegateForColumn(3, monospace_delegate)
+        table_view.setItemDelegateForColumn(6, status_delegate)
 
-        # Act
         table_view.show()
 
-        # Assert - no exceptions, both delegates assigned
-        assert table_view.itemDelegateForColumn(0) == monospace_delegate
-        assert table_view.itemDelegateForColumn(1) == status_delegate
+        assert table_view.itemDelegateForColumn(3) == monospace_delegate
+        assert table_view.itemDelegateForColumn(6) == status_delegate
+        assert model.columnCount() == 13
 
     def test_delegate_handles_selection(
         self,
@@ -128,29 +188,22 @@ class TestDelegatesWithTableView:
         qtbot: pytest.fixture,
     ) -> None:
         """Delegates handle row selection correctly."""
-        # Arrange
         model = SimpleTableModel(sample_data)
         table_view.setModel(model)
-
         status_delegate = StatusBadgeDelegate(table_view)
-        table_view.setItemDelegateForColumn(1, status_delegate)
-
+        table_view.setItemDelegateForColumn(6, status_delegate)
         table_view.show()
 
-        # Act - select first row
         index = model.index(0, 0)
         table_view.setCurrentIndex(index)
-
-        # Assert - no exceptions
         assert table_view.currentIndex() == index
 
 
 class TestDelegatePerformance:
-    """Performance tests for delegates (T083)."""
+    """Performance tests for delegates."""
 
     @pytest.fixture
     def table_view(self, qtbot: pytest.fixture) -> QTableView:
-        """Create and return a QTableView."""
         view = QTableView()
         qtbot.addWidget(view)
         return view
@@ -158,28 +211,37 @@ class TestDelegatePerformance:
     def test_status_badge_delegate_performance(
         self, table_view: QTableView, qtbot: pytest.fixture
     ) -> None:
-        """StatusBadgeDelegate renders many cells efficiently.
-
-        Target: <= 16ms per cell for 60fps.
-        """
+        """StatusBadgeDelegate renders many cells efficiently."""
         import time
 
-        # Create large dataset
-        data = [[f"STORY-{i:04d}", "BACKLOG"] for i in range(100)]
+        statuses = ["BACKLOG", "EXECUCAO", "TESTES", "CONCLUIDO", "IMPEDIDO"]
+        data = [
+            [
+                str(i),
+                "\u2014",
+                "\u2014",
+                f"STORY-{i:04d}",
+                "COMP",
+                "Name",
+                statuses[i % 5],
+                "\u2014",
+                "\u2014",
+                "5",
+                "\u2014",
+                "\u2014",
+                "\u2014",
+            ]
+            for i in range(100)
+        ]
         model = SimpleTableModel(data)
-
         table_view.setModel(model)
         delegate = StatusBadgeDelegate(table_view)
-        table_view.setItemDelegateForColumn(1, delegate)
-
+        table_view.setItemDelegateForColumn(6, delegate)
         table_view.show()
 
-        # Force paint
         start = time.perf_counter()
         table_view.viewport().update()
         QApplication.processEvents()
         elapsed = time.perf_counter() - start
 
-        # 100 cells should render in reasonable time
-        # Note: This is a rough test - actual per-cell time depends on many factors
         assert elapsed < 2.0, f"Rendering 100 cells took {elapsed:.2f}s"

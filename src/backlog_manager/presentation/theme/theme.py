@@ -58,6 +58,7 @@ DESIGN_TOKENS: dict[str, str] = {
     "font-size-2xl": "24px",
     "font-weight-normal": "400",
     "font-weight-medium": "500",
+    "font-weight-semibold": "600",
     "font-weight-bold": "700",
     # === Spacing ===
     "spacing-0": "0px",
