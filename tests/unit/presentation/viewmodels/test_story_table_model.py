@@ -188,7 +188,9 @@ class TestStoryTableModelDisplayRole:
 class TestStoryTableModelMissingValues:
     """T021: Test data(DisplayRole) for missing/None values returns em-dash."""
 
-    def test_missing_feature_name(self, qapp) -> None:  # type: ignore[no-untyped-def]
+    @pytest.fixture
+    def minimal_model(self, qapp) -> StoryTableModel:  # type: ignore[no-untyped-def]
+        """Create a model with a minimal story (all optional fields None)."""
         model = StoryTableModel()
         story = StoryOutputDTO(
             id="TEST-001",
@@ -204,103 +206,31 @@ class TestStoryTableModelMissingValues:
             feature_id=None,
         )
         model.set_stories([story])
-        index = model.index(0, 1)  # Feature
-        assert model.data(index) == "\u2014"
+        return model
 
-    def test_missing_developer_name(self, qapp) -> None:  # type: ignore[no-untyped-def]
-        model = StoryTableModel()
-        story = StoryOutputDTO(
-            id="TEST-001",
-            component="TEST",
-            name="Test",
-            story_points=5,
-            priority=1,
-            status="BACKLOG",
-            duration=None,
-            start_date=None,
-            end_date=None,
-            developer_id=None,
-            feature_id=None,
-        )
-        model.set_stories([story])
-        index = model.index(0, 7)  # Desenvolvedor
-        assert model.data(index) == "\u2014"
+    def test_missing_feature_name(self, minimal_model: StoryTableModel) -> None:
+        index = minimal_model.index(0, 1)  # Feature
+        assert minimal_model.data(index) == "\u2014"
 
-    def test_missing_dependency_ids(self, qapp) -> None:  # type: ignore[no-untyped-def]
-        model = StoryTableModel()
-        story = StoryOutputDTO(
-            id="TEST-001",
-            component="TEST",
-            name="Test",
-            story_points=5,
-            priority=1,
-            status="BACKLOG",
-            duration=None,
-            start_date=None,
-            end_date=None,
-            developer_id=None,
-            feature_id=None,
-        )
-        model.set_stories([story])
-        index = model.index(0, 8)  # Dependencias
-        assert model.data(index) == "\u2014"
+    def test_missing_developer_name(self, minimal_model: StoryTableModel) -> None:
+        index = minimal_model.index(0, 7)  # Desenvolvedor
+        assert minimal_model.data(index) == "\u2014"
 
-    def test_missing_start_date(self, qapp) -> None:  # type: ignore[no-untyped-def]
-        model = StoryTableModel()
-        story = StoryOutputDTO(
-            id="TEST-001",
-            component="TEST",
-            name="Test",
-            story_points=5,
-            priority=1,
-            status="BACKLOG",
-            duration=None,
-            start_date=None,
-            end_date=None,
-            developer_id=None,
-            feature_id=None,
-        )
-        model.set_stories([story])
-        index = model.index(0, 10)  # Inicio
-        assert model.data(index) == "\u2014"
+    def test_missing_dependency_ids(self, minimal_model: StoryTableModel) -> None:
+        index = minimal_model.index(0, 8)  # Dependencias
+        assert minimal_model.data(index) == "\u2014"
 
-    def test_missing_end_date(self, qapp) -> None:  # type: ignore[no-untyped-def]
-        model = StoryTableModel()
-        story = StoryOutputDTO(
-            id="TEST-001",
-            component="TEST",
-            name="Test",
-            story_points=5,
-            priority=1,
-            status="BACKLOG",
-            duration=None,
-            start_date=None,
-            end_date=None,
-            developer_id=None,
-            feature_id=None,
-        )
-        model.set_stories([story])
-        index = model.index(0, 11)  # Fim
-        assert model.data(index) == "\u2014"
+    def test_missing_start_date(self, minimal_model: StoryTableModel) -> None:
+        index = minimal_model.index(0, 10)  # Inicio
+        assert minimal_model.data(index) == "\u2014"
 
-    def test_missing_duration(self, qapp) -> None:  # type: ignore[no-untyped-def]
-        model = StoryTableModel()
-        story = StoryOutputDTO(
-            id="TEST-001",
-            component="TEST",
-            name="Test",
-            story_points=5,
-            priority=1,
-            status="BACKLOG",
-            duration=None,
-            start_date=None,
-            end_date=None,
-            developer_id=None,
-            feature_id=None,
-        )
-        model.set_stories([story])
-        index = model.index(0, 12)  # Duracao
-        assert model.data(index) == "\u2014"
+    def test_missing_end_date(self, minimal_model: StoryTableModel) -> None:
+        index = minimal_model.index(0, 11)  # Fim
+        assert minimal_model.data(index) == "\u2014"
+
+    def test_missing_duration(self, minimal_model: StoryTableModel) -> None:
+        index = minimal_model.index(0, 12)  # Duracao
+        assert minimal_model.data(index) == "\u2014"
 
     def test_wave_zero_shows_dash(self, qapp) -> None:  # type: ignore[no-untyped-def]
         model = StoryTableModel()

@@ -9,6 +9,7 @@ from backlog_manager.application.dto.story.story_output_dto import StoryOutputDT
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from backlog_manager.domain.entities.story import Story
     from backlog_manager.domain.interfaces.repositories import UnitOfWork
 
 
@@ -23,15 +24,15 @@ class ListStoriesUseCase:
         """
         self._uow = uow
 
-    async def execute(self) -> Sequence[StoryOutputDTO]:
-        """Lista todas as historias ordenadas por prioridade.
+    async def _enrich_dtos(self, stories: Sequence[Story]) -> list[StoryOutputDTO]:
+        """Enriquece DTOs com developer_name, feature_name, wave e dependency_ids.
 
-        Enriquece DTOs com developer_name, feature_name, wave e dependency_ids.
+        Args:
+            stories: Sequencia de entidades Story.
 
         Returns:
-            Lista de DTOs de historias ordenadas por prioridade.
+            Lista de DTOs enriquecidos.
         """
-        stories = await self._uow.stories.get_all()
         developers = await self._uow.developers.get_all()
         features = await self._uow.features.get_all()
 
@@ -60,6 +61,17 @@ class ListStoriesUseCase:
 
         return result
 
+    async def execute(self) -> Sequence[StoryOutputDTO]:
+        """Lista todas as historias ordenadas por prioridade.
+
+        Enriquece DTOs com developer_name, feature_name, wave e dependency_ids.
+
+        Returns:
+            Lista de DTOs de historias ordenadas por prioridade.
+        """
+        stories = await self._uow.stories.get_all()
+        return await self._enrich_dtos(stories)
+
     async def execute_by_status(self, status: str) -> Sequence[StoryOutputDTO]:
         """Lista historias filtradas por status.
 
@@ -70,7 +82,7 @@ class ListStoriesUseCase:
             Lista de DTOs de historias com o status especificado.
         """
         stories = await self._uow.stories.get_by_status(status)
-        return [StoryOutputDTO.from_entity(story) for story in stories]
+        return await self._enrich_dtos(stories)
 
     async def execute_by_feature(self, feature_id: int) -> Sequence[StoryOutputDTO]:
         """Lista historias de uma feature.
@@ -82,7 +94,7 @@ class ListStoriesUseCase:
             Lista de DTOs de historias da feature.
         """
         stories = await self._uow.stories.get_by_feature(feature_id)
-        return [StoryOutputDTO.from_entity(story) for story in stories]
+        return await self._enrich_dtos(stories)
 
     async def execute_by_developer(self, developer_id: int) -> Sequence[StoryOutputDTO]:
         """Lista historias alocadas a um desenvolvedor.
@@ -94,4 +106,4 @@ class ListStoriesUseCase:
             Lista de DTOs de historias do desenvolvedor.
         """
         stories = await self._uow.stories.get_by_developer(developer_id)
-        return [StoryOutputDTO.from_entity(story) for story in stories]
+        return await self._enrich_dtos(stories)

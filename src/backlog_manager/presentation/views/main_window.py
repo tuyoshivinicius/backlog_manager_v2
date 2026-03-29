@@ -34,6 +34,7 @@ from backlog_manager.presentation.delegates import (
     MonospaceDelegate,
     StatusBadgeDelegate,
 )
+from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
 from backlog_manager.presentation.views.developer_dialog import DeveloperDialog
 from backlog_manager.presentation.views.feature_dialog import FeatureDialog
@@ -82,6 +83,17 @@ class StoryTableView(QTableView):
             header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
         self.verticalHeader().setVisible(False)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Reposition empty state label on resize.
+
+        Args:
+            event: The resize event.
+        """
+        super().resizeEvent(event)
+        for child in self.children():
+            if isinstance(child, QLabel) and child.objectName() == "empty-state-label":
+                child.setGeometry(self.viewport().geometry())
 
 
 class MainWindow(QMainWindow):
@@ -306,10 +318,6 @@ class MainWindow(QMainWindow):
                 )
 
         # Configure column widths: fixed for all except Nome (stretch)
-        from backlog_manager.presentation.viewmodels.story_table_model import (
-            StoryTableModel,
-        )
-
         header = self._story_table.horizontalHeader()
         if header:
             header.setStretchLastSection(False)
