@@ -542,6 +542,129 @@ class TestMainWindowViewModelFiltering:
         assert dev_stories[0].id == "COMP-001"
 
 
+class TestMainWindowViewModelDuplicateStory:
+    """Tests for duplicating stories in MainWindowViewModel."""
+
+    @pytest.mark.asyncio
+    async def test_duplicate_story_success(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test successful story duplication."""
+        viewmodel = MainWindowViewModel(container)
+
+        duplicated_story = StoryOutputDTO(
+            id="COMP-002",
+            component="COMP",
+            name="Sample Story (copia)",
+            story_points=5,
+            priority=2,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+        )
+
+        mock_duplicate_use_case = MagicMock()
+        mock_duplicate_use_case.execute = AsyncMock(return_value=duplicated_story)
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=[duplicated_story])
+
+        with (
+            patch.object(
+                container,
+                "create_duplicate_story_use_case",
+                return_value=mock_duplicate_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            result = await viewmodel.duplicate_story("COMP-001")
+
+        assert result is not None
+        assert result.id == "COMP-002"
+        assert result.name == "Sample Story (copia)"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_story_emits_stories_changed(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that stories_changed signal is emitted after duplication."""
+        viewmodel = MainWindowViewModel(container)
+
+        stories_changed_count = [0]
+        viewmodel.stories_changed.connect(
+            lambda: stories_changed_count.__setitem__(0, stories_changed_count[0] + 1)
+        )
+
+        duplicated_story = StoryOutputDTO(
+            id="COMP-002",
+            component="COMP",
+            name="Copy",
+            story_points=5,
+            priority=2,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+        )
+
+        mock_duplicate_use_case = MagicMock()
+        mock_duplicate_use_case.execute = AsyncMock(return_value=duplicated_story)
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=[duplicated_story])
+
+        with (
+            patch.object(
+                container,
+                "create_duplicate_story_use_case",
+                return_value=mock_duplicate_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            await viewmodel.duplicate_story("COMP-001")
+
+        assert stories_changed_count[0] >= 1
+
+    @pytest.mark.asyncio
+    async def test_duplicate_story_error_handling(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test error handling during duplication."""
+        viewmodel = MainWindowViewModel(container)
+
+        errors: list[str] = []
+        viewmodel.error_occurred.connect(lambda msg: errors.append(msg))
+
+        mock_duplicate_use_case = MagicMock()
+        mock_duplicate_use_case.execute = AsyncMock(
+            side_effect=Exception("Duplication failed")
+        )
+
+        with patch.object(
+            container,
+            "create_duplicate_story_use_case",
+            return_value=mock_duplicate_use_case,
+        ):
+            result = await viewmodel.duplicate_story("COMP-001")
+
+        assert result is None
+        assert len(errors) == 1
+        assert "Erro inesperado" in errors[0]
+
+
 class TestMainWindowViewModelErrorHandling:
     """Tests for error handling in MainWindowViewModel."""
 
