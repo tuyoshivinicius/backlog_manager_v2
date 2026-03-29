@@ -24,15 +24,40 @@ class StoryTableModel(QAbstractTableModel):
     """
 
     COLUMNS: ClassVar[list[str]] = [
-        "ID",
-        "Nome",
-        "SP",
-        "Status",
+        "Prioridade",
         "Feature",
-        "Dev",
+        "Onda",
+        "ID",
+        "Componente",
+        "Nome",
+        "Status",
+        "Desenvolvedor",
+        "Dependencias",
+        "SP",
         "Inicio",
         "Fim",
+        "Duracao",
     ]
+
+    COLUMN_WIDTHS: ClassVar[list[int]] = [
+        60,
+        120,
+        50,
+        100,
+        80,
+        -1,
+        100,
+        100,
+        120,
+        40,
+        90,
+        90,
+        60,
+    ]
+
+    CENTER_COLUMNS: ClassVar[set[int]] = {0, 2, 6, 9, 10, 11, 12}
+
+    TOOLTIP_COLUMNS: ClassVar[set[int]] = {1, 5, 7, 8}
 
     def __init__(self, parent: Any = None) -> None:
         """Initialize the story table model.
@@ -94,8 +119,9 @@ class StoryTableModel(QAbstractTableModel):
             return self._get_display_value(story, col)
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             return self._get_alignment(col)
+        elif role == Qt.ItemDataRole.ToolTipRole:
+            return self._get_tooltip(story, col)
         elif role == Qt.ItemDataRole.UserRole:
-            # Return the story ID for selection handling
             return story.id
 
         return None
@@ -111,24 +137,42 @@ class StoryTableModel(QAbstractTableModel):
             String representation of the value.
         """
         match column:
-            case 0:  # ID
+            case 0:  # Prioridade
+                return str(story.priority)
+            case 1:  # Feature
+                return story.feature_name if story.feature_name else "\u2014"
+            case 2:  # Onda
+                return str(story.wave) if story.wave > 0 else "\u2014"
+            case 3:  # ID
                 return story.id
-            case 1:  # Nome
+            case 4:  # Componente
+                return story.component if story.component else "\u2014"
+            case 5:  # Nome
                 return story.name
-            case 2:  # SP
-                return str(story.story_points)
-            case 3:  # Status
+            case 6:  # Status
                 return story.status
-            case 4:  # Feature
-                return str(story.feature_id) if story.feature_id else "-"
-            case 5:  # Dev
-                return str(story.developer_id) if story.developer_id else "-"
-            case 6:  # Inicio
+            case 7:  # Desenvolvedor
+                return story.developer_name if story.developer_name else "\u2014"
+            case 8:  # Dependencias
                 return (
-                    story.start_date.strftime("%d/%m/%Y") if story.start_date else "-"
+                    ", ".join(story.dependency_ids)
+                    if story.dependency_ids
+                    else "\u2014"
                 )
-            case 7:  # Fim
-                return story.end_date.strftime("%d/%m/%Y") if story.end_date else "-"
+            case 9:  # SP
+                return str(story.story_points)
+            case 10:  # Inicio
+                return (
+                    story.start_date.strftime("%d/%m/%Y")
+                    if story.start_date
+                    else "\u2014"
+                )
+            case 11:  # Fim
+                return (
+                    story.end_date.strftime("%d/%m/%Y") if story.end_date else "\u2014"
+                )
+            case 12:  # Duracao
+                return str(story.duration) if story.duration is not None else "\u2014"
             case _:
                 return ""
 
@@ -141,10 +185,23 @@ class StoryTableModel(QAbstractTableModel):
         Returns:
             Alignment flag for the column.
         """
-        # Center-align numeric and date columns
-        if column in (2, 4, 5, 6, 7):  # SP, Feature, Dev, Inicio, Fim
+        if column in self.CENTER_COLUMNS:
             return Qt.AlignmentFlag.AlignCenter
         return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+    def _get_tooltip(self, story: StoryOutputDTO, column: int) -> str | None:
+        """Get the tooltip text for a story at a given column.
+
+        Args:
+            story: The story DTO.
+            column: Column index.
+
+        Returns:
+            Tooltip text, or None if no tooltip for this column.
+        """
+        if column not in self.TOOLTIP_COLUMNS:
+            return None
+        return self._get_display_value(story, column)
 
     def headerData(
         self,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from backlog_manager.domain.entities import Story
@@ -28,6 +28,10 @@ class StoryOutputDTO(BaseModel):
     end_date: date | None
     developer_id: int | None
     feature_id: int | None
+    developer_name: str | None = None
+    feature_name: str | None = None
+    wave: int = 0
+    dependency_ids: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_entity(cls, story: Story) -> StoryOutputDTO:

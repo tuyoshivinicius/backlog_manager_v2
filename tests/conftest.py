@@ -147,6 +147,10 @@ def sample_stories() -> list[StoryOutputDTO]:
             end_date=date(2026, 1, 16),
             developer_id=1,
             feature_id=1,
+            developer_name="Joao Silva",
+            feature_name="Feature Alpha",
+            wave=1,
+            dependency_ids=["API-001"],
         ),
         StoryOutputDTO(
             id="COMP-002",
@@ -160,6 +164,10 @@ def sample_stories() -> list[StoryOutputDTO]:
             end_date=date(2026, 1, 20),
             developer_id=None,
             feature_id=1,
+            developer_name=None,
+            feature_name="Feature Alpha",
+            wave=1,
+            dependency_ids=[],
         ),
         StoryOutputDTO(
             id="API-001",
@@ -173,6 +181,10 @@ def sample_stories() -> list[StoryOutputDTO]:
             end_date=None,
             developer_id=2,
             feature_id=None,
+            developer_name="Maria Santos",
+            feature_name=None,
+            wave=0,
+            dependency_ids=[],
         ),
     ]
 
