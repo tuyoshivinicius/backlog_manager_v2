@@ -109,6 +109,11 @@ class StatusBarViewModel(QObject):
         """SP percentages by status."""
         return self._sp_percentages.copy()
 
+    def clear_last_allocation(self) -> None:
+        """Clear the last allocation timestamp."""
+        self._last_allocation = None
+        self.stats_changed.emit()
+
     def update_sp_breakdown(self, stories: list[StoryOutputDTO]) -> None:
         """Compute and update SP breakdown by status.
 
