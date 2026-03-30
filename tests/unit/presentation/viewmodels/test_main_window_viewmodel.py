@@ -665,6 +665,181 @@ class TestMainWindowViewModelDuplicateStory:
         assert "Erro inesperado" in errors[0]
 
 
+class TestMainWindowViewModelSelectionPersistence:
+    """Tests for selection persistence during operations (EP-025)."""
+
+    @pytest.mark.asyncio
+    async def test_selected_story_id_preserved_after_load_stories(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that selected_story_id is NOT cleared during load_stories."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel.select_story("COMP-001")
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=sample_stories)
+
+        with patch.object(
+            container,
+            "create_list_stories_use_case",
+            return_value=mock_list_use_case,
+        ):
+            await viewmodel.load_stories()
+
+        # selected_story_id should be preserved
+        assert viewmodel.selected_story_id == "COMP-001"
+
+    @pytest.mark.asyncio
+    async def test_delete_story_selects_adjacent_story(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that deleting a story selects the adjacent story."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._stories = sample_stories
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel.select_story("COMP-001")
+
+        remaining = [sample_stories[1], sample_stories[2]]
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock()
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=remaining)
+
+        with (
+            patch.object(
+                container,
+                "create_delete_story_use_case",
+                return_value=mock_delete_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            await viewmodel.delete_story("COMP-001")
+
+        # Should select adjacent story (next one)
+        assert viewmodel.selected_story_id == "COMP-002"
+
+    @pytest.mark.asyncio
+    async def test_delete_last_story_clears_selection(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that deleting the last story clears selection."""
+        single_story = StoryOutputDTO(
+            id="ONLY-001",
+            component="COMP",
+            name="Only Story",
+            story_points=3,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+        )
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._stories = [single_story]
+        viewmodel._table_model.set_stories([single_story])
+        viewmodel.select_story("ONLY-001")
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock()
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=[])
+
+        with (
+            patch.object(
+                container,
+                "create_delete_story_use_case",
+                return_value=mock_delete_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            await viewmodel.delete_story("ONLY-001")
+
+        assert viewmodel.selected_story_id is None
+
+    @pytest.mark.asyncio
+    async def test_delete_middle_story_selects_next(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test deleting middle story selects next story."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._stories = sample_stories
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel.select_story("COMP-002")
+
+        remaining = [sample_stories[0], sample_stories[2]]
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock()
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=remaining)
+
+        with (
+            patch.object(
+                container,
+                "create_delete_story_use_case",
+                return_value=mock_delete_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            await viewmodel.delete_story("COMP-002")
+
+        # Should select adjacent story
+        assert viewmodel.selected_story_id == "API-001"
+
+    @pytest.mark.asyncio
+    async def test_delete_last_row_selects_previous(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test deleting last row selects previous story."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._stories = sample_stories
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel.select_story("API-001")  # Last row (index 2)
+
+        remaining = [sample_stories[0], sample_stories[1]]
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock()
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=remaining)
+
+        with (
+            patch.object(
+                container,
+                "create_delete_story_use_case",
+                return_value=mock_delete_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            await viewmodel.delete_story("API-001")
+
+        # Should select previous story (last remaining)
+        assert viewmodel.selected_story_id == "COMP-002"
+
+
 class TestMainWindowViewModelErrorHandling:
     """Tests for error handling in MainWindowViewModel."""
 

@@ -661,6 +661,76 @@ class TestStoryDialogViewModelDeveloperId:
         assert call_dto.developer_id is None
 
 
+class TestStoryDialogViewModelStatus:
+    """Tests for status property and edit flow."""
+
+    def test_status_property_get_set(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test status property accepts string values."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.status = "CONCLUIDO"
+        assert viewmodel.status == "CONCLUIDO"
+
+    def test_status_initial_backlog(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test initial status is BACKLOG."""
+        viewmodel = StoryDialogViewModel(container)
+        assert viewmodel.status == "BACKLOG"
+
+    def test_set_story_loads_status(
+        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that set_story loads status from DTO."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.set_story(sample_story_dto)
+        assert viewmodel.status == sample_story_dto.status
+
+    def test_reset_form_resets_status(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that reset_form resets status to BACKLOG."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.status = "CONCLUIDO"
+        viewmodel.set_mode("create")  # triggers _reset_form
+        assert viewmodel.status == "BACKLOG"
+
+    @pytest.mark.asyncio
+    async def test_save_with_status(
+        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test save in edit mode includes status in DTO."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.set_story(sample_story_dto)
+        viewmodel.status = "CONCLUIDO"
+
+        mock_story = StoryOutputDTO(
+            id=sample_story_dto.id,
+            component=sample_story_dto.component,
+            name=sample_story_dto.name,
+            story_points=sample_story_dto.story_points,
+            priority=sample_story_dto.priority,
+            status="CONCLUIDO",
+            duration=sample_story_dto.duration,
+            start_date=sample_story_dto.start_date,
+            end_date=sample_story_dto.end_date,
+            developer_id=sample_story_dto.developer_id,
+            feature_id=sample_story_dto.feature_id,
+        )
+        mock_use_case = AsyncMock()
+        mock_use_case.execute.return_value = mock_story
+
+        with patch.object(
+            container, "create_edit_story_use_case", return_value=mock_use_case
+        ):
+            result = await viewmodel.save()
+
+        assert result is not None
+        call_dto = mock_use_case.execute.call_args[0][0]
+        assert call_dto.status == "CONCLUIDO"
+
+
 class TestStoryDialogViewModelValidateField:
     """Tests for validate_field method (US2)."""
 

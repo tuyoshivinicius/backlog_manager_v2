@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from backlog_manager.application.dto.developer import DeveloperOutputDTO
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.application.dto.story import StoryOutputDTO
+from backlog_manager.presentation.constants import STATUS_LABELS
 from backlog_manager.presentation.viewmodels.story_dialog_viewmodel import (
     VALID_STORY_POINTS,
     StoryDialogViewModel,
@@ -76,10 +77,12 @@ class StoryDialog(QDialog):
             self._load_story_to_form()
             self.setWindowTitle("Editar Historia")
             self._developer_container.show()
+            self._status_container.show()
         else:
             self._viewmodel.set_mode("create")
             self.setWindowTitle("Nova Historia")
             self._developer_container.hide()
+            self._status_container.hide()
 
         # Load features for dropdown
         QTimer.singleShot(0, lambda: asyncio.create_task(self._load_features()))
@@ -209,6 +212,19 @@ class StoryDialog(QDialog):
         layout.addLayout(form_layout)
         layout.addWidget(self._developer_container)
 
+        # Status dropdown (visible only in edit mode)
+        self._status_container = QWidget()
+        self._status_container.setObjectName("story-status-container")
+        status_layout = QFormLayout(self._status_container)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        self._status_combo = QComboBox()
+        self._status_combo.setObjectName("story-status-combo")
+        for value, label in STATUS_LABELS:
+            self._status_combo.addItem(label, value)
+        status_layout.addRow("Status:", self._status_combo)
+        self._status_container.hide()
+        layout.addWidget(self._status_container)
+
         # Validation message label
         self._error_label = QLabel()
         self._error_label.setStyleSheet("color: red;")
@@ -244,6 +260,7 @@ class StoryDialog(QDialog):
         self._sp_combo.currentIndexChanged.connect(self._on_sp_changed)
         self._feature_combo.currentIndexChanged.connect(self._on_feature_changed)
         self._developer_combo.currentIndexChanged.connect(self._on_developer_changed)
+        self._status_combo.currentIndexChanged.connect(self._on_status_changed)
 
         # Install event filter for focusOut validation
         self._component_edit.installEventFilter(self)
@@ -259,6 +276,11 @@ class StoryDialog(QDialog):
         self._sp_combo.setCurrentIndex(sp_index)
 
         # Feature will be set after features are loaded
+        # Pre-select current status
+        status_index = self._status_combo.findData(self._viewmodel.status)
+        if status_index >= 0:
+            self._status_combo.setCurrentIndex(status_index)
+
         # Component is read-only in edit mode
         self._component_edit.setEnabled(self._viewmodel.mode == "create")
 
@@ -317,6 +339,12 @@ class StoryDialog(QDialog):
         """Handle developer selection change."""
         developer_id = self._developer_combo.itemData(index)
         self._viewmodel.developer_id = developer_id
+
+    @Slot(int)
+    def _on_status_changed(self, index: int) -> None:
+        """Handle status selection change."""
+        status = self._status_combo.itemData(index)
+        self._viewmodel.status = status
 
     @Slot(str)
     def _on_component_changed(self, text: str) -> None:

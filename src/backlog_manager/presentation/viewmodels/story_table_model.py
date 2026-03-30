@@ -9,7 +9,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, ClassVar, Sequence
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor
 
 from backlog_manager.application.dto.story import StoryOutputDTO
@@ -38,6 +38,8 @@ class StoryTableModel(QAbstractTableModel):
     Attributes:
         COLUMNS: List of column headers displayed in the table.
     """
+
+    status_change_requested = Signal(str, str)  # (story_id, new_status)
 
     COLUMNS: ClassVar[list[str]] = [
         "Prioridade",
@@ -148,6 +150,28 @@ class StoryTableModel(QAbstractTableModel):
             return story.dependency_ids
 
         return None
+
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+        """Return item flags, making the Status column editable."""
+        base_flags = super().flags(index)
+        if index.isValid() and index.column() == 6:  # Status column
+            return base_flags | Qt.ItemFlag.ItemIsEditable
+        return base_flags
+
+    def setData(
+        self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole
+    ) -> bool:
+        """Handle inline status edit by emitting a signal."""
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+            return False
+        if index.column() != 6:
+            return False
+        story = self._stories[index.row()]
+        new_status = str(value).upper()
+        if new_status == story.status:
+            return False
+        self.status_change_requested.emit(story.id, new_status)
+        return False  # Don't update locally; wait for use case reload
 
     def _get_display_value(self, story: StoryOutputDTO, column: int) -> str:
         """Get the display value for a story at a given column.

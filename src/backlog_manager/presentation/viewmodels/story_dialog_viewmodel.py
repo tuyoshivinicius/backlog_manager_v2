@@ -64,6 +64,7 @@ class StoryDialogViewModel(QObject):
         self._story_points: int = 5
         self._feature_id: int | None = None
         self._developer_id: int | None = None
+        self._status: str = "BACKLOG"
 
         # Available features and developers for dropdowns
         self._features: list[FeatureOutputDTO] = []
@@ -134,6 +135,16 @@ class StoryDialogViewModel(QObject):
         self._developer_id = value
 
     @property
+    def status(self) -> str:
+        """Get the status value."""
+        return self._status
+
+    @status.setter
+    def status(self, value: str) -> None:
+        """Set the status value."""
+        self._status = value
+
+    @property
     def developers(self) -> list[DeveloperOutputDTO]:
         """Get the available developers."""
         return self._developers.copy()
@@ -166,6 +177,7 @@ class StoryDialogViewModel(QObject):
         self._story_points = story.story_points
         self._feature_id = story.feature_id
         self._developer_id = story.developer_id
+        self._status = story.status
         self._mode = "edit"
         logger.debug("Story set for editing: %s", story.id)
 
@@ -177,6 +189,7 @@ class StoryDialogViewModel(QObject):
         self._story_points = 5
         self._feature_id = None
         self._developer_id = None
+        self._status = "BACKLOG"
 
     def validate_field(self, field_name: str) -> tuple[bool, str]:
         """Valida um campo individual.
@@ -313,6 +326,7 @@ class StoryDialogViewModel(QObject):
             story_points=self._story_points,
             feature_id=self._feature_id,
             developer_id=self._developer_id,
+            status=self._status,
         )
 
         async with self._container.create_unit_of_work() as uow:

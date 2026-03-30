@@ -373,6 +373,157 @@ class TestMainWindowSelectionHandling:
         assert viewmodel.selected_story_id == "COMP-001"
 
 
+class TestMainWindowSelectionHighlight:
+    """Tests for table selection highlight feature (EP-025)."""
+
+    def test_click_row_highlights_and_click_another_moves(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test click row → highlight; click another → highlight moves."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel._stories = sample_stories
+
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+
+        # Select first row
+        index0 = window.story_table.model().index(0, 0)
+        window.story_table.setCurrentIndex(index0)
+        assert viewmodel.selected_story_id == "COMP-001"
+
+        # Select second row — highlight moves
+        index1 = window.story_table.model().index(1, 0)
+        window.story_table.setCurrentIndex(index1)
+        assert viewmodel.selected_story_id == "COMP-002"
+
+    def test_actions_disabled_when_no_selection(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that edit/delete/move actions are disabled when no selection."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel._stories = sample_stories
+
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+
+        # Initially no selection — actions should be disabled
+        assert not window._action_edit_story.isEnabled()
+        assert not window._action_delete_story.isEnabled()
+        assert not window._action_move_up.isEnabled()
+        assert not window._action_move_down.isEnabled()
+
+    def test_actions_enabled_after_selection(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that edit/delete actions are enabled after selecting a row."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel._stories = sample_stories
+
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+
+        # Select a row
+        index0 = window.story_table.model().index(0, 0)
+        window.story_table.setCurrentIndex(index0)
+
+        assert window._action_edit_story.isEnabled()
+        assert window._action_delete_story.isEnabled()
+
+    def test_selection_follows_story_after_move(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test selection persists after stories are refreshed (move simulation)."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel._stories = sample_stories
+
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+
+        # Select second row
+        index1 = window.story_table.model().index(1, 0)
+        window.story_table.setCurrentIndex(index1)
+        assert viewmodel.selected_story_id == "COMP-002"
+
+        # Simulate move: reorder stories and refresh
+        reordered = [sample_stories[1], sample_stories[0], sample_stories[2]]
+        viewmodel._table_model.set_stories(reordered)
+        viewmodel._stories = reordered
+        viewmodel.stories_changed.emit()
+
+        # Selection should be restored to COMP-002's new position (row 0)
+        current = window.story_table.currentIndex()
+        story_id = window.story_table.model().data(
+            window.story_table.model().index(current.row(), 0),
+            Qt.ItemDataRole.UserRole,
+        )
+        assert story_id == "COMP-002"
+
+    def test_selection_moves_to_adjacent_after_delete(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test selection moves to adjacent row after story is deleted."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel._stories = sample_stories
+
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+
+        # Select first row
+        index0 = window.story_table.model().index(0, 0)
+        window.story_table.setCurrentIndex(index0)
+        assert viewmodel.selected_story_id == "COMP-001"
+
+        # Simulate delete of first story: refresh with remaining stories
+        remaining = [sample_stories[1], sample_stories[2]]
+        viewmodel._selected_story_id = "COMP-002"  # Adjacent story
+        viewmodel._table_model.set_stories(remaining)
+        viewmodel._stories = remaining
+        viewmodel.stories_changed.emit()
+
+        # Selection should move to first remaining row
+        current = window.story_table.currentIndex()
+        assert current.isValid()
+        story_id = window.story_table.model().data(
+            window.story_table.model().index(current.row(), 0),
+            Qt.ItemDataRole.UserRole,
+        )
+        assert story_id == "COMP-002"
+
+    def test_selection_clears_when_table_empty(
+        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test selection clears when table becomes empty after delete."""
+        viewmodel = MainWindowViewModel(container)
+        viewmodel._table_model.set_stories(sample_stories)
+        viewmodel._stories = sample_stories
+
+        window = MainWindow(viewmodel)
+        qtbot.addWidget(window)
+        window.show()
+
+        # Select a row
+        index0 = window.story_table.model().index(0, 0)
+        window.story_table.setCurrentIndex(index0)
+
+        # Empty the table
+        viewmodel._selected_story_id = None
+        viewmodel._table_model.set_stories([])
+        viewmodel._stories = []
+        viewmodel.stories_changed.emit()
+
+        assert viewmodel.selected_story_id is None
+
+
 class TestMainWindowSignalHandling:
     """Tests for signal handling in MainWindow."""
 

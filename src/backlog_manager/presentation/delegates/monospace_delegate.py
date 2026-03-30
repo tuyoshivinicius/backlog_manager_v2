@@ -5,8 +5,10 @@ with fallback chain for cross-platform compatibility.
 """
 
 from PySide6.QtCore import QModelIndex, Qt
-from PySide6.QtGui import QFont, QFontDatabase, QPainter
-from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem, QWidget
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter
+from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget
+
+from backlog_manager.presentation.theme import DESIGN_TOKENS
 
 
 class MonospaceDelegate(QStyledItemDelegate):
@@ -68,6 +70,19 @@ class MonospaceDelegate(QStyledItemDelegate):
         font.setFamily(self._font_family)
         font.setStyleHint(QFont.StyleHint.Monospace)
         modified_option.font = font
+
+        # Use selection foreground color when selected
+        if option.state & QStyle.StateFlag.State_Selected:
+            palette = modified_option.palette
+            palette.setColor(
+                palette.ColorRole.Text,
+                QColor(DESIGN_TOKENS["selection-fg"]),
+            )
+            palette.setColor(
+                palette.ColorRole.HighlightedText,
+                QColor(DESIGN_TOKENS["selection-fg"]),
+            )
+            modified_option.palette = palette
 
         # Delegate to parent class for actual rendering
         super().paint(painter, modified_option, index)
