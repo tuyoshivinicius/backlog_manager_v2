@@ -6,6 +6,7 @@ coordinating between use cases and UI, emitting signals for progress and status.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -56,11 +57,13 @@ class ExcelViewModel(QObject):
     import_started = Signal()
     import_completed = Signal(object)  # ImportExcelOutputDTO
     import_error = Signal(str)
+    import_cancelled = Signal()
 
     # Export signals
     export_started = Signal()
     export_completed = Signal(object)  # ExportExcelOutputDTO
     export_error = Signal(str)
+    export_cancelled = Signal()
 
     # Progress signal
     progress_updated = Signal(int)  # 0-100 percentage
@@ -181,6 +184,11 @@ class ExcelViewModel(QObject):
                 )
                 return result
 
+        except asyncio.CancelledError:
+            logger.info("Import cancelled by user")
+            self.import_cancelled.emit()
+            return None
+
         except Exception as e:
             error_msg = self._get_error_message(e)
             logger.error("Erro no import: %s", error_msg)
@@ -230,6 +238,18 @@ class ExcelViewModel(QObject):
                     result.features_exported,
                 )
                 return result
+
+        except asyncio.CancelledError:
+            logger.info("Export cancelled by user")
+            # Delete partial file if it exists
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                    logger.info("Partial export file deleted: %s", file_path)
+                except OSError:
+                    logger.warning("Could not delete partial file: %s", file_path)
+            self.export_cancelled.emit()
+            return None
 
         except Exception as e:
             error_msg = self._get_error_message(e)

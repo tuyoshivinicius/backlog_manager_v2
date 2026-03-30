@@ -6,11 +6,25 @@ stories in a table view, following the MVVM pattern.
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Any, ClassVar, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 from backlog_manager.application.dto.story import StoryOutputDTO
+
+
+class BlockingState(StrEnum):
+    """Blocking state of a story based on its dependencies."""
+
+    BLOCKED = "BLOCKED"
+    FREE = "FREE"
+    NONE = "NONE"
+
+
+# Custom data roles for dependency column
+BLOCKING_STATE_ROLE = Qt.ItemDataRole.UserRole + 1
+DEPENDENCY_IDS_ROLE = Qt.ItemDataRole.UserRole + 2
 
 
 class StoryTableModel(QAbstractTableModel):
@@ -67,6 +81,7 @@ class StoryTableModel(QAbstractTableModel):
         """
         super().__init__(parent)
         self._stories: list[StoryOutputDTO] = []
+        self._story_status_map: dict[str, str] = {}
 
     def rowCount(self, parent: QModelIndex | None = None) -> int:
         """Return the number of rows in the model.
@@ -123,6 +138,10 @@ class StoryTableModel(QAbstractTableModel):
             return self._get_tooltip(story, col)
         elif role == Qt.ItemDataRole.UserRole:
             return story.id
+        elif role == BLOCKING_STATE_ROLE and col == 8:
+            return self._get_blocking_state(story)
+        elif role == DEPENDENCY_IDS_ROLE and col == 8:
+            return story.dependency_ids
 
         return None
 
@@ -230,6 +249,25 @@ class StoryTableModel(QAbstractTableModel):
 
         return None
 
+    def _get_blocking_state(self, story: StoryOutputDTO) -> BlockingState:
+        """Get the blocking state of a story based on its dependencies.
+
+        Args:
+            story: The story DTO.
+
+        Returns:
+            BlockingState enum value.
+        """
+        if not story.dependency_ids:
+            return BlockingState.NONE
+
+        for dep_id in story.dependency_ids:
+            dep_status = self._story_status_map.get(dep_id)
+            if dep_status is None or dep_status != "CONCLUIDO":
+                return BlockingState.BLOCKED
+
+        return BlockingState.FREE
+
     def set_stories(self, stories: Sequence[StoryOutputDTO]) -> None:
         """Update the model with new story data.
 
@@ -240,6 +278,7 @@ class StoryTableModel(QAbstractTableModel):
         """
         self.beginResetModel()
         self._stories = list(stories)
+        self._story_status_map = {s.id: s.status for s in self._stories}
         self.endResetModel()
 
     def get_story_at(self, row: int) -> StoryOutputDTO | None:

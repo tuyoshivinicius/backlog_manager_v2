@@ -13,8 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QSize, Qt, QTimer, Slot
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
+from PySide6.QtCore import QRect, QSize, Qt, QTimer, Slot
+from PySide6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
-    QProgressDialog,
     QPushButton,
     QTableView,
     QToolBar,
@@ -35,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from backlog_manager.presentation.delegates import (
+    DependencyIndicatorDelegate,
     MonospaceDelegate,
     StatusBadgeDelegate,
 )
@@ -43,6 +43,10 @@ from backlog_manager.presentation.viewmodels.story_table_model import StoryTable
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
 from backlog_manager.presentation.views.developer_dialog import DeveloperDialog
 from backlog_manager.presentation.views.feature_dialog import FeatureDialog
+from backlog_manager.presentation.views.progress_dialog import (
+    ProgressDialog as CustomProgressDialog,
+)
+from backlog_manager.presentation.views.status_bar import SpBreakdownLabel
 from backlog_manager.presentation.views.story_dialog import StoryDialog
 
 if TYPE_CHECKING:
@@ -63,8 +67,12 @@ logger = logging.getLogger(__name__)
 class StoryTableView(QTableView):
     """Custom QTableView for displaying stories.
 
-    Provides selection handling and keyboard shortcuts for story operations.
+    Provides selection handling, keyboard shortcuts, wave separators,
+    and rich tooltip hover tracking.
     """
+
+    WAVE_SEPARATOR_HEIGHT = 24
+    WAVE_SEPARATOR_PADDING = 12
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the story table view.
@@ -80,6 +88,7 @@ class StoryTableView(QTableView):
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(False)  # Sorting handled by priority
         self.setShowGrid(True)
+        self.setMouseTracking(True)
 
         # Configure header
         header = self.horizontalHeader()
@@ -88,6 +97,17 @@ class StoryTableView(QTableView):
             header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
         self.verticalHeader().setVisible(False)
+
+        # Wave separator visibility
+        self._wave_separators_visible: bool = True
+
+        # Rich tooltip tracking
+        self._tooltip_timer = QTimer(self)
+        self._tooltip_timer.setSingleShot(True)
+        self._tooltip_timer.setInterval(300)
+        self._tooltip_timer.timeout.connect(self._show_rich_tooltip)
+        self._hovered_row: int = -1
+        self._tooltip_widget: QWidget | None = None
 
     def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         """Reposition empty state label on resize.
@@ -99,6 +119,180 @@ class StoryTableView(QTableView):
         for child in self.children():
             if isinstance(child, QLabel) and child.objectName() == "empty-state-label":
                 child.setGeometry(self.viewport().geometry())
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Paint the table with wave separators between wave groups.
+
+        Args:
+            event: The paint event.
+        """
+        super().paintEvent(event)
+
+        if not self._wave_separators_visible:
+            return
+
+        model = self.model()
+        if model is None or model.rowCount() == 0:
+            return
+
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Onda column index = 2
+        wave_col = 2
+        prev_wave: int | None = None
+
+        for row in range(model.rowCount()):
+            index = model.index(row, wave_col)
+            wave_text = index.data(Qt.ItemDataRole.DisplayRole)
+
+            # Parse wave value
+            try:
+                wave_val = int(wave_text) if wave_text and wave_text != "\u2014" else 0
+            except (ValueError, TypeError):
+                wave_val = 0
+
+            if prev_wave is not None and wave_val != prev_wave:
+                # Draw separator band above this row
+                row_rect = self.visualRect(model.index(row, 0))
+                separator_rect = QRect(
+                    0,
+                    row_rect.y() - self.WAVE_SEPARATOR_HEIGHT,
+                    self.viewport().width(),
+                    self.WAVE_SEPARATOR_HEIGHT,
+                )
+
+                # Only paint if visible
+                if separator_rect.intersects(self.viewport().rect()):
+                    # Background
+                    bg_color = QColor("#F0F0F0")
+                    painter.fillRect(separator_rect, bg_color)
+
+                    # Text
+                    label = f"Onda {wave_val}" if wave_val > 0 else "Sem Onda"
+                    font = painter.font()
+                    font.setBold(True)
+                    painter.setFont(font)
+                    painter.setPen(QColor("#525252"))
+
+                    text_rect = QRect(
+                        self.WAVE_SEPARATOR_PADDING,
+                        separator_rect.y(),
+                        separator_rect.width() - self.WAVE_SEPARATOR_PADDING,
+                        separator_rect.height(),
+                    )
+                    painter.drawText(
+                        text_rect,
+                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                        label,
+                    )
+
+                    # Reset font
+                    font.setBold(False)
+                    painter.setFont(font)
+
+            prev_wave = wave_val
+
+        painter.end()
+
+    def mouseMoveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Track hovered row for rich tooltip.
+
+        Args:
+            event: The mouse event.
+        """
+        super().mouseMoveEvent(event)
+        index = self.indexAt(event.pos())
+        new_row = index.row() if index.isValid() else -1
+
+        if new_row != self._hovered_row:
+            self._hovered_row = new_row
+            self._tooltip_timer.stop()
+            self._hide_rich_tooltip()
+            if new_row >= 0:
+                self._tooltip_timer.start()
+
+    def leaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Hide tooltip on mouse leave.
+
+        Args:
+            event: The leave event.
+        """
+        super().leaveEvent(event)
+        self._tooltip_timer.stop()
+        self._hide_rich_tooltip()
+        self._hovered_row = -1
+
+    def _show_rich_tooltip(self) -> None:
+        """Show the rich tooltip for the hovered row."""
+        if self._hovered_row < 0:
+            return
+
+        from backlog_manager.presentation.views.rich_tooltip import RichTooltipWidget
+
+        model = self.model()
+        if model is None:
+            return
+
+        # Get story data from UserRole
+        index = model.index(self._hovered_row, 0)
+        story_id = model.data(index, Qt.ItemDataRole.UserRole)
+        if not story_id:
+            return
+
+        # Collect display data from all columns
+        data: dict[str, str] = {}
+        col_names = [
+            "Prioridade",
+            "Feature",
+            "Onda",
+            "ID",
+            "Componente",
+            "Nome",
+            "Status",
+            "Desenvolvedor",
+            "Dependencias",
+            "SP",
+            "Inicio",
+            "Fim",
+            "Duracao",
+        ]
+        for col, name in enumerate(col_names):
+            val = model.data(
+                model.index(self._hovered_row, col), Qt.ItemDataRole.DisplayRole
+            )
+            data[name] = str(val) if val else "\u2014"
+
+        self._hide_rich_tooltip()
+        self._tooltip_widget = RichTooltipWidget(data, self)
+
+        # Position near cursor
+        cursor_pos = self.mapFromGlobal(self.cursor().pos())
+        global_pos = self.mapToGlobal(cursor_pos)
+        tooltip_x = global_pos.x() + 10
+        tooltip_y = global_pos.y() + 10
+
+        # Reposition if near bottom edge
+        screen = self.screen()
+        if screen:
+            screen_rect = screen.availableGeometry()
+            if (
+                tooltip_y + self._tooltip_widget.sizeHint().height()
+                > screen_rect.bottom()
+            ):
+                tooltip_y = (
+                    global_pos.y() - self._tooltip_widget.sizeHint().height() - 10
+                )
+
+        self._tooltip_widget.move(tooltip_x, tooltip_y)
+        self._tooltip_widget.show()
+
+    def _hide_rich_tooltip(self) -> None:
+        """Hide and clean up the rich tooltip widget."""
+        if self._tooltip_widget is not None:
+            self._tooltip_widget.hide()
+            self._tooltip_widget.deleteLater()
+            self._tooltip_widget = None
 
 
 class MainWindow(QMainWindow):
@@ -130,7 +324,11 @@ class MainWindow(QMainWindow):
 
         # Excel operation state
         self._excel_operation_in_progress: bool = False
-        self._progress_dialog: QProgressDialog | None = None
+        self._progress_dialog: CustomProgressDialog | None = None
+
+        # Responsive column hiding state
+        self._columns_hidden: bool = False
+        self._responsive_columns = [2, 4, 12]  # Onda, Componente, Duracao
 
         self._setup_window()
         self._setup_toolbar()
@@ -156,6 +354,28 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Backlog Manager")
         self.resize(self.INITIAL_WIDTH, self.INITIAL_HEIGHT)
         self.setMinimumSize(self.MIN_WIDTH, self.MIN_HEIGHT)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Handle responsive column hiding on window resize.
+
+        Args:
+            event: The resize event.
+        """
+        super().resizeEvent(event)
+        narrow = self.width() < 1024
+
+        if narrow and not self._columns_hidden:
+            for col in self._responsive_columns:
+                self._story_table.setColumnHidden(col, True)
+            self._columns_hidden = True
+            count = len(self._responsive_columns)
+            self._hidden_columns_label.setText(f"{count} colunas ocultas")
+            self._hidden_columns_label.setVisible(True)
+        elif not narrow and self._columns_hidden:
+            for col in self._responsive_columns:
+                self._story_table.setColumnHidden(col, False)
+            self._columns_hidden = False
+            self._hidden_columns_label.setVisible(False)
 
     def _setup_menu_bar(self) -> None:
         """Configura menu bar com 4 menus."""
@@ -187,7 +407,7 @@ class MainWindow(QMainWindow):
         # Menu Ajuda
         help_menu = menu_bar.addMenu("A&juda")
         about_action = QAction("Sobre", self)
-        about_action.setEnabled(False)  # Placeholder EP-022
+        about_action.triggered.connect(self._on_about)
         help_menu.addAction(about_action)
 
     def _setup_toolbar(self) -> None:
@@ -320,11 +540,13 @@ class MainWindow(QMainWindow):
         # Delegates — assign AFTER setModel(proxy) per ADR-001
         self._monospace_delegate = MonospaceDelegate(self._story_table)
         self._status_badge_delegate = StatusBadgeDelegate(self._story_table)
+        self._dependency_delegate = DependencyIndicatorDelegate(self._story_table)
 
         model = self._viewmodel.table_model
         delegate_map = {
             "ID": self._monospace_delegate,
             "Status": self._status_badge_delegate,
+            "Dependencias": self._dependency_delegate,
         }
         for col in range(model.columnCount()):
             header_text = model.headerData(col, Qt.Orientation.Horizontal)
@@ -512,6 +734,15 @@ class MainWindow(QMainWindow):
         self._stats_label = QLabel("0 historias \u00b7 0 SP \u00b7 Sem alocacao")
         status.addWidget(self._stats_label, 1)
 
+        # SP breakdown label
+        self._sp_breakdown_label = SpBreakdownLabel()
+        status.addWidget(self._sp_breakdown_label)
+
+        # Hidden columns indicator (for responsive resize)
+        self._hidden_columns_label = QLabel()
+        self._hidden_columns_label.setVisible(False)
+        status.addWidget(self._hidden_columns_label)
+
         # Badge de warnings a direita
         self._warnings_badge = QPushButton()
         self._warnings_badge.setFlat(True)
@@ -553,6 +784,7 @@ class MainWindow(QMainWindow):
         allocation_vm.allocation_started.connect(self._on_allocation_started)
         allocation_vm.allocation_completed.connect(self._on_allocation_completed)
         allocation_vm.allocation_error.connect(self._on_error)
+        allocation_vm.allocation_cancelled.connect(self._on_operation_cancelled)
         allocation_vm.warnings_updated.connect(self._on_warnings_updated)
 
         # Connect schedule viewmodel signals
@@ -565,8 +797,10 @@ class MainWindow(QMainWindow):
         excel_vm = self._container.excel_viewmodel
         excel_vm.import_completed.connect(self._on_import_completed)
         excel_vm.import_error.connect(self._on_import_error)
+        excel_vm.import_cancelled.connect(self._on_operation_cancelled)
         excel_vm.export_completed.connect(self._on_export_completed)
         excel_vm.export_error.connect(self._on_export_error)
+        excel_vm.export_cancelled.connect(self._on_operation_cancelled)
 
         # Connect config action from menu to handler
         self._action_config.triggered.connect(self._on_config)
@@ -577,6 +811,7 @@ class MainWindow(QMainWindow):
     def _on_stories_changed(self) -> None:
         """Handle stories_changed signal."""
         self._update_status_bar_stats()
+        self._update_sp_breakdown()
         self._update_empty_state()
         self._update_chip_counts()
         self._update_feature_dropdown()
@@ -747,6 +982,14 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     @Slot()
+    def _on_about(self) -> None:
+        """Handle About dialog action."""
+        from backlog_manager.presentation.views.about_dialog import AboutDialog
+
+        dialog = AboutDialog(self._container.db_path, self)
+        dialog.exec()
+
+    @Slot()
     def _on_data_changed(self) -> None:
         """Handle data changed from dialogs."""
         QTimer.singleShot(
@@ -899,15 +1142,29 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, lambda: asyncio.create_task(self._execute_allocation()))
 
     async def _execute_allocation(self) -> None:
-        """Execute allocation with config values."""
+        """Execute allocation with config values and cancellation support."""
         config_vm = self._container.config_dialog_viewmodel
         allocation_vm = self._container.allocation_viewmodel
 
-        await allocation_vm.execute(
-            velocity=config_vm.velocity,
-            start_date=config_vm.start_date,
-            max_idle_days=config_vm.max_idle_days,
+        # Show progress dialog with cancellation
+        progress = CustomProgressDialog("Alocando desenvolvedores...", self)
+        progress.show()
+
+        task = asyncio.ensure_future(
+            allocation_vm.execute(
+                velocity=config_vm.velocity,
+                start_date=config_vm.start_date,
+                max_idle_days=config_vm.max_idle_days,
+            )
         )
+        progress.set_cancellable_task(task)
+
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        finally:
+            progress.close()
 
         await self._viewmodel.load_stories()
 
@@ -971,6 +1228,23 @@ class MainWindow(QMainWindow):
             f"{story_count} historias \u00b7 {total_sp} SP \u00b7 {allocation_text}"
         )
 
+    @Slot()
+    def _on_operation_cancelled(self) -> None:
+        """Handle operation cancellation from allocation or Excel viewmodels."""
+        self._end_excel_operation()
+        self._action_allocate.setEnabled(True)
+        self.unsetCursor()
+        self.statusBar().showMessage("Operacao cancelada", 5000)
+
+    def _update_sp_breakdown(self) -> None:
+        """Update SP breakdown label in status bar."""
+        stories = self._viewmodel.stories
+        vm = self._container.status_bar_viewmodel
+        vm.update_sp_breakdown(stories)
+        self._sp_breakdown_label.update_breakdown(
+            vm.sp_breakdown, vm.sp_total, vm.sp_percentages
+        )
+
     # --- Excel handlers ---
 
     @property
@@ -978,17 +1252,17 @@ class MainWindow(QMainWindow):
         """Get the story table view."""
         return self._story_table
 
-    def _start_excel_operation(self, message: str) -> None:
-        """Start an Excel operation with progress dialog."""
+    def _start_excel_operation(self, message: str) -> CustomProgressDialog:
+        """Start an Excel operation with cancellable progress dialog."""
         self._excel_operation_in_progress = True
         self._action_import_excel.setEnabled(False)
         self._action_export_excel.setEnabled(False)
         self.setCursor(Qt.CursorShape.WaitCursor)
 
-        self._progress_dialog = QProgressDialog(message, None, 0, 0, self)
-        self._progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
-        self._progress_dialog.setMinimumDuration(0)
-        self._progress_dialog.show()
+        dialog = CustomProgressDialog(message, self)
+        dialog.show()
+        self._progress_dialog = dialog
+        return dialog
 
     def _end_excel_operation(self) -> None:
         """End an Excel operation and clean up."""
@@ -1013,13 +1287,11 @@ class MainWindow(QMainWindow):
             "Arquivos Excel (*.xlsx);;Todos os arquivos (*.*)",
         )
         if file_path:
-            self._start_excel_operation("Importando dados do Excel...")
-            QTimer.singleShot(
-                0,
-                lambda: asyncio.create_task(
-                    self._container.excel_viewmodel.import_from_file(Path(file_path))
-                ),
+            progress = self._start_excel_operation("Importando dados do Excel...")
+            task = asyncio.ensure_future(
+                self._container.excel_viewmodel.import_from_file(Path(file_path))
             )
+            progress.set_cancellable_task(task)
 
     @Slot()
     def _on_export_excel_clicked(self) -> None:
@@ -1043,13 +1315,11 @@ class MainWindow(QMainWindow):
                 if reply != QMessageBox.StandardButton.Yes:
                     return
 
-            self._start_excel_operation("Exportando dados para Excel...")
-            QTimer.singleShot(
-                0,
-                lambda: asyncio.create_task(
-                    self._container.excel_viewmodel.export_to_file(Path(file_path))
-                ),
+            progress = self._start_excel_operation("Exportando dados para Excel...")
+            task = asyncio.ensure_future(
+                self._container.excel_viewmodel.export_to_file(Path(file_path))
             )
+            progress.set_cancellable_task(task)
 
     @Slot(object)
     def _on_import_completed(self, result) -> None:  # type: ignore[no-untyped-def]
