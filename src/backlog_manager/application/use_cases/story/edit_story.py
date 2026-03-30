@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from backlog_manager.application.dto.story.edit_story_dto import EditStoryInputDTO
 from backlog_manager.application.dto.story.story_output_dto import StoryOutputDTO
+from backlog_manager.domain.exceptions import IncompleteDependencyException
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 
 if TYPE_CHECKING:
@@ -51,6 +52,14 @@ class EditStoryUseCase:
                     f"Feature com ID {input_dto.feature_id} nao encontrada"
                 )
 
+        # Validate dependencies before transitioning to CONCLUIDO
+        if (
+            input_dto.status is not None
+            and StoryStatus(input_dto.status) == StoryStatus.CONCLUIDO
+            and story.status != StoryStatus.CONCLUIDO
+        ):
+            await self._validate_dependencies_for_completion(input_dto.story_id)
+
         # Update fields that were provided
         if input_dto.name is not None:
             story.name = input_dto.name
@@ -80,3 +89,33 @@ class EditStoryUseCase:
         await self._uow.stories.update(story)
 
         return StoryOutputDTO.from_entity(story)
+
+    async def _validate_dependencies_for_completion(self, story_id: str) -> None:
+        """Validate all direct dependencies are CONCLUIDO.
+
+        Args:
+            story_id: ID of the story being completed.
+
+        Raises:
+            IncompleteDependencyException: If any direct dependency
+                is not in CONCLUIDO status.
+        """
+        dependency_ids = await self._uow.dependencies.get_dependencies(story_id)
+        if not dependency_ids:
+            return
+
+        incomplete: list[tuple[str, str, str]] = []
+        for dep_id in dependency_ids:
+            dep_story = await self._uow.stories.get_by_id(dep_id)
+            if dep_story is None:
+                continue
+            if dep_story.status != StoryStatus.CONCLUIDO:
+                incomplete.append(
+                    (dep_story.id, dep_story.name, dep_story.status.value)
+                )
+
+        if incomplete:
+            raise IncompleteDependencyException(
+                story_id=story_id,
+                incomplete_dependencies=incomplete,
+            )

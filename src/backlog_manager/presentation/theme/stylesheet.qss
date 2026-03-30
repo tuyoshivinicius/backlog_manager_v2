@@ -327,7 +327,6 @@ QTableView {
     gridline-color: @neutral-200;
     selection-background-color: @primary-light;
     selection-color: @text;
-    alternate-background-color: @surface;
 }
 
 QTableView:focus {

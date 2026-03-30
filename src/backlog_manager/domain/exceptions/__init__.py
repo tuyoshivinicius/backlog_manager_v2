@@ -8,6 +8,7 @@ from backlog_manager.domain.exceptions.base import BacklogManagerException
 from backlog_manager.domain.exceptions.dependency import (
     CyclicDependencyException,
     DependencyException,
+    IncompleteDependencyException,
     InvalidWaveDependencyException,
 )
 from backlog_manager.domain.exceptions.feature import (
@@ -28,6 +29,7 @@ __all__ = [
     # Dependency
     "DependencyException",
     "CyclicDependencyException",
+    "IncompleteDependencyException",
     "InvalidWaveDependencyException",
     # Feature
     "FeatureException",

@@ -10,8 +10,10 @@ from enum import StrEnum
 from typing import Any, ClassVar, Sequence
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtGui import QColor
 
 from backlog_manager.application.dto.story import StoryOutputDTO
+from backlog_manager.presentation.theme import WAVE_PALETTE
 
 
 class BlockingState(StrEnum):
@@ -136,6 +138,8 @@ class StoryTableModel(QAbstractTableModel):
             return self._get_alignment(col)
         elif role == Qt.ItemDataRole.ToolTipRole:
             return self._get_tooltip(story, col)
+        elif role == Qt.ItemDataRole.BackgroundRole:
+            return self._get_wave_background(story.wave)
         elif role == Qt.ItemDataRole.UserRole:
             return story.id
         elif role == BLOCKING_STATE_ROLE and col == 8:
@@ -248,6 +252,21 @@ class StoryTableModel(QAbstractTableModel):
             return str(section + 1)
 
         return None
+
+    def _get_wave_background(self, wave: int) -> QColor | None:
+        """Get the background color for a wave value.
+
+        Args:
+            wave: Wave number (0 = no wave).
+
+        Returns:
+            QColor for the wave tint, or None for default background.
+        """
+        if wave <= 0:
+            return None
+        palette_idx = ((wave - 1) % (len(WAVE_PALETTE) - 1)) + 1
+        color_hex = WAVE_PALETTE[palette_idx]
+        return QColor(color_hex) if color_hex else None
 
     def _get_blocking_state(self, story: StoryOutputDTO) -> BlockingState:
         """Get the blocking state of a story based on its dependencies.

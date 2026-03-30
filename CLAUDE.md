@@ -8,6 +8,7 @@
 - QSettings (INI format) for UI preferences; no SQLite schema changes (022-polimento-ux-avancado)
 - Python 3.11+ + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite (023-reset-planning)
 - SQLite (no schema changes — only sets existing columns to NULL) (023-reset-planning)
+- SQLite (sem alteração de schema — usa status VARCHAR(20) existente) (024-story-completion)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

@@ -22,6 +22,7 @@ from backlog_manager.domain.exceptions.warnings import (
     IdlenessWarning,
 )
 from backlog_manager.domain.services.scheduling_service import SchedulingService
+from backlog_manager.domain.value_objects import StoryStatus
 from backlog_manager.infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
@@ -179,7 +180,8 @@ class AllocationService:
             True se elegivel, False caso contrario.
         """
         return (
-            story.developer_id is None
+            story.status != StoryStatus.CONCLUIDO
+            and story.developer_id is None
             and story.start_date is not None
             and story.end_date is not None
             and story.story_points is not None

@@ -70,9 +70,13 @@ class StatusBadgeDelegate(QStyledItemDelegate):
             # Get status configuration
             config = STATUS_PALETTE.get(status_str, self._default_config)
 
-            # Handle selection state - draw selection background first
+            # Draw cell background (wave tint or selection)
             if option.state & QStyle.StateFlag.State_Selected:
                 painter.fillRect(option.rect, option.palette.highlight())
+            else:
+                bg = index.data(Qt.ItemDataRole.BackgroundRole)
+                if bg is not None:
+                    painter.fillRect(option.rect, bg)
 
             # Calculate badge rect centered in cell
             badge_rect = self._calculate_badge_rect(option.rect, status_str, config)
