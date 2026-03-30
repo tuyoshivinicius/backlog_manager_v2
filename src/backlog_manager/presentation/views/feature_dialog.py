@@ -14,12 +14,14 @@ from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QStackedWidget,
     QVBoxLayout,
 )
 
@@ -83,12 +85,27 @@ class FeatureDialog(QDialog):
         self.setMinimumWidth(450)
         self.setMinimumHeight(400)
         self.setModal(True)
+        self.setObjectName("feature-dialog")
 
         layout = QVBoxLayout(self)
 
-        # Feature list
+        # Feature list with empty state
         self._feature_list = QListWidget()
-        layout.addWidget(self._feature_list)
+        self._feature_list.setObjectName("feature-list")
+
+        self._empty_state_label = QLabel(
+            "Nenhuma feature cadastrada. Clique em Adicionar para comecar."
+        )
+        self._empty_state_label.setObjectName("feature-empty-state")
+        self._empty_state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_state_label.setWordWrap(True)
+
+        self._stacked_widget = QStackedWidget()
+        self._stacked_widget.setObjectName("feature-stacked")
+        self._stacked_widget.addWidget(self._feature_list)
+        self._stacked_widget.addWidget(self._empty_state_label)
+
+        layout.addWidget(self._stacked_widget)
 
         # Form for add/edit
         form_layout = QFormLayout()
@@ -155,16 +172,24 @@ class FeatureDialog(QDialog):
 
                 self._feature_list.clear()
                 for feature in sorted(result.features, key=lambda f: f.wave):
-                    item = QListWidgetItem(f"[Onda {feature.wave}] {feature.name}")
+                    item = QListWidgetItem(f"Onda {feature.wave} \u2014 {feature.name}")
                     item.setData(Qt.ItemDataRole.UserRole, feature.id)
                     item.setData(Qt.ItemDataRole.UserRole + 1, feature.name)
                     item.setData(Qt.ItemDataRole.UserRole + 2, feature.wave)
                     self._feature_list.addItem(item)
 
                 logger.debug("Loaded %d features", len(result.features))
+                self._update_empty_state()
         except Exception as e:
             logger.exception("Error loading features")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar features: {e}")
+
+    def _update_empty_state(self) -> None:
+        """Toggle between list and empty state based on item count."""
+        if self._feature_list.count() > 0:
+            self._stacked_widget.setCurrentIndex(0)
+        else:
+            self._stacked_widget.setCurrentIndex(1)
 
     @Slot()
     def _on_selection_changed(self) -> None:

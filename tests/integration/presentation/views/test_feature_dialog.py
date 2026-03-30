@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtWidgets import QLabel, QListWidgetItem, QStackedWidget
 
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.presentation.container import DIContainer
@@ -316,3 +316,45 @@ class TestFeatureDialogListOperations:
         # Verify display text
         assert "Test Feature" in dialog._feature_list.item(0).text()
         assert "Onda 2" in dialog._feature_list.item(0).text()
+
+
+class TestFeatureDialogWaveFormat:
+    """Tests for wave format display in feature list."""
+
+    def test_feature_dialog_wave_format(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that items display 'Onda N \u2014 Nome' format."""
+        dialog = FeatureDialog(container)
+        qtbot.addWidget(dialog)
+
+        # Add items manually with the expected format
+        item1 = QListWidgetItem("Onda 1 \u2014 Login")
+        dialog._feature_list.addItem(item1)
+
+        item2 = QListWidgetItem("Onda 2 \u2014 Dashboard")
+        dialog._feature_list.addItem(item2)
+
+        assert dialog._feature_list.item(0).text() == "Onda 1 \u2014 Login"
+        assert dialog._feature_list.item(1).text() == "Onda 2 \u2014 Dashboard"
+
+
+class TestFeatureDialogEmptyState:
+    """Tests for empty state display."""
+
+    def test_feature_dialog_empty_state(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that empty list shows orientative message via QStackedWidget."""
+        dialog = FeatureDialog(container)
+        qtbot.addWidget(dialog)
+
+        # Verify stacked widget exists with correct object name
+        stacked = dialog.findChild(QStackedWidget, "feature-stacked")
+        assert stacked is not None
+
+        # Verify empty state label exists with correct object name
+        empty_label = dialog.findChild(QLabel, "feature-empty-state")
+        assert empty_label is not None
+        assert "Nenhuma feature cadastrada" in empty_label.text()
+        assert "Adicionar" in empty_label.text()

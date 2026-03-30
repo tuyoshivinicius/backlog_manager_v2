@@ -865,3 +865,92 @@ QDockWidget::close-button:hover, QDockWidget::float-button:hover {
     background-color: @neutral-200;
     border-radius: @radius-sm;
 }
+
+/* =============================================================================
+ * EP-021: Dialog Styling (US3)
+ * =============================================================================
+ */
+
+/* Dialog-level rules */
+#story-dialog, #developer-dialog, #feature-dialog,
+#confirm-delete-dialog, #progress-dialog, #result-dialog {
+    border-radius: @radius-md;
+    padding: 24px;
+}
+
+/* Error state for input fields */
+QLineEdit[error="true"], QTextEdit[error="true"] {
+    border: 1px solid @error-fg;
+}
+
+/* Field error label */
+#field-error-label {
+    color: @error-fg;
+    background-color: transparent;
+    padding: @spacing-1 0;
+    font-size: @font-size-sm;
+}
+
+/* Required indicator */
+#required-indicator {
+    color: @error-fg;
+    font-weight: @font-weight-bold;
+}
+
+/* Empty state labels */
+#developer-empty-state, #feature-empty-state {
+    color: @text-muted;
+    font-size: @font-size-md;
+    padding: @spacing-4;
+    qproperty-alignment: AlignCenter;
+}
+
+/* Confirm delete button (danger) */
+#confirm-delete-button {
+    background-color: @error-fg;
+    color: @background;
+    border-color: @error-fg;
+}
+
+#confirm-delete-button:hover {
+    background-color: @error-fg;
+}
+
+/* Save button disabled state */
+#story-save-button:disabled {
+    background-color: @neutral-300;
+    color: @text-muted;
+    border-color: @neutral-300;
+}
+
+/* Progress bar */
+#progress-bar {
+    background-color: @neutral-200;
+    border: none;
+    border-radius: @radius-sm;
+    height: 8px;
+}
+
+#progress-bar::chunk {
+    background-color: @primary;
+    border-radius: @radius-sm;
+}
+
+/* Char count label */
+#field-char-count {
+    color: @text-secondary;
+    font-size: @font-size-sm;
+}
+
+#field-char-count[warning="true"] {
+    color: @warning-fg;
+}
+
+/* Developer list item hover */
+#developer-list::item:hover {
+    background-color: @neutral-100;
+}
+
+#developer-list::item {
+    min-height: 40px;
+}

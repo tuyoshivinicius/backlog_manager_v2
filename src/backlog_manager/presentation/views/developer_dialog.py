@@ -9,16 +9,18 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QSize, Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QInputDialog,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
 )
 
@@ -28,6 +30,7 @@ from backlog_manager.application.dto.developer import (
     UpdateDeveloperInputDTO,
 )
 from backlog_manager.domain.exceptions import BacklogManagerException
+from backlog_manager.presentation.theme.theme import get_icon_manager
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget
@@ -77,34 +80,67 @@ class DeveloperDialog(QDialog):
         self.setMinimumWidth(400)
         self.setMinimumHeight(300)
         self.setModal(True)
+        self.setObjectName("developer-dialog")
 
         layout = QVBoxLayout(self)
 
-        # Developer list
+        # Stacked widget for list / empty state
+        self._stacked = QStackedWidget()
+        self._stacked.setObjectName("developer-stacked")
+
+        # Index 0: Developer list
         self._developer_list = QListWidget()
-        layout.addWidget(self._developer_list)
+        self._developer_list.setObjectName("developer-list")
+        self._stacked.addWidget(self._developer_list)
+
+        # Index 1: Empty state label
+        self._empty_state_label = QLabel(
+            "Nenhum desenvolvedor cadastrado. Clique em Adicionar para comecar."
+        )
+        self._empty_state_label.setObjectName("developer-empty-state")
+        self._empty_state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_state_label.setWordWrap(True)
+        self._stacked.addWidget(self._empty_state_label)
+
+        layout.addWidget(self._stacked)
+
+        # Icons
+        icon_mgr = get_icon_manager()
+        icon_size = QSize(16, 16)
 
         # Buttons
         button_layout = QHBoxLayout()
 
         self._add_button = QPushButton("Adicionar")
+        self._add_button.setObjectName("developer-add-button")
         self._add_button.setToolTip("Adicionar novo desenvolvedor")
+        self._add_button.setIcon(icon_mgr.get("plus"))
+        self._add_button.setIconSize(icon_size)
         button_layout.addWidget(self._add_button)
 
         self._edit_button = QPushButton("Editar")
+        self._edit_button.setObjectName("developer-edit-button")
         self._edit_button.setToolTip("Editar desenvolvedor selecionado")
         self._edit_button.setEnabled(False)
+        self._edit_button.setIcon(icon_mgr.get("pencil-simple"))
+        self._edit_button.setIconSize(icon_size)
         button_layout.addWidget(self._edit_button)
 
         self._remove_button = QPushButton("Remover")
+        self._remove_button.setObjectName("developer-remove-button")
         self._remove_button.setToolTip("Remover desenvolvedor selecionado")
         self._remove_button.setEnabled(False)
+        self._remove_button.setIcon(icon_mgr.get("trash"))
+        self._remove_button.setIconSize(icon_size)
         button_layout.addWidget(self._remove_button)
 
         layout.addLayout(button_layout)
 
         # Close button
         self._close_button = QPushButton("Fechar")
+        self._close_button.setObjectName("developer-close-button")
+        self._close_button.setIcon(icon_mgr.get("x"))
+        self._close_button.setIconSize(icon_size)
         layout.addWidget(self._close_button)
 
     def _connect_signals(self) -> None:
@@ -117,6 +153,13 @@ class DeveloperDialog(QDialog):
         self._developer_list.currentItemChanged.connect(self._on_selection_changed)
         self._developer_list.itemDoubleClicked.connect(self._on_edit)
 
+    def _update_empty_state(self) -> None:
+        """Toggle between list and empty state based on item count."""
+        if self._developer_list.count() > 0:
+            self._stacked.setCurrentIndex(0)
+        else:
+            self._stacked.setCurrentIndex(1)
+
     async def _load_developers(self) -> None:
         """Load developers into the list."""
         try:
@@ -128,12 +171,15 @@ class DeveloperDialog(QDialog):
                 for dev in result.developers:
                     item = QListWidgetItem(dev.name)
                     item.setData(Qt.ItemDataRole.UserRole, dev.id)
+                    item.setSizeHint(QSize(0, 40))
                     self._developer_list.addItem(item)
 
                 logger.debug("Loaded %d developers", len(result.developers))
         except Exception as e:
             logger.exception("Error loading developers")
             QMessageBox.warning(self, "Erro", f"Erro ao carregar desenvolvedores: {e}")
+
+        self._update_empty_state()
 
     @Slot()
     def _on_selection_changed(self) -> None:
@@ -175,6 +221,8 @@ class DeveloperDialog(QDialog):
         except Exception as e:
             logger.exception("Error creating developer")
             QMessageBox.warning(self, "Erro", f"Erro ao criar desenvolvedor: {e}")
+
+        self._update_empty_state()
 
     @Slot()
     def _on_edit(self) -> None:
@@ -268,3 +316,5 @@ class DeveloperDialog(QDialog):
         except Exception as e:
             logger.exception("Error deleting developer")
             QMessageBox.warning(self, "Erro", f"Erro ao remover desenvolvedor: {e}")
+
+        self._update_empty_state()

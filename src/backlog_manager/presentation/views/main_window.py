@@ -676,7 +676,7 @@ class MainWindow(QMainWindow):
             "Delete story action triggered for %s", self._viewmodel.selected_story_id
         )
 
-        dialog = ConfirmDeleteDialog(story.id, story.name, self)
+        dialog = ConfirmDeleteDialog.for_story(story.id, story.name, self)
         if dialog.exec():
             QTimer.singleShot(
                 0,

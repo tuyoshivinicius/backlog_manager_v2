@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Literal, Sequence
 
 from PySide6.QtCore import QObject, Signal
 
+from backlog_manager.application.dto.developer import DeveloperOutputDTO
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.application.dto.story import (
     CreateStoryInputDTO,
@@ -44,6 +45,7 @@ class StoryDialogViewModel(QObject):
     saved = Signal()
     error_occurred = Signal(str)
     features_loaded = Signal(list)
+    developers_loaded = Signal(list)
 
     def __init__(self, container: DIContainer) -> None:
         """Initialize the ViewModel.
@@ -61,9 +63,11 @@ class StoryDialogViewModel(QObject):
         self._name: str = ""
         self._story_points: int = 5
         self._feature_id: int | None = None
+        self._developer_id: int | None = None
 
-        # Available features for dropdown
+        # Available features and developers for dropdowns
         self._features: list[FeatureOutputDTO] = []
+        self._developers: list[DeveloperOutputDTO] = []
 
         logger.debug("StoryDialogViewModel initialized")
 
@@ -120,6 +124,21 @@ class StoryDialogViewModel(QObject):
         self._feature_id = value
 
     @property
+    def developer_id(self) -> int | None:
+        """Get the developer ID."""
+        return self._developer_id
+
+    @developer_id.setter
+    def developer_id(self, value: int | None) -> None:
+        """Set the developer ID."""
+        self._developer_id = value
+
+    @property
+    def developers(self) -> list[DeveloperOutputDTO]:
+        """Get the available developers."""
+        return self._developers.copy()
+
+    @property
     def features(self) -> list[FeatureOutputDTO]:
         """Get the available features."""
         return self._features.copy()
@@ -146,6 +165,7 @@ class StoryDialogViewModel(QObject):
         self._name = story.name
         self._story_points = story.story_points
         self._feature_id = story.feature_id
+        self._developer_id = story.developer_id
         self._mode = "edit"
         logger.debug("Story set for editing: %s", story.id)
 
@@ -156,6 +176,29 @@ class StoryDialogViewModel(QObject):
         self._name = ""
         self._story_points = 5
         self._feature_id = None
+        self._developer_id = None
+
+    def validate_field(self, field_name: str) -> tuple[bool, str]:
+        """Valida um campo individual.
+
+        Args:
+            field_name: Nome do campo ("component" ou "name").
+
+        Returns:
+            Tupla (is_valid, error_message). Para campos desconhecidos,
+            retorna (True, "").
+        """
+        if field_name == "component":
+            if not self._component:
+                return False, "Campo obrigatorio"
+            if len(self._component) > 50:
+                return False, "Maximo de 50 caracteres"
+        elif field_name == "name":
+            if not self._name:
+                return False, "Campo obrigatorio"
+            if len(self._name) > 200:
+                return False, "Maximo de 200 caracteres"
+        return True, ""
 
     def validate(self) -> tuple[bool, str]:
         """Validate the current form values.
@@ -180,6 +223,19 @@ class StoryDialogViewModel(QObject):
             return False, f"Story Points deve ser um de: {VALID_STORY_POINTS}."
 
         return True, ""
+
+    async def load_developers(self) -> None:
+        """Load available developers for the dropdown."""
+        try:
+            async with self._container.create_unit_of_work() as uow:
+                use_case = self._container.create_list_developers_use_case(uow)
+                result = await use_case.execute()
+                self._developers = list(result.developers)
+                self.developers_loaded.emit(self._developers)
+                logger.debug("Loaded %d developers", len(self._developers))
+        except Exception as e:
+            logger.exception("Error loading developers")
+            self.error_occurred.emit(f"Erro ao carregar desenvolvedores: {e}")
 
     async def load_features(self) -> None:
         """Load available features for the dropdown."""
@@ -256,6 +312,7 @@ class StoryDialogViewModel(QObject):
             name=self._name,
             story_points=self._story_points,
             feature_id=self._feature_id,
+            developer_id=self._developer_id,
         )
 
         async with self._container.create_unit_of_work() as uow:
