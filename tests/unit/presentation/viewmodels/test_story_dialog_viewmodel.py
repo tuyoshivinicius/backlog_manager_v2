@@ -13,6 +13,7 @@ import pytest
 import pytest_asyncio
 from PySide6.QtCore import SignalInstance
 
+from backlog_manager.application.dto.developer import DeveloperOutputDTO
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.domain.exceptions import BacklogManagerException
@@ -472,3 +473,271 @@ class TestStoryDialogViewModelSave:
         assert result is None
         assert len(errors_received) == 1
         assert "Erro inesperado" in errors_received[0]
+
+
+class TestStoryDialogViewModelDeveloperId:
+    """Tests for developer_id property and load_developers (US1)."""
+
+    def test_developer_id_property_get_set(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test developer_id property accepts int and None."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.developer_id = 42
+        assert viewmodel.developer_id == 42
+
+        viewmodel.developer_id = None
+        assert viewmodel.developer_id is None
+
+    def test_developer_id_initial_none(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test initial developer_id is None."""
+        viewmodel = StoryDialogViewModel(container)
+        assert viewmodel.developer_id is None
+
+    def test_set_story_loads_developer_id(
+        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that set_story recovers developer_id."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.set_story(sample_story_dto)
+        assert viewmodel.developer_id == sample_story_dto.developer_id
+
+    @pytest.mark.asyncio
+    async def test_load_developers_returns_list(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test load_developers populates list via ListDevelopersUseCase."""
+        viewmodel = StoryDialogViewModel(container)
+
+        developers_received = []
+
+        def on_developers_loaded(devs: list) -> None:
+            developers_received.extend(devs)
+
+        viewmodel.developers_loaded.connect(on_developers_loaded)
+
+        mock_developers = [
+            DeveloperOutputDTO(id=1, name="Dev 1"),
+            DeveloperOutputDTO(id=2, name="Dev 2"),
+        ]
+
+        mock_use_case = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.developers = mock_developers
+        mock_use_case.execute.return_value = mock_result
+
+        with patch.object(
+            container, "create_list_developers_use_case", return_value=mock_use_case
+        ):
+            await viewmodel.load_developers()
+
+        assert len(viewmodel.developers) == 2
+        assert len(developers_received) == 2
+
+    @pytest.mark.asyncio
+    async def test_load_developers_includes_none_option(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test loaded list allows 'Nenhum' (no developer) as first dropdown option."""
+        viewmodel = StoryDialogViewModel(container)
+
+        developers_received = []
+
+        def on_developers_loaded(devs: list) -> None:
+            developers_received.extend(devs)
+
+        viewmodel.developers_loaded.connect(on_developers_loaded)
+
+        mock_developers = [DeveloperOutputDTO(id=1, name="Dev 1")]
+
+        mock_use_case = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.developers = mock_developers
+        mock_use_case.execute.return_value = mock_result
+
+        with patch.object(
+            container, "create_list_developers_use_case", return_value=mock_use_case
+        ):
+            await viewmodel.load_developers()
+
+        # ViewModel stores developers; View is responsible for adding "Nenhum" option
+        assert len(viewmodel.developers) == 1
+        # developer_id can be None to represent "Nenhum"
+        assert viewmodel.developer_id is None
+
+    @pytest.mark.asyncio
+    async def test_load_developers_error_emits_signal(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test load failure emits error_occurred."""
+        viewmodel = StoryDialogViewModel(container)
+
+        errors_received = []
+
+        def on_error(message: str) -> None:
+            errors_received.append(message)
+
+        viewmodel.error_occurred.connect(on_error)
+
+        with patch.object(
+            container,
+            "create_unit_of_work",
+            side_effect=Exception("Connection failed"),
+        ):
+            await viewmodel.load_developers()
+
+        assert len(errors_received) == 1
+        assert "Erro" in errors_received[0]
+
+    @pytest.mark.asyncio
+    async def test_save_with_developer_id(
+        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test save in edit mode includes developer_id."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.set_story(sample_story_dto)
+        viewmodel.developer_id = 42
+
+        mock_story = StoryOutputDTO(
+            id=sample_story_dto.id,
+            component=sample_story_dto.component,
+            name=sample_story_dto.name,
+            story_points=sample_story_dto.story_points,
+            priority=sample_story_dto.priority,
+            status=sample_story_dto.status,
+            duration=sample_story_dto.duration,
+            start_date=sample_story_dto.start_date,
+            end_date=sample_story_dto.end_date,
+            developer_id=42,
+            feature_id=sample_story_dto.feature_id,
+        )
+        mock_use_case = AsyncMock()
+        mock_use_case.execute.return_value = mock_story
+
+        with patch.object(
+            container, "create_edit_story_use_case", return_value=mock_use_case
+        ):
+            result = await viewmodel.save()
+
+        assert result is not None
+        # Verify developer_id was passed in the DTO
+        call_dto = mock_use_case.execute.call_args[0][0]
+        assert call_dto.developer_id == 42
+
+    @pytest.mark.asyncio
+    async def test_save_without_developer(
+        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test save in edit mode without developer."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.set_story(sample_story_dto)
+        viewmodel.developer_id = None
+
+        mock_story = StoryOutputDTO(
+            id=sample_story_dto.id,
+            component=sample_story_dto.component,
+            name=sample_story_dto.name,
+            story_points=sample_story_dto.story_points,
+            priority=sample_story_dto.priority,
+            status=sample_story_dto.status,
+            duration=sample_story_dto.duration,
+            start_date=sample_story_dto.start_date,
+            end_date=sample_story_dto.end_date,
+            developer_id=None,
+            feature_id=sample_story_dto.feature_id,
+        )
+        mock_use_case = AsyncMock()
+        mock_use_case.execute.return_value = mock_story
+
+        with patch.object(
+            container, "create_edit_story_use_case", return_value=mock_use_case
+        ):
+            result = await viewmodel.save()
+
+        assert result is not None
+        call_dto = mock_use_case.execute.call_args[0][0]
+        assert call_dto.developer_id is None
+
+
+class TestStoryDialogViewModelValidateField:
+    """Tests for validate_field method (US2)."""
+
+    def test_validate_field_component_empty(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns (False, 'Campo obrigatorio') for empty component."""
+        viewmodel = StoryDialogViewModel(container)
+        is_valid, msg = viewmodel.validate_field("component")
+        assert is_valid is False
+        assert msg == "Campo obrigatorio"
+
+    def test_validate_field_component_too_long(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns error for component > 50 chars."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.component = "A" * 51
+        is_valid, msg = viewmodel.validate_field("component")
+        assert is_valid is False
+        assert msg == "Maximo de 50 caracteres"
+
+    def test_validate_field_component_valid(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns (True, '') for valid component."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.component = "API"
+        is_valid, msg = viewmodel.validate_field("component")
+        assert is_valid is True
+        assert msg == ""
+
+    def test_validate_field_name_empty(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns (False, 'Campo obrigatorio') for empty name."""
+        viewmodel = StoryDialogViewModel(container)
+        is_valid, msg = viewmodel.validate_field("name")
+        assert is_valid is False
+        assert msg == "Campo obrigatorio"
+
+    def test_validate_field_name_too_long(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns error for name > 200 chars."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.name = "A" * 201
+        is_valid, msg = viewmodel.validate_field("name")
+        assert is_valid is False
+        assert msg == "Maximo de 200 caracteres"
+
+    def test_validate_field_name_valid(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns (True, '') for valid name."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.name = "Test Story"
+        is_valid, msg = viewmodel.validate_field("name")
+        assert is_valid is True
+        assert msg == ""
+
+    def test_validate_field_unknown(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test validate_field returns (True, '') for unknown fields."""
+        viewmodel = StoryDialogViewModel(container)
+        is_valid, msg = viewmodel.validate_field("unknown_field")
+        assert is_valid is True
+        assert msg == ""
+
+    def test_validate_global_still_works(
+        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test existing validate() unchanged."""
+        viewmodel = StoryDialogViewModel(container)
+        viewmodel.component = "TEST"
+        viewmodel.name = "Test Story"
+        is_valid, error = viewmodel.validate()
+        assert is_valid is True
+        assert error == ""

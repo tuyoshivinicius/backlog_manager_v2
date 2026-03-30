@@ -73,6 +73,9 @@ class EditStoryUseCase:
         if input_dto.feature_id is not None:
             story.feature_id = input_dto.feature_id
 
+        # Always apply developer_id (per R-010: View always sends value)
+        story.developer_id = input_dto.developer_id
+
         # Persist changes
         await self._uow.stories.update(story)
 

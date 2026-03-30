@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialogButtonBox
+from PySide6.QtWidgets import QDialogButtonBox, QLabel
 
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.application.dto.story import StoryOutputDTO
@@ -294,3 +294,78 @@ class TestStoryDialogFormBinding:
         dialog._feature_combo.setCurrentIndex(1)
 
         assert dialog._viewmodel.feature_id == 42
+
+
+class TestStoryDialogDeveloperField:
+    """Tests for developer field in StoryDialog (US1)."""
+
+    def test_story_dialog_developer_field_visible_edit_mode(
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test developer field is visible in edit mode."""
+        dialog = StoryDialog(container, mode="edit", story=sample_story_dto)
+        qtbot.addWidget(dialog)
+
+        assert dialog._developer_container.isHidden() is False
+        assert dialog._developer_combo is not None
+
+    def test_story_dialog_developer_field_hidden_create_mode(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test developer field is hidden in create mode."""
+        dialog = StoryDialog(container, mode="create")
+        qtbot.addWidget(dialog)
+
+        assert dialog._developer_container.isHidden() is True
+
+
+class TestStoryDialogValidationUI:
+    """Tests for validation UI in StoryDialog (US2)."""
+
+    def test_story_dialog_required_indicators(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test asterisk (*) on Componente and Nome labels."""
+        dialog = StoryDialog(container, mode="create")
+        qtbot.addWidget(dialog)
+
+        # Find required indicators by objectName
+        indicators = dialog.findChildren(QLabel, "required-indicator")
+        assert len(indicators) >= 2
+        for indicator in indicators:
+            assert indicator.text() == "*"
+
+    def test_story_dialog_error_on_blur(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test red border and error label on focusOut."""
+        dialog = StoryDialog(container, mode="create")
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        # Focus component, then leave without filling
+        dialog._component_edit.setFocus()
+        dialog._name_edit.setFocus()  # Triggers focusOut on component
+
+        assert dialog._component_error_label.isHidden() is False
+        assert dialog._component_edit.property("error") == "true"
+
+    def test_story_dialog_save_button_disabled(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test button disabled when fields invalid."""
+        dialog = StoryDialog(container, mode="create")
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        # Trigger validation on both fields
+        dialog._component_edit.setFocus()
+        dialog._name_edit.setFocus()
+        dialog._sp_combo.setFocus()  # Leave name field
+
+        save_button = dialog._button_box.button(QDialogButtonBox.StandardButton.Ok)
+        assert save_button.isEnabled() is False

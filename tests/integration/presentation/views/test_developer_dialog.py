@@ -266,3 +266,48 @@ class TestDeveloperDialogListOperations:
 
         # Verify name is displayed
         assert dialog._developer_list.item(0).text() == "Test Developer"
+
+
+class TestDeveloperDialogIcons:
+    """Tests for DeveloperDialog button icons."""
+
+    def test_developer_dialog_icons(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that all action buttons have non-null icons."""
+        dialog = DeveloperDialog(container)
+        qtbot.addWidget(dialog)
+
+        assert not dialog._add_button.icon().isNull()
+        assert not dialog._edit_button.icon().isNull()
+        assert not dialog._remove_button.icon().isNull()
+        assert not dialog._close_button.icon().isNull()
+
+
+class TestDeveloperDialogEmptyState:
+    """Tests for DeveloperDialog empty state."""
+
+    def test_developer_dialog_empty_state(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that empty list shows orientative message via QStackedWidget."""
+        from PySide6.QtWidgets import QStackedWidget
+
+        dialog = DeveloperDialog(container)
+        qtbot.addWidget(dialog)
+
+        # Verify stacked widget exists
+        stacked = dialog.findChild(QStackedWidget, "developer-stacked")
+        assert stacked is not None
+
+        # With no items, empty state should be shown (index 1)
+        dialog._developer_list.clear()
+        dialog._update_empty_state()
+        assert stacked.currentIndex() == 1
+
+        # Verify the empty state label exists and has the correct text
+        from PySide6.QtWidgets import QLabel
+
+        empty_label = dialog.findChild(QLabel, "developer-empty-state")
+        assert empty_label is not None
+        assert "Nenhum desenvolvedor cadastrado" in empty_label.text()

@@ -9,18 +9,21 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Literal
 
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QVBoxLayout,
+    QWidget,
 )
 
+from backlog_manager.application.dto.developer import DeveloperOutputDTO
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.story_dialog_viewmodel import (
@@ -72,12 +75,18 @@ class StoryDialog(QDialog):
             self._viewmodel.set_story(story)
             self._load_story_to_form()
             self.setWindowTitle("Editar Historia")
+            self._developer_container.show()
         else:
             self._viewmodel.set_mode("create")
             self.setWindowTitle("Nova Historia")
+            self._developer_container.hide()
 
         # Load features for dropdown
         QTimer.singleShot(0, lambda: asyncio.create_task(self._load_features()))
+
+        # Load developers for dropdown (edit mode only)
+        if mode == "edit":
+            QTimer.singleShot(0, lambda: asyncio.create_task(self._load_developers()))
 
         logger.debug("StoryDialog initialized in %s mode", mode)
 
@@ -92,6 +101,7 @@ class StoryDialog(QDialog):
 
     def _setup_ui(self) -> None:
         """Create and configure the dialog UI."""
+        self.setObjectName("story-dialog")
         self.setMinimumWidth(400)
         self.setModal(True)
 
@@ -100,20 +110,81 @@ class StoryDialog(QDialog):
         # Form layout
         form_layout = QFormLayout()
 
-        # Component field
+        # Component field with required indicator
+        component_label_layout = QHBoxLayout()
+        component_label = QLabel("Componente:")
+        component_label_layout.addWidget(component_label)
+        component_req = QLabel("*")
+        component_req.setObjectName("required-indicator")
+        component_label_layout.addWidget(component_req)
+        component_label_layout.addStretch()
+        component_label_widget = QWidget()
+        component_label_widget.setLayout(component_label_layout)
+        component_label_layout.setContentsMargins(0, 0, 0, 0)
+
         self._component_edit = QLineEdit()
+        self._component_edit.setObjectName("story-component-field")
         self._component_edit.setPlaceholderText("Ex: API, UI, CORE")
         self._component_edit.setMaxLength(50)
-        form_layout.addRow("Componente:", self._component_edit)
 
-        # Name field
+        # Component error label
+        self._component_error_label = QLabel()
+        self._component_error_label.setObjectName("field-error-label")
+        self._component_error_label.setWordWrap(True)
+        self._component_error_label.hide()
+
+        # Component char count
+        self._component_char_count = QLabel("0/50")
+        self._component_char_count.setObjectName("field-char-count")
+
+        component_field_widget = QWidget()
+        component_field_layout = QVBoxLayout(component_field_widget)
+        component_field_layout.setContentsMargins(0, 0, 0, 0)
+        component_field_layout.addWidget(self._component_edit)
+        component_field_layout.addWidget(self._component_error_label)
+        component_field_layout.addWidget(self._component_char_count)
+
+        form_layout.addRow(component_label_widget, component_field_widget)
+
+        # Name field with required indicator
+        name_label_layout = QHBoxLayout()
+        name_label = QLabel("Nome:")
+        name_label_layout.addWidget(name_label)
+        name_req = QLabel("*")
+        name_req.setObjectName("required-indicator")
+        name_label_layout.addWidget(name_req)
+        name_label_layout.addStretch()
+        name_label_widget = QWidget()
+        name_label_widget.setLayout(name_label_layout)
+        name_label_layout.setContentsMargins(0, 0, 0, 0)
+
         self._name_edit = QLineEdit()
+        self._name_edit.setObjectName("story-name-field")
         self._name_edit.setPlaceholderText("Nome da historia")
         self._name_edit.setMaxLength(200)
-        form_layout.addRow("Nome:", self._name_edit)
+
+        # Name error label
+        self._name_error_label = QLabel()
+        self._name_error_label.setObjectName("field-error-label")
+        self._name_error_label.setWordWrap(True)
+        self._name_error_label.hide()
+
+        # Name char count
+        self._name_char_count = QLabel("0/200")
+        self._name_char_count.setObjectName("field-char-count")
+
+        name_field_widget = QWidget()
+        name_field_layout = QVBoxLayout(name_field_widget)
+        name_field_layout.setContentsMargins(0, 0, 0, 0)
+        name_field_layout.addWidget(self._name_edit)
+        name_field_layout.addWidget(self._name_error_label)
+        name_field_layout.addWidget(self._name_char_count)
+
+        form_layout.addRow(name_label_widget, name_field_widget)
 
         # Story Points dropdown
         self._sp_combo = QComboBox()
+        self._sp_combo.setObjectName("story-points-combo")
         for sp in VALID_STORY_POINTS:
             self._sp_combo.addItem(str(sp), sp)
         self._sp_combo.setCurrentIndex(1)  # Default to 5
@@ -121,10 +192,22 @@ class StoryDialog(QDialog):
 
         # Feature dropdown
         self._feature_combo = QComboBox()
+        self._feature_combo.setObjectName("story-feature-combo")
         self._feature_combo.addItem("Nenhuma", None)
         form_layout.addRow("Feature:", self._feature_combo)
 
+        # Developer dropdown (visible only in edit mode, per ADR-003)
+        self._developer_container = QWidget()
+        self._developer_container.setObjectName("story-developer-container")
+        developer_layout = QFormLayout(self._developer_container)
+        developer_layout.setContentsMargins(0, 0, 0, 0)
+        self._developer_combo = QComboBox()
+        self._developer_combo.setObjectName("story-developer-combo")
+        self._developer_combo.addItem("Nenhum", None)
+        developer_layout.addRow("Desenvolvedor:", self._developer_combo)
+        self._developer_container.hide()
         layout.addLayout(form_layout)
+        layout.addWidget(self._developer_container)
 
         # Validation message label
         self._error_label = QLabel()
@@ -137,10 +220,12 @@ class StoryDialog(QDialog):
         self._button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        self._button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Salvar")
-        self._button_box.button(QDialogButtonBox.StandardButton.Cancel).setText(
-            "Cancelar"
-        )
+        save_button = self._button_box.button(QDialogButtonBox.StandardButton.Ok)
+        save_button.setText("Salvar")
+        save_button.setObjectName("story-save-button")
+        cancel_button = self._button_box.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel_button.setText("Cancelar")
+        cancel_button.setObjectName("story-cancel-button")
         layout.addWidget(self._button_box)
 
     def _connect_signals(self) -> None:
@@ -151,12 +236,18 @@ class StoryDialog(QDialog):
         self._viewmodel.saved.connect(self._on_saved)
         self._viewmodel.error_occurred.connect(self._on_error)
         self._viewmodel.features_loaded.connect(self._on_features_loaded)
+        self._viewmodel.developers_loaded.connect(self._on_developers_loaded)
 
         # Form changes
         self._component_edit.textChanged.connect(self._on_component_changed)
         self._name_edit.textChanged.connect(self._on_name_changed)
         self._sp_combo.currentIndexChanged.connect(self._on_sp_changed)
         self._feature_combo.currentIndexChanged.connect(self._on_feature_changed)
+        self._developer_combo.currentIndexChanged.connect(self._on_developer_changed)
+
+        # Install event filter for focusOut validation
+        self._component_edit.installEventFilter(self)
+        self._name_edit.installEventFilter(self)
 
     def _load_story_to_form(self) -> None:
         """Load story data from ViewModel to form fields."""
@@ -174,6 +265,10 @@ class StoryDialog(QDialog):
     async def _load_features(self) -> None:
         """Load features into the dropdown."""
         await self._viewmodel.load_features()
+
+    async def _load_developers(self) -> None:
+        """Load developers into the dropdown."""
+        await self._viewmodel.load_developers()
 
     @Slot(list)
     def _on_features_loaded(self, features: list[FeatureOutputDTO]) -> None:
@@ -198,17 +293,76 @@ class StoryDialog(QDialog):
                     self._feature_combo.setCurrentIndex(i)
                     break
 
+    @Slot(list)
+    def _on_developers_loaded(self, developers: list[DeveloperOutputDTO]) -> None:
+        """Handle developers_loaded signal.
+
+        Args:
+            developers: List of developer DTOs.
+        """
+        self._developer_combo.clear()
+        self._developer_combo.addItem("Nenhum", None)
+
+        for dev in developers:
+            self._developer_combo.addItem(dev.name, dev.id)
+
+        # Pre-select current developer
+        if self._viewmodel.developer_id is not None:
+            index = self._developer_combo.findData(self._viewmodel.developer_id)
+            if index >= 0:
+                self._developer_combo.setCurrentIndex(index)
+
+    @Slot(int)
+    def _on_developer_changed(self, index: int) -> None:
+        """Handle developer selection change."""
+        developer_id = self._developer_combo.itemData(index)
+        self._viewmodel.developer_id = developer_id
+
     @Slot(str)
     def _on_component_changed(self, text: str) -> None:
         """Handle component text change."""
         self._viewmodel.component = text
         self._error_label.hide()
 
+        # Update char count
+        count = len(text)
+        self._component_char_count.setText(f"{count}/50")
+        warning = "true" if count >= 45 else "false"
+        self._component_char_count.setProperty("warning", warning)
+        self._component_char_count.style().unpolish(self._component_char_count)
+        self._component_char_count.style().polish(self._component_char_count)
+
+        # Re-validate and re-enable save if field is now valid (ADR-004)
+        is_valid, _ = self._viewmodel.validate_field("component")
+        if is_valid:
+            self._component_edit.setProperty("error", "false")
+            self._component_edit.style().unpolish(self._component_edit)
+            self._component_edit.style().polish(self._component_edit)
+            self._component_error_label.hide()
+            self._update_save_button_state()
+
     @Slot(str)
     def _on_name_changed(self, text: str) -> None:
         """Handle name text change."""
         self._viewmodel.name = text
         self._error_label.hide()
+
+        # Update char count
+        count = len(text)
+        self._name_char_count.setText(f"{count}/200")
+        warning = "true" if count >= 180 else "false"
+        self._name_char_count.setProperty("warning", warning)
+        self._name_char_count.style().unpolish(self._name_char_count)
+        self._name_char_count.style().polish(self._name_char_count)
+
+        # Re-validate and re-enable save if field is now valid (ADR-004)
+        is_valid, _ = self._viewmodel.validate_field("name")
+        if is_valid:
+            self._name_edit.setProperty("error", "false")
+            self._name_edit.style().unpolish(self._name_edit)
+            self._name_edit.style().polish(self._name_edit)
+            self._name_error_label.hide()
+            self._update_save_button_state()
 
     @Slot(int)
     def _on_sp_changed(self, index: int) -> None:
@@ -260,3 +414,51 @@ class StoryDialog(QDialog):
         """
         self._error_label.setText(message)
         self._error_label.show()
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        """Handle focusOut events for on-blur validation.
+
+        Args:
+            obj: The watched object.
+            event: The event.
+
+        Returns:
+            False to continue event propagation.
+        """
+        if event.type() == QEvent.Type.FocusOut:
+            if obj is self._component_edit:
+                self._validate_field_ui(
+                    "component", self._component_edit, self._component_error_label
+                )
+            elif obj is self._name_edit:
+                self._validate_field_ui("name", self._name_edit, self._name_error_label)
+        return super().eventFilter(obj, event)
+
+    def _validate_field_ui(
+        self, field_name: str, field: QLineEdit, error_label: QLabel
+    ) -> None:
+        """Validate a field and update UI accordingly.
+
+        Args:
+            field_name: Name of the field for validate_field().
+            field: The QLineEdit widget.
+            error_label: The error label widget.
+        """
+        is_valid, msg = self._viewmodel.validate_field(field_name)
+        if is_valid:
+            field.setProperty("error", "false")
+            error_label.hide()
+        else:
+            field.setProperty("error", "true")
+            error_label.setText(msg)
+            error_label.show()
+        field.style().unpolish(field)
+        field.style().polish(field)
+        self._update_save_button_state()
+
+    def _update_save_button_state(self) -> None:
+        """Update save button enabled state based on field validity."""
+        comp_valid, _ = self._viewmodel.validate_field("component")
+        name_valid, _ = self._viewmodel.validate_field("name")
+        save_button = self._button_box.button(QDialogButtonBox.StandardButton.Ok)
+        save_button.setEnabled(comp_valid and name_valid)

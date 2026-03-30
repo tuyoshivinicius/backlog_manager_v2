@@ -21,6 +21,7 @@ class EditStoryInputDTO(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     feature_id: int | None = None
+    developer_id: int | None = None
 
     @field_validator("name")
     @classmethod
