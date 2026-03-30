@@ -11,7 +11,7 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QShortcut
@@ -54,6 +54,9 @@ if TYPE_CHECKING:
     from PySide6.QtCore import QPoint
 
     from backlog_manager.application.dto.allocation import AllocationMetricsDTO
+    from backlog_manager.application.dto.planning.reset_planning_dto import (
+        ResetPlanningOutputDTO,
+    )
     from backlog_manager.application.dto.scheduling.calculate_schedule_dto import (
         CalculateScheduleOutputDTO,
     )
@@ -331,6 +334,10 @@ class MainWindow(QMainWindow):
         self._columns_hidden: bool = False
         self._responsive_columns = [2, 4, 12]  # Onda, Componente, Duracao
 
+        # Planning data tracking (R-005)
+        self._has_planning_data: bool = False
+        self._last_allocation_time: Optional[datetime] = None
+
         self._setup_window()
         self._setup_toolbar()
         self._setup_menu_bar()
@@ -402,6 +409,8 @@ class MainWindow(QMainWindow):
 
         # Menu Ferramentas
         tools_menu = menu_bar.addMenu("&Ferramentas")
+        tools_menu.addAction(self._action_new_planning)
+        tools_menu.addSeparator()
         tools_menu.addAction(self._action_schedule)
         tools_menu.addAction(self._action_allocate)
 
@@ -482,6 +491,17 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
 
         # Grupo 4: Processamento
+        self._action_new_planning = QAction(
+            icon.get("arrows-down-up"), "Novo Planejamento", self
+        )
+        self._action_new_planning.setShortcut(QKeySequence("Ctrl+Shift+N"))
+        self._action_new_planning.setToolTip(
+            "Limpar dados de planejamento e recomecar do zero (Ctrl+Shift+N)"
+        )
+        self._action_new_planning.setEnabled(False)
+        self._action_new_planning.triggered.connect(self._on_new_planning)
+        toolbar.addAction(self._action_new_planning)
+
         self._action_schedule = QAction(
             icon.get("calendar-check"), "Calcular Cronograma", self
         )
@@ -794,6 +814,12 @@ class MainWindow(QMainWindow):
         schedule_vm.schedule_completed.connect(self._on_schedule_completed)
         schedule_vm.schedule_error.connect(self._on_error)
 
+        # Connect reset planning viewmodel signals
+        reset_vm = self._container.reset_planning_viewmodel
+        reset_vm.reset_started.connect(self._on_reset_started)
+        reset_vm.reset_completed.connect(self._on_reset_completed)
+        reset_vm.reset_error.connect(self._on_error)
+
         # Connect Excel viewmodel signals
         excel_vm = self._container.excel_viewmodel
         excel_vm.import_completed.connect(self._on_import_completed)
@@ -813,6 +839,7 @@ class MainWindow(QMainWindow):
         """Handle stories_changed signal."""
         self._update_status_bar_stats()
         self._update_sp_breakdown()
+        self._update_has_planning_data()
         self._update_empty_state()
         self._update_chip_counts()
         self._update_feature_dropdown()
@@ -825,6 +852,7 @@ class MainWindow(QMainWindow):
         self._empty_state_label.setVisible(not has_stories)
         self._action_schedule.setEnabled(has_stories)
         self._action_allocate.setEnabled(has_stories)
+        self._action_new_planning.setEnabled(has_stories and self._has_planning_data)
 
     @Slot(str)
     def _on_viewmodel_story_selected(self, story_id: str) -> None:
@@ -845,6 +873,7 @@ class MainWindow(QMainWindow):
         self._action_move_down.setEnabled(not is_loading)
         self._action_allocate.setEnabled(not is_loading)
         self._action_schedule.setEnabled(not is_loading)
+        self._action_new_planning.setEnabled(not is_loading and self._has_planning_data)
         logger.debug("Loading state: %s", is_loading)
 
     @Slot(str)
@@ -1078,6 +1107,80 @@ class MainWindow(QMainWindow):
             0, lambda: asyncio.create_task(self._viewmodel.load_stories())
         )
 
+    # --- Reset planning handlers ---
+
+    def _update_has_planning_data(self) -> None:
+        """Check if any story has calculated fields and update flag."""
+        self._has_planning_data = any(
+            s.duration is not None
+            or s.start_date is not None
+            or s.end_date is not None
+            or s.developer_id is not None
+            for s in self._viewmodel.stories
+        )
+
+    @Slot()
+    def _on_new_planning(self) -> None:
+        """Handle new planning (reset) action."""
+        logger.debug("New planning action triggered")
+        QTimer.singleShot(0, lambda: asyncio.create_task(self._execute_new_planning()))
+
+    async def _execute_new_planning(self) -> None:
+        """Execute the new planning flow: preview -> confirm -> reset."""
+        from backlog_manager.presentation.views.confirm_reset_dialog import (
+            ConfirmResetDialog,
+        )
+
+        reset_vm = self._container.reset_planning_viewmodel
+
+        # Get preview counts
+        counts = await reset_vm.preview()
+        if counts is None or counts.total == 0:
+            return
+
+        # Show confirmation dialog
+        dialog = ConfirmResetDialog(
+            with_dates=counts.with_dates,
+            with_developer=counts.with_developer,
+            parent=self,
+        )
+        if not dialog.exec():
+            return
+
+        # Execute reset
+        result = await reset_vm.execute()
+        if result and result.success:
+            await self._viewmodel.load_stories()
+
+    @Slot()
+    def _on_reset_started(self) -> None:
+        """Handle reset started signal."""
+        self._action_new_planning.setEnabled(False)
+        self._action_schedule.setEnabled(False)
+        self._action_allocate.setEnabled(False)
+        self.setCursor(Qt.CursorShape.WaitCursor)
+
+    @Slot(object)
+    def _on_reset_completed(self, result: ResetPlanningOutputDTO) -> None:
+        """Handle reset completed signal."""
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self._action_schedule.setEnabled(True)
+        self._action_allocate.setEnabled(True)
+
+        # Update planning data flag
+        self._has_planning_data = False
+        self._action_new_planning.setEnabled(False)
+
+        # Clear last allocation and show temporary message
+        self._last_allocation_time = None
+        self._container.status_bar_viewmodel.clear_last_allocation()
+        self._update_status_bar_stats()
+
+        # Show temporary reset message in status bar
+        self.statusBar().showMessage(
+            f"Planejamento resetado: {result.stories_reset} historias", 5000
+        )
+
     # --- Schedule handlers ---
 
     @Slot()
@@ -1119,6 +1222,10 @@ class MainWindow(QMainWindow):
         """Handle schedule completed signal."""
         self._action_schedule.setEnabled(True)
         self.setCursor(Qt.CursorShape.ArrowCursor)
+
+        if result.stories_updated > 0:
+            self._has_planning_data = True
+            self._action_new_planning.setEnabled(True)
 
         QMessageBox.information(
             self,
@@ -1185,6 +1292,10 @@ class MainWindow(QMainWindow):
         self._last_allocation_time = datetime.now()
         self._update_status_bar_stats()
 
+        if metrics.stories_allocated > 0:
+            self._has_planning_data = True
+            self._action_new_planning.setEnabled(True)
+
         # Auto-show MetricsDialog if stories were allocated (FR-021/FR-022)
         if metrics.stories_allocated > 0:
             from backlog_manager.presentation.views.metrics_dialog import MetricsDialog
@@ -1219,7 +1330,7 @@ class MainWindow(QMainWindow):
         total_sp = sum(s.story_points or 0 for s in stories)
 
         allocation_text = "Sem alocacao"
-        if hasattr(self, "_last_allocation_time") and self._last_allocation_time:
+        if self._last_allocation_time is not None:
             allocation_text = (
                 f"Ultima alocacao: "
                 f"{self._last_allocation_time.strftime('%d/%m/%Y %H:%M')}"

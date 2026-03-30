@@ -34,6 +34,10 @@ from backlog_manager.application.use_cases.feature import (
     ListFeaturesUseCase,
     UpdateFeatureUseCase,
 )
+from backlog_manager.application.use_cases.planning import (
+    CountAffectedStoriesUseCase,
+    ResetPlanningUseCase,
+)
 from backlog_manager.application.use_cases.scheduling import (
     CalculateDurationUseCase,
     CalculateScheduleUseCase,
@@ -64,6 +68,9 @@ if TYPE_CHECKING:
     from backlog_manager.presentation.viewmodels.excel_viewmodel import ExcelViewModel
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
+    )
+    from backlog_manager.presentation.viewmodels.reset_planning_viewmodel import (
+        ResetPlanningViewModel,
     )
     from backlog_manager.presentation.viewmodels.schedule_viewmodel import (
         ScheduleViewModel,
@@ -113,6 +120,7 @@ class DIContainer:
         self._config_dialog_viewmodel: ConfigDialogViewModel | None = None
         self._dependency_dialog_viewmodel: DependencyDialogViewModel | None = None
         self._status_bar_viewmodel: StatusBarViewModel | None = None
+        self._reset_planning_viewmodel: ResetPlanningViewModel | None = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -466,6 +474,33 @@ class DIContainer:
         """
         return CalculateStoryDatesUseCase(uow)
 
+    # Planning Use Case Factories
+    def create_reset_planning_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> ResetPlanningUseCase:
+        """Create a ResetPlanningUseCase instance.
+
+        Args:
+            uow: Unit of Work for repository access.
+
+        Returns:
+            A new ResetPlanningUseCase instance.
+        """
+        return ResetPlanningUseCase(uow)
+
+    def create_count_affected_stories_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> CountAffectedStoriesUseCase:
+        """Create a CountAffectedStoriesUseCase instance.
+
+        Args:
+            uow: Unit of Work for repository access.
+
+        Returns:
+            A new CountAffectedStoriesUseCase instance.
+        """
+        return CountAffectedStoriesUseCase(uow)
+
     # Excel Use Case Factories
     def create_import_excel_use_case(
         self,
@@ -584,3 +619,14 @@ class DIContainer:
 
             self._status_bar_viewmodel = StatusBarViewModel()
         return self._status_bar_viewmodel
+
+    @property
+    def reset_planning_viewmodel(self) -> ResetPlanningViewModel:
+        """Get the ResetPlanningViewModel instance (lazy loaded)."""
+        if self._reset_planning_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.reset_planning_viewmodel import (
+                ResetPlanningViewModel,
+            )
+
+            self._reset_planning_viewmodel = ResetPlanningViewModel(self)
+        return self._reset_planning_viewmodel
