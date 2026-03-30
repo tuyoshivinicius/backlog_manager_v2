@@ -324,9 +324,9 @@ class TestIconManager:
 class TestDesignTokens:
     """Tests for DESIGN_TOKENS dictionary."""
 
-    def test_has_58_tokens(self) -> None:
-        """DESIGN_TOKENS contains exactly 58 tokens."""
-        assert len(DESIGN_TOKENS) == 58
+    def test_has_63_tokens(self) -> None:
+        """DESIGN_TOKENS contains exactly 63 tokens (58 base + 5 selection)."""
+        assert len(DESIGN_TOKENS) == 63
 
     def test_all_values_are_strings(self) -> None:
         """All token values are strings."""

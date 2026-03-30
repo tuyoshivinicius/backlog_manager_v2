@@ -225,6 +225,28 @@ class MainWindowViewModel(QObject):
         finally:
             self._set_loading(False)
 
+    def _compute_adjacent_story_id(self, deleted_story_id: str) -> str | None:
+        """Compute the adjacent story ID to select after deletion.
+
+        Args:
+            deleted_story_id: ID of the story being deleted.
+
+        Returns:
+            Adjacent story ID, or None if table will be empty.
+        """
+        row = self._table_model.get_row_for_story(deleted_story_id)
+        if row < 0:
+            return None
+
+        total = self._table_model.rowCount()
+        if total <= 1:
+            return None
+
+        # Prefer next row; if deleting last row, use previous
+        adjacent_row = row + 1 if row < total - 1 else row - 1
+        adjacent_story = self._table_model.get_story_at(adjacent_row)
+        return adjacent_story.id if adjacent_story else None
+
     async def delete_story(self, story_id: str) -> bool:
         """Delete a story.
 
@@ -240,7 +262,7 @@ class MainWindowViewModel(QObject):
                 use_case = self._container.create_delete_story_use_case(uow)
                 await use_case.execute(story_id)
                 if self._selected_story_id == story_id:
-                    self._selected_story_id = None
+                    self._selected_story_id = self._compute_adjacent_story_id(story_id)
                 await self.load_stories()
                 logger.info("Deleted story: %s", story_id)
                 return True

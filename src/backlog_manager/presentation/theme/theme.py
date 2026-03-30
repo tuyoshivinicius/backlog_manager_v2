@@ -81,6 +81,12 @@ DESIGN_TOKENS: dict[str, str] = {
     # === Interactive States ===
     "focus-ring": "2px solid #0066CC",
     "hover-opacity": "0.9",
+    # === Selection States (WCAG AA validated) ===
+    "selection-bg": "#E6F0FA",
+    "selection-fg": "#171717",
+    "selection-border": "#0066CC",
+    "selection-hover-bg": "#D6E8F7",
+    "hover-bg": "#F5F5F5",
 }
 
 
@@ -107,6 +113,27 @@ class StatusConfig:
 # =============================================================================
 # WAVE PALETTE - Subtle row background tints per wave number
 # =============================================================================
+
+# =============================================================================
+# TABLE SELECTION QSS (T002)
+# =============================================================================
+
+TABLE_SELECTION_QSS: str = """
+QTableView::item:hover {
+    background-color: @hover-bg;
+}
+QTableView::item:selected {
+    background-color: @selection-bg;
+    color: @selection-fg;
+    border-left: 3px solid @selection-border;
+}
+QTableView::item:selected:hover {
+    background-color: @selection-hover-bg;
+    color: @selection-fg;
+    border-left: 3px solid @selection-border;
+}
+"""
+
 
 WAVE_PALETTE: list[str] = [
     "",  # index 0 = no wave (no tint, default background)

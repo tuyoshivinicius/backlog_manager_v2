@@ -58,7 +58,7 @@ class DependencyIndicatorDelegate(QStyledItemDelegate):
 
             # Draw cell background (wave tint or selection)
             if option.state & QStyle.StateFlag.State_Selected:
-                painter.fillRect(option.rect, option.palette.highlight())
+                painter.fillRect(option.rect, QColor(DESIGN_TOKENS["selection-bg"]))
             else:
                 bg = index.data(Qt.ItemDataRole.BackgroundRole)
                 if bg is not None:

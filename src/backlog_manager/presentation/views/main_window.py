@@ -33,12 +33,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from backlog_manager.application.dto.story import EditStoryInputDTO
 from backlog_manager.presentation.delegates import (
     DependencyIndicatorDelegate,
     MonospaceDelegate,
     StatusBadgeDelegate,
 )
-from backlog_manager.presentation.theme import DESIGN_TOKENS
+from backlog_manager.presentation.theme import DESIGN_TOKENS, TABLE_SELECTION_QSS
+from backlog_manager.presentation.theme.theme import apply_theme
 from backlog_manager.presentation.viewmodels.filter_proxy_model import FilterProxyModel
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
@@ -90,6 +92,7 @@ class StoryTableView(QTableView):
         self.setSortingEnabled(False)  # Sorting handled by priority
         self.setShowGrid(True)
         self.setMouseTracking(True)
+        self.setEditTriggers(QTableView.EditTrigger.SelectedClicked)
 
         # Configure header
         header = self.horizontalHeader()
@@ -264,6 +267,9 @@ class MainWindow(QMainWindow):
         self._setup_status_bar()
         self._setup_shortcuts()
         self._connect_signals()
+
+        # Initialize action states (disabled until selection)
+        self._update_move_actions_state()
 
         logger.info("MainWindow initialized")
 
@@ -471,6 +477,10 @@ class MainWindow(QMainWindow):
         # Story table (stretch para ocupar 100% da largura e altura restante)
         self._story_table = StoryTableView()
 
+        # Apply selection highlight QSS (T008)
+        selection_qss = apply_theme(TABLE_SELECTION_QSS, DESIGN_TOKENS)
+        self._story_table.setStyleSheet(selection_qss)
+
         # FilterProxyModel between source model and view (ADR-001)
         self._filter_proxy = FilterProxyModel(self)
         self._filter_proxy.setSourceModel(self._viewmodel.table_model)
@@ -659,12 +669,17 @@ class MainWindow(QMainWindow):
         self._feature_combo.blockSignals(False)
 
     def _update_move_actions_state(self) -> None:
-        """Update move up/down actions based on filter state and selection."""
+        """Update move up/down and edit/delete actions based on selection state."""
         has_filters = self._filter_proxy.has_active_filters
         has_selection = self._viewmodel.selected_story_id is not None
-        enabled = not has_filters and has_selection
-        self._action_move_up.setEnabled(enabled)
-        self._action_move_down.setEnabled(enabled)
+        move_enabled = not has_filters and has_selection
+        self._action_move_up.setEnabled(move_enabled)
+        self._action_move_down.setEnabled(move_enabled)
+
+        # Edit/Delete/Duplicate require selection
+        self._action_edit_story.setEnabled(has_selection)
+        self._action_delete_story.setEnabled(has_selection)
+        self._action_duplicate_story.setEnabled(has_selection)
 
     def _setup_status_bar(self) -> None:
         """Configura status bar com estatisticas e badge de warnings."""
@@ -718,6 +733,9 @@ class MainWindow(QMainWindow):
         self._viewmodel.story_selected.connect(self._on_viewmodel_story_selected)
         self._viewmodel.loading.connect(self._on_loading_changed)
         self._viewmodel.error_occurred.connect(self._on_error)
+        self._viewmodel.table_model.status_change_requested.connect(
+            self._on_inline_status_change
+        )
 
         # Connect allocation viewmodel signals
         allocation_vm = self._container.allocation_viewmodel
@@ -762,8 +780,37 @@ class MainWindow(QMainWindow):
         self._update_empty_state()
         self._update_chip_counts()
         self._update_feature_dropdown()
+        self._restore_selection(self._viewmodel.selected_story_id)
         self._update_move_actions_state()
         logger.debug("Stories changed, table updated")
+
+    def _restore_selection(self, story_id: str | None) -> None:
+        """Restore table selection to the given story_id after model refresh.
+
+        Args:
+            story_id: Story ID to select, or None to clear selection.
+        """
+        if story_id is None:
+            self._story_table.clearSelection()
+            return
+
+        proxy = self._filter_proxy
+        source_model = self._viewmodel.table_model
+        row = source_model.get_row_for_story(story_id)
+        if row < 0:
+            # Story not visible (filtered out or deleted)
+            self._story_table.clearSelection()
+            self._viewmodel.select_story(None)
+            return
+
+        # Map source index to proxy index
+        source_index = source_model.index(row, 0)
+        proxy_index = proxy.mapFromSource(source_index)
+        if proxy_index.isValid():
+            self._story_table.setCurrentIndex(proxy_index)
+        else:
+            self._story_table.clearSelection()
+            self._viewmodel.select_story(None)
 
     def _update_empty_state(self) -> None:
         """Toggle empty state overlay and processing buttons."""
@@ -842,6 +889,12 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(
                 0, lambda: asyncio.create_task(self._viewmodel.load_stories())
             )
+
+    @Slot(str, str)
+    def _on_inline_status_change(self, story_id: str, new_status: str) -> None:
+        """Handle inline status change from table delegate."""
+        dto = EditStoryInputDTO(story_id=story_id, status=new_status)
+        asyncio.create_task(self._viewmodel.edit_story(dto))
 
     @Slot()
     def _on_delete_story(self) -> None:

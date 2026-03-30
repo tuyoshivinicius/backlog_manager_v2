@@ -323,6 +323,78 @@ class TestStoryDialogDeveloperField:
         assert dialog._developer_container.isHidden() is True
 
 
+class TestStoryDialogStatusField:
+    """Tests for status field in StoryDialog."""
+
+    def test_story_dialog_status_field_visible_edit_mode(
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test status field is visible in edit mode."""
+        dialog = StoryDialog(container, mode="edit", story=sample_story_dto)
+        qtbot.addWidget(dialog)
+
+        assert dialog._status_container.isHidden() is False
+        assert dialog._status_combo is not None
+
+    def test_story_dialog_status_field_hidden_create_mode(
+        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test status field is hidden in create mode."""
+        dialog = StoryDialog(container, mode="create")
+        qtbot.addWidget(dialog)
+
+        assert dialog._status_container.isHidden() is True
+
+    def test_story_dialog_status_preselects_current(
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test status combo pre-selects the story's current status."""
+        dialog = StoryDialog(container, mode="edit", story=sample_story_dto)
+        qtbot.addWidget(dialog)
+
+        assert dialog._status_combo.currentData() == sample_story_dto.status
+
+    def test_story_dialog_status_combo_has_all_values(
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test status combo has all 5 status values."""
+        dialog = StoryDialog(container, mode="edit", story=sample_story_dto)
+        qtbot.addWidget(dialog)
+
+        values = [
+            dialog._status_combo.itemData(i)
+            for i in range(dialog._status_combo.count())
+        ]
+        assert values == ["BACKLOG", "EXECUCAO", "TESTES", "CONCLUIDO", "IMPEDIDO"]
+
+    def test_story_dialog_status_change_updates_viewmodel(
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Test that status combo changes update ViewModel."""
+        dialog = StoryDialog(container, mode="edit", story=sample_story_dto)
+        qtbot.addWidget(dialog)
+
+        # Select CONCLUIDO (index 3)
+        dialog._status_combo.setCurrentIndex(3)
+        assert dialog._viewmodel.status == "CONCLUIDO"
+
+
 class TestStoryDialogValidationUI:
     """Tests for validation UI in StoryDialog (US2)."""
 
