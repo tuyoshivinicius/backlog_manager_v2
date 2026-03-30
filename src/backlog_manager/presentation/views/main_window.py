@@ -13,8 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QRect, QSize, Qt, QTimer, Slot
-from PySide6.QtGui import QAction, QColor, QFont, QKeySequence, QPainter, QShortcut
+from PySide6.QtCore import QSize, Qt, QTimer, Slot
+from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -75,9 +75,6 @@ class StoryTableView(QTableView):
     and rich tooltip hover tracking.
     """
 
-    WAVE_SEPARATOR_HEIGHT = 24
-    WAVE_SEPARATOR_PADDING = 12
-
     def __init__(self, parent: QWidget | None = None) -> None:
         """Initialize the story table view.
 
@@ -89,7 +86,7 @@ class StoryTableView(QTableView):
         # Configure table behavior
         self.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTableView.SelectionMode.SingleSelection)
-        self.setAlternatingRowColors(True)
+        self.setAlternatingRowColors(False)
         self.setSortingEnabled(False)  # Sorting handled by priority
         self.setShowGrid(True)
         self.setMouseTracking(True)
@@ -101,9 +98,6 @@ class StoryTableView(QTableView):
             header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
         self.verticalHeader().setVisible(False)
-
-        # Wave separator visibility
-        self._wave_separators_visible: bool = True
 
         # Rich tooltip tracking
         self._tooltip_timer = QTimer(self)
@@ -123,81 +117,6 @@ class StoryTableView(QTableView):
         for child in self.children():
             if isinstance(child, QLabel) and child.objectName() == "empty-state-label":
                 child.setGeometry(self.viewport().geometry())
-
-    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
-        """Paint the table with wave separators between wave groups.
-
-        Args:
-            event: The paint event.
-        """
-        super().paintEvent(event)
-
-        if not self._wave_separators_visible:
-            return
-
-        model = self.model()
-        if model is None or model.rowCount() == 0:
-            return
-
-        painter = QPainter(self.viewport())
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # Onda column index = 2
-        wave_col = 2
-        prev_wave: int | None = None
-
-        for row in range(model.rowCount()):
-            index = model.index(row, wave_col)
-            wave_text = index.data(Qt.ItemDataRole.DisplayRole)
-
-            # Parse wave value
-            try:
-                wave_val = int(wave_text) if wave_text and wave_text != "\u2014" else 0
-            except (ValueError, TypeError):
-                wave_val = 0
-
-            if prev_wave is not None and wave_val != prev_wave:
-                # Draw separator band above this row
-                row_rect = self.visualRect(model.index(row, 0))
-                separator_rect = QRect(
-                    0,
-                    row_rect.y() - self.WAVE_SEPARATOR_HEIGHT,
-                    self.viewport().width(),
-                    self.WAVE_SEPARATOR_HEIGHT,
-                )
-
-                # Only paint if visible
-                if separator_rect.intersects(self.viewport().rect()):
-                    # Background
-                    bg_color = QColor(DESIGN_TOKENS["neutral-100"])
-                    painter.fillRect(separator_rect, bg_color)
-
-                    # Text
-                    label = f"Onda {wave_val}" if wave_val > 0 else "Sem Onda"
-                    font = painter.font()
-                    font.setBold(True)
-                    painter.setFont(font)
-                    painter.setPen(QColor(DESIGN_TOKENS["neutral-600"]))
-
-                    text_rect = QRect(
-                        self.WAVE_SEPARATOR_PADDING,
-                        separator_rect.y(),
-                        separator_rect.width() - self.WAVE_SEPARATOR_PADDING,
-                        separator_rect.height(),
-                    )
-                    painter.drawText(
-                        text_rect,
-                        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                        label,
-                    )
-
-                    # Reset font
-                    font.setBold(False)
-                    painter.setFont(font)
-
-            prev_wave = wave_val
-
-        painter.end()
 
     def mouseMoveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         """Track hovered row for rich tooltip.

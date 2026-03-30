@@ -52,7 +52,7 @@ class EditStoryInputDTO(BaseModel):
         """Valida status valido."""
         if v is None:
             return v
-        allowed = ("BACKLOG", "IN_PROGRESS", "DONE", "BLOCKED")
+        allowed = ("BACKLOG", "EXECUCAO", "TESTES", "CONCLUIDO", "IMPEDIDO")
         if v.upper() not in allowed:
             raise ValueError(f"Status deve ser um de {allowed}")
         return v.upper()

@@ -16,7 +16,10 @@ from backlog_manager.application.dto.story import (
     EditStoryInputDTO,
     StoryOutputDTO,
 )
-from backlog_manager.domain.exceptions import BacklogManagerException
+from backlog_manager.domain.exceptions import (
+    BacklogManagerException,
+    IncompleteDependencyException,
+)
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 
 if TYPE_CHECKING:
@@ -203,6 +206,19 @@ class MainWindowViewModel(QObject):
                 await self.load_stories()
                 logger.info("Edited story: %s", story.id)
                 return story
+        except IncompleteDependencyException as e:
+            deps_lines = "\n".join(
+                f"  - {dep_id} ({dep_name}) — Status: {dep_status}"
+                for dep_id, dep_name, dep_status in e.incomplete_dependencies
+            )
+            message = (
+                f"Nao e possivel concluir a historia {e.story_id}.\n\n"
+                f"As seguintes dependencias ainda nao foram concluidas:\n"
+                f"{deps_lines}"
+            )
+            logger.warning("Conclusao bloqueada para %s: %s", e.story_id, e)
+            self.error_occurred.emit(message)
+            return None
         except Exception as e:
             self._handle_error(e, "editar historia")
             return None

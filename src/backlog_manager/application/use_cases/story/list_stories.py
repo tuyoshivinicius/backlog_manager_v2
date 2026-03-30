@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import heapq
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from backlog_manager.application.dto.story.story_output_dto import StoryOutputDTO
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class ListStoriesUseCase:
-    """Use case para listar historias ordenadas por prioridade."""
+    """Use case para listar historias ordenadas por onda, dependencias e prioridade."""
 
     def __init__(self, uow: UnitOfWork) -> None:
         """Inicializa use case.
@@ -59,15 +61,78 @@ class ListStoriesUseCase:
 
             result.append(dto)
 
-        return result
+        return self._sort_dtos(result)
+
+    @staticmethod
+    def _sort_dtos(dtos: list[StoryOutputDTO]) -> list[StoryOutputDTO]:
+        """Ordena DTOs por onda ASC, ordem topologica por dependencias, prioridade como desempate.
+
+        Args:
+            dtos: Lista de DTOs enriquecidos.
+
+        Returns:
+            Lista de DTOs ordenados por onda, dependencias e prioridade.
+        """
+        if not dtos:
+            return []
+
+        # Agrupar por onda
+        by_wave: dict[int, list[StoryOutputDTO]] = defaultdict(list)
+        for dto in dtos:
+            by_wave[dto.wave].append(dto)
+
+        sorted_result: list[StoryOutputDTO] = []
+
+        for wave in sorted(by_wave.keys()):
+            group = by_wave[wave]
+            group_ids = {d.id for d in group}
+            dto_map = {d.id: d for d in group}
+
+            # Calcular in-degree considerando apenas dependencias dentro do grupo
+            in_degree: dict[str, int] = {d.id: 0 for d in group}
+            # Mapa reverso: dependency_id -> lista de dependentes
+            dependents: dict[str, list[str]] = defaultdict(list)
+
+            for d in group:
+                for dep_id in d.dependency_ids:
+                    if dep_id in group_ids:
+                        in_degree[d.id] += 1
+                        dependents[dep_id].append(d.id)
+
+            # Min-heap com (prioridade, id) para desempate
+            heap: list[tuple[int, str]] = [
+                (dto_map[sid].priority, sid) for sid in in_degree if in_degree[sid] == 0
+            ]
+            heapq.heapify(heap)
+
+            wave_sorted: list[StoryOutputDTO] = []
+
+            while heap:
+                _, sid = heapq.heappop(heap)
+                wave_sorted.append(dto_map[sid])
+
+                for dependent_id in dependents.get(sid, []):
+                    in_degree[dependent_id] -= 1
+                    if in_degree[dependent_id] == 0:
+                        heapq.heappush(
+                            heap, (dto_map[dependent_id].priority, dependent_id)
+                        )
+
+            if len(wave_sorted) != len(group):
+                # Ciclo detectado — fallback para ordenacao por prioridade
+                wave_sorted = sorted(group, key=lambda d: (d.priority, d.id))
+
+            sorted_result.extend(wave_sorted)
+
+        return sorted_result
 
     async def execute(self) -> Sequence[StoryOutputDTO]:
-        """Lista todas as historias ordenadas por prioridade.
+        """Lista todas as historias ordenadas por onda, dependencias e prioridade.
 
         Enriquece DTOs com developer_name, feature_name, wave e dependency_ids.
 
         Returns:
-            Lista de DTOs de historias ordenadas por prioridade.
+            Lista de DTOs de historias ordenadas por onda, dependencias e prioridade.
         """
         stories = await self._uow.stories.get_all()
         return await self._enrich_dtos(stories)

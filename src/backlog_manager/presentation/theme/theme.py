@@ -104,6 +104,23 @@ class StatusConfig:
     foreground: str
 
 
+# =============================================================================
+# WAVE PALETTE - Subtle row background tints per wave number
+# =============================================================================
+
+WAVE_PALETTE: list[str] = [
+    "",  # index 0 = no wave (no tint, default background)
+    "#EFF6FF",  # wave 1 - light blue
+    "#FFF7ED",  # wave 2 - light orange
+    "#F0FDF4",  # wave 3 - light green
+    "#FDF4FF",  # wave 4 - light purple
+    "#FFFBEB",  # wave 5 - light yellow
+    "#F0FDFA",  # wave 6 - light teal
+    "#FFF1F2",  # wave 7 - light rose
+    "#EEF2FF",  # wave 8 - light indigo
+]
+
+
 STATUS_PALETTE: dict[str, StatusConfig] = {
     "BACKLOG": StatusConfig(
         symbol="●",

@@ -90,3 +90,35 @@ class InvalidWaveDependencyException(DependencyException):
             f"{depends_on_id} (wave {depends_on_wave}): dependencia de wave posterior"
         )
         super().__init__(message or default_message)
+
+
+class IncompleteDependencyException(DependencyException):
+    """Dependencias incompletas impedem conclusao da historia.
+
+    Lancada quando uma historia tenta ser marcada como CONCLUIDO
+    mas possui dependencias diretas que ainda nao estao concluidas.
+
+    Attributes:
+        story_id: ID da historia que tentou ser concluida.
+        incomplete_dependencies: Lista de tuplas (id, name, status)
+            das dependencias incompletas.
+    """
+
+    def __init__(
+        self,
+        story_id: str,
+        incomplete_dependencies: list[tuple[str, str, str]],
+        message: str | None = None,
+    ) -> None:
+        """Initialize with story ID and its incomplete dependencies."""
+        self.story_id = story_id
+        self.incomplete_dependencies = incomplete_dependencies
+        deps_str = ", ".join(
+            f"{dep_id} ({dep_name}: {dep_status})"
+            for dep_id, dep_name, dep_status in incomplete_dependencies
+        )
+        default_message = (
+            f"Historia {story_id} nao pode ser concluida. "
+            f"Dependencias incompletas: {deps_str}"
+        )
+        super().__init__(message or default_message)

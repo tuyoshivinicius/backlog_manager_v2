@@ -1,45 +1,102 @@
-"""E2E tests for wave separator painting in StoryTableView.
+"""E2E tests for wave background tinting in StoryTableView.
 
-Tests verify wave separator visibility toggle and painting behavior.
+Tests verify wave palette definition and background role behavior.
 """
 
 from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 
-from backlog_manager.presentation.theme import DESIGN_TOKENS
-from backlog_manager.presentation.views.main_window import MainWindow, StoryTableView
+from backlog_manager.presentation.theme import WAVE_PALETTE
+from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
+from backlog_manager.presentation.views.main_window import MainWindow
 
 pytestmark = [pytest.mark.e2e]
 
 
-class TestWaveSeparators:
-    """Tests for wave separator painting in the story table."""
+class TestWavePalette:
+    """Tests for WAVE_PALETTE definition."""
 
-    def test_wave_separators_visible_by_default(self, e2e_main_window: MainWindow):
-        """Wave separators are enabled by default."""
-        table = e2e_main_window._story_table
-        assert table._wave_separators_visible is True
+    def test_wave_palette_has_sufficient_colors(self):
+        """WAVE_PALETTE has at least 9 entries (index 0 + 8 waves)."""
+        assert len(WAVE_PALETTE) >= 9
 
-    def test_wave_separators_can_be_toggled_off(self, e2e_main_window: MainWindow):
-        """Wave separators can be disabled."""
-        table = e2e_main_window._story_table
-        table._wave_separators_visible = False
-        assert table._wave_separators_visible is False
+    def test_wave_palette_index_zero_is_empty(self):
+        """WAVE_PALETTE[0] is empty string (no tint for unassigned waves)."""
+        assert WAVE_PALETTE[0] == ""
 
-    def test_separator_constants(self):
-        """StoryTableView has expected separator constants."""
-        assert StoryTableView.WAVE_SEPARATOR_HEIGHT > 0
-        assert StoryTableView.WAVE_SEPARATOR_PADDING > 0
+    def test_wave_palette_colors_are_valid_hex(self):
+        """All non-empty WAVE_PALETTE entries are valid hex colors."""
+        for i, color in enumerate(WAVE_PALETTE):
+            if i == 0:
+                continue
+            assert color.startswith("#"), f"WAVE_PALETTE[{i}] should be hex: {color}"
+            assert len(color) == 7, f"WAVE_PALETTE[{i}] should be #RRGGBB: {color}"
 
-    def test_separator_colors_use_design_tokens(self):
-        """Wave separator colors reference DESIGN_TOKENS."""
-        # Verify the tokens exist and are valid hex colors
-        bg = DESIGN_TOKENS["neutral-100"]
-        fg = DESIGN_TOKENS["neutral-600"]
-        assert bg.startswith("#")
-        assert fg.startswith("#")
+
+class TestWaveBackground:
+    """Tests for wave background role in StoryTableModel."""
+
+    def test_wave_background_returns_color_for_wave_stories(
+        self, e2e_main_window: MainWindow
+    ):
+        """BackgroundRole returns QColor for stories with wave > 0."""
+        model = e2e_main_window._viewmodel._table_model
+        # Find a story with wave > 0
+        for row in range(model.rowCount()):
+            story = model.get_story_at(row)
+            if story and story.wave > 0:
+                index = model.index(row, 0)
+                bg = model.data(index, Qt.ItemDataRole.BackgroundRole)
+                assert isinstance(
+                    bg, QColor
+                ), f"Row {row} with wave={story.wave} should return QColor"
+                assert bg.isValid()
+                return
+        pytest.skip("No stories with wave > 0 in test data")
+
+    def test_wave_background_returns_none_for_no_wave(
+        self, e2e_main_window: MainWindow
+    ):
+        """BackgroundRole returns None for stories with wave == 0."""
+        model = e2e_main_window._viewmodel._table_model
+        # Find a story with wave == 0
+        for row in range(model.rowCount()):
+            story = model.get_story_at(row)
+            if story and story.wave == 0:
+                index = model.index(row, 0)
+                bg = model.data(index, Qt.ItemDataRole.BackgroundRole)
+                assert bg is None, f"Row {row} with wave=0 should return None, got {bg}"
+                return
+        pytest.skip("No stories with wave == 0 in test data")
+
+    def test_wave_background_consistent_across_columns(
+        self, e2e_main_window: MainWindow
+    ):
+        """BackgroundRole returns same color for all columns of a row."""
+        model = e2e_main_window._viewmodel._table_model
+        for row in range(model.rowCount()):
+            story = model.get_story_at(row)
+            if story and story.wave > 0:
+                colors = []
+                for col in range(model.columnCount()):
+                    index = model.index(row, col)
+                    bg = model.data(index, Qt.ItemDataRole.BackgroundRole)
+                    colors.append(bg)
+                # All columns should have the same color
+                first = colors[0]
+                for col_idx, c in enumerate(colors):
+                    assert (
+                        c == first
+                    ), f"Column {col_idx} has different wave bg than column 0"
+                return
+        pytest.skip("No stories with wave > 0 in test data")
+
+
+class TestTooltipTracking:
+    """Tests for tooltip timer and tracking state."""
 
     def test_table_view_has_tooltip_tracking(self, e2e_main_window: MainWindow):
         """StoryTableView has tooltip timer and tracking state."""
@@ -52,6 +109,5 @@ class TestWaveSeparators:
     def test_rich_tooltip_cleanup_on_leave(self, e2e_main_window: MainWindow):
         """Tooltip is cleaned up when mouse leaves the table."""
         table = e2e_main_window._story_table
-        # Simulate leave event cleanup
         table._hide_rich_tooltip()
         assert table._tooltip_widget is None
