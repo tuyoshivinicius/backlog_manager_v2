@@ -1,15 +1,17 @@
 """Progress Dialog View.
 
-This module provides a modal QDialog for showing operation progress.
+This module provides a modal QDialog for showing operation progress,
+with optional cancellation support for long-running operations.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QLabel, QProgressBar, QVBoxLayout
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtWidgets import QDialog, QLabel, QProgressBar, QPushButton, QVBoxLayout
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget
@@ -21,7 +23,10 @@ class ProgressDialog(QDialog):
     """Modal dialog showing progress of long-running operations.
 
     Supports both determinate (0-100%) and indeterminate (animation) modes.
+    Optionally shows a Cancel button after 2 seconds for cancellable operations.
     """
+
+    cancelled = Signal()
 
     def __init__(
         self,
@@ -55,6 +60,21 @@ class ProgressDialog(QDialog):
         self._progress_bar.setObjectName("progress-bar")
         layout.addWidget(self._progress_bar)
 
+        # Cancel button (hidden initially, shown after 2s for cancellable tasks)
+        self._cancel_button = QPushButton("Cancelar")
+        self._cancel_button.setObjectName("cancel-button")
+        self._cancel_button.setVisible(False)
+        self._cancel_button.clicked.connect(self._on_cancel)
+        layout.addWidget(self._cancel_button)
+
+        self._task: asyncio.Task[Any] | None = None
+
+        # Timer to show cancel button after 2s
+        self._cancel_timer = QTimer(self)
+        self._cancel_timer.setSingleShot(True)
+        self._cancel_timer.setInterval(2000)
+        self._cancel_timer.timeout.connect(self._show_cancel_button)
+
         if indeterminate:
             self._progress_bar.setRange(0, 0)
         else:
@@ -62,6 +82,35 @@ class ProgressDialog(QDialog):
             self._progress_bar.setValue(0)
 
         logger.debug("ProgressDialog initialized")
+
+    def set_cancellable_task(self, task: asyncio.Task[Any]) -> None:
+        """Set the asyncio task that can be cancelled.
+
+        The cancel button will appear after 2 seconds.
+
+        Args:
+            task: The asyncio task to cancel on button click.
+        """
+        self._task = task
+        self._cancel_timer.start()
+
+    def _show_cancel_button(self) -> None:
+        """Show the cancel button after the timer expires."""
+        self._cancel_button.setVisible(True)
+
+    def _on_cancel(self) -> None:
+        """Handle cancel button click."""
+        if self._task is not None:
+            self._task.cancel()
+            logger.info("Task cancellation requested")
+        self.cancelled.emit()
+        self._cancel_button.setEnabled(False)
+        self._cancel_button.setText("Cancelando...")
+
+    def close(self) -> bool:
+        """Clean up timer on close."""
+        self._cancel_timer.stop()
+        return super().close()
 
     def update_progress(self, value: int, message: str | None = None) -> None:
         """Update progress bar and optional message.

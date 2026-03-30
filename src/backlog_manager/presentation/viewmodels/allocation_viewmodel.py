@@ -6,6 +6,7 @@ and tracking allocation metrics and warnings.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date
 from typing import TYPE_CHECKING
@@ -41,6 +42,7 @@ class AllocationViewModel(QObject):
     allocation_started = Signal()
     allocation_completed = Signal(object)  # AllocationMetricsDTO
     allocation_error = Signal(str)
+    allocation_cancelled = Signal()
     warnings_updated = Signal(list)
 
     def __init__(self, container: DIContainer) -> None:
@@ -150,6 +152,10 @@ class AllocationViewModel(QObject):
 
             return result
 
+        except asyncio.CancelledError:
+            logger.info("Allocation cancelled by user")
+            self.allocation_cancelled.emit()
+            return None
         except BacklogManagerException as e:
             error_msg = str(e)
             logger.warning("Allocation failed: %s", error_msg)

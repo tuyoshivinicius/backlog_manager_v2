@@ -9,7 +9,7 @@ import logging
 from datetime import date
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QSettings, Signal
 
 if TYPE_CHECKING:
     from backlog_manager.presentation.container import DIContainer
@@ -45,6 +45,7 @@ class ConfigDialogViewModel(QObject):
         self._start_date: date = date.today()
         self._max_idle_days: int = 3
 
+        self._load_from_qsettings()
         logger.debug("ConfigDialogViewModel initialized")
 
     @property
@@ -89,6 +90,66 @@ class ConfigDialogViewModel(QObject):
             return False, "Dias ociosos deve estar entre 2 e 30."
         return True, ""
 
+    def _get_qsettings(self) -> QSettings:
+        """Get QSettings instance for allocation preferences."""
+        return QSettings(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            "BacklogManager",
+            "Backlog Manager",
+        )
+
+    def _load_from_qsettings(self) -> None:
+        """Load values from QSettings with validation and defaults."""
+        settings = self._get_qsettings()
+        settings.beginGroup("allocation")
+
+        # Velocity
+        try:
+            val = settings.value("velocity")
+            if val is not None:
+                velocity = float(val)
+                if 0.1 <= velocity <= 10.0:
+                    self._velocity = velocity
+        except (ValueError, TypeError):
+            pass
+
+        # Start date
+        try:
+            val = settings.value("start_date")
+            if val is not None:
+                self._start_date = date.fromisoformat(str(val))
+        except (ValueError, TypeError):
+            pass
+
+        # Max idle days
+        try:
+            val = settings.value("max_idle_days")
+            if val is not None:
+                max_idle = int(val)
+                if 2 <= max_idle <= 30:
+                    self._max_idle_days = max_idle
+        except (ValueError, TypeError):
+            pass
+
+        settings.endGroup()
+        logger.debug(
+            "Config loaded from QSettings: velocity=%.1f, start=%s, max_idle=%d",
+            self._velocity,
+            self._start_date,
+            self._max_idle_days,
+        )
+
+    def _save_to_qsettings(self) -> None:
+        """Persist current values to QSettings."""
+        settings = self._get_qsettings()
+        settings.beginGroup("allocation")
+        settings.setValue("velocity", self._velocity)
+        settings.setValue("start_date", self._start_date.isoformat())
+        settings.setValue("max_idle_days", self._max_idle_days)
+        settings.endGroup()
+        settings.sync()
+
     def save(self) -> None:
         """Salva os valores atuais (emite signal saved).
 
@@ -99,6 +160,7 @@ class ConfigDialogViewModel(QObject):
             self.error_occurred.emit(error)
             return
 
+        self._save_to_qsettings()
         self.saved.emit()
         logger.info(
             "Config saved: velocity=%.1f, start=%s, max_idle=%d",
