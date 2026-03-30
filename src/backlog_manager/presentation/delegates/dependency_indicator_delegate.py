@@ -8,15 +8,16 @@ from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget
 
+from backlog_manager.presentation.theme import DESIGN_TOKENS
 from backlog_manager.presentation.viewmodels.story_table_model import (
     BLOCKING_STATE_ROLE,
     DEPENDENCY_IDS_ROLE,
     BlockingState,
 )
 
-# Colors per Contract 2
-COLOR_BLOCKED = QColor("#DC3545")
-COLOR_FREE = QColor("#28A745")
+# Colors per Contract 2 — using design system tokens
+COLOR_BLOCKED = QColor(DESIGN_TOKENS["error-fg"])
+COLOR_FREE = QColor(DESIGN_TOKENS["success-fg"])
 CIRCLE_SIZE = 8
 CIRCLE_MARGIN = 6
 

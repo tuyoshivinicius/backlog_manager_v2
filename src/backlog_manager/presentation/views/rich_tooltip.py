@@ -6,7 +6,7 @@ Displays a mini-card popup with complete story details after 300ms hover.
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from backlog_manager.presentation.theme import STATUS_PALETTE
+from backlog_manager.presentation.theme import DESIGN_TOKENS, STATUS_PALETTE
 
 
 class RichTooltipWidget(QWidget):
@@ -40,8 +40,9 @@ class RichTooltipWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setMaximumWidth(self.MAX_WIDTH)
         self.setStyleSheet(
-            "QWidget { background: #FFFFFF; border: 1px solid #D0D0D0; "
-            "border-radius: 6px; padding: 8px; }"
+            f"QWidget {{ background: {DESIGN_TOKENS['background']}; "
+            f"border: 1px solid {DESIGN_TOKENS['neutral-300']}; "
+            f"border-radius: 6px; padding: 8px; }}"
         )
 
         self._build_layout(data)
@@ -84,14 +85,15 @@ class RichTooltipWidget(QWidget):
         # Row 2: Nome
         name_label = QLabel(data.get("Nome", "\u2014"))
         name_label.setWordWrap(True)
-        name_label.setStyleSheet("color: #333333; border: none;")
+        name_label.setStyleSheet(f"color: {DESIGN_TOKENS['text']}; border: none;")
         layout.addWidget(name_label)
 
         # Separator
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setStyleSheet(
-            "color: #E0E0E0; border: none; border-top: 1px solid #E0E0E0;"
+            f"color: {DESIGN_TOKENS['neutral-200']}; border: none; "
+            f"border-top: 1px solid {DESIGN_TOKENS['neutral-200']};"
         )
         layout.addWidget(line)
 
@@ -110,9 +112,13 @@ class RichTooltipWidget(QWidget):
 
         for row, (label_text, value) in enumerate(fields):
             lbl = QLabel(f"{label_text}:")
-            lbl.setStyleSheet("color: #888888; font-size: 9pt; border: none;")
+            lbl.setStyleSheet(
+                f"color: {DESIGN_TOKENS['text-muted']}; font-size: 9pt; border: none;"
+            )
             val = QLabel(value)
-            val.setStyleSheet("color: #333333; font-size: 9pt; border: none;")
+            val.setStyleSheet(
+                f"color: {DESIGN_TOKENS['text']}; font-size: 9pt; border: none;"
+            )
             val.setWordWrap(True)
             grid.addWidget(lbl, row, 0, Qt.AlignmentFlag.AlignTop)
             grid.addWidget(val, row, 1, Qt.AlignmentFlag.AlignTop)

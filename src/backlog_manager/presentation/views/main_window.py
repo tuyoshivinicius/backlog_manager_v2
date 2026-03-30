@@ -38,6 +38,7 @@ from backlog_manager.presentation.delegates import (
     MonospaceDelegate,
     StatusBadgeDelegate,
 )
+from backlog_manager.presentation.theme import DESIGN_TOKENS
 from backlog_manager.presentation.viewmodels.filter_proxy_model import FilterProxyModel
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
@@ -165,7 +166,7 @@ class StoryTableView(QTableView):
                 # Only paint if visible
                 if separator_rect.intersects(self.viewport().rect()):
                     # Background
-                    bg_color = QColor("#F0F0F0")
+                    bg_color = QColor(DESIGN_TOKENS["neutral-100"])
                     painter.fillRect(separator_rect, bg_color)
 
                     # Text
@@ -173,7 +174,7 @@ class StoryTableView(QTableView):
                     font = painter.font()
                     font.setBold(True)
                     painter.setFont(font)
-                    painter.setPen(QColor("#525252"))
+                    painter.setPen(QColor(DESIGN_TOKENS["neutral-600"]))
 
                     text_rect = QRect(
                         self.WAVE_SEPARATOR_PADDING,

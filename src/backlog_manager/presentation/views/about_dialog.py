@@ -14,6 +14,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QDialog, QLabel, QVBoxLayout
 
+from backlog_manager.presentation.theme import DESIGN_TOKENS
+
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget
 
@@ -78,7 +80,7 @@ class AboutDialog(QDialog):
         db_label = QLabel(f"Banco de dados:\n{db_path}")
         db_label.setWordWrap(True)
         db_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        db_label.setStyleSheet("color: #666666; font-size: 9pt;")
+        db_label.setStyleSheet(f"color: {DESIGN_TOKENS['text-muted']}; font-size: 9pt;")
         layout.addWidget(db_label)
 
         layout.addStretch()
