@@ -9,18 +9,18 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QDate, Slot
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (
-    QDateEdit,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QLabel,
     QSpinBox,
     QVBoxLayout,
     QWidget,
 )
+
+from backlog_manager.presentation.views.date_picker import DatePicker
 
 if TYPE_CHECKING:
     from backlog_manager.presentation.container import DIContainer
@@ -66,19 +66,29 @@ class ConfigDialog(QDialog):
         # Form layout
         form = QFormLayout()
 
-        # Velocity
-        self._velocity_spin = QDoubleSpinBox()
-        self._velocity_spin.setMinimum(0.1)
-        self._velocity_spin.setMaximum(10.0)
-        self._velocity_spin.setSingleStep(0.1)
-        self._velocity_spin.setDecimals(1)
-        self._velocity_spin.setSuffix(" SP/dia")
-        self._velocity_spin.setToolTip("Story Points por dia de trabalho")
-        form.addRow("Velocidade:", self._velocity_spin)
+        # SP per Sprint
+        self._sp_per_sprint_spin = QSpinBox()
+        self._sp_per_sprint_spin.setMinimum(1)
+        self._sp_per_sprint_spin.setMaximum(100)
+        self._sp_per_sprint_spin.setSuffix(" SP/Sprint")
+        self._sp_per_sprint_spin.setToolTip("Story Points por sprint")
+        form.addRow("Velocidade (SP/Sprint):", self._sp_per_sprint_spin)
+
+        # Workdays per Sprint
+        self._workdays_per_sprint_spin = QSpinBox()
+        self._workdays_per_sprint_spin.setMinimum(1)
+        self._workdays_per_sprint_spin.setMaximum(30)
+        self._workdays_per_sprint_spin.setSuffix(" dias")
+        self._workdays_per_sprint_spin.setToolTip("Dias uteis por sprint")
+        form.addRow("Dias Uteis por Sprint:", self._workdays_per_sprint_spin)
+
+        # Derived velocity label
+        self._velocity_label = QLabel("= 2.0 SP/dia")
+        self._velocity_label.setStyleSheet("color: gray;")
+        form.addRow("", self._velocity_label)
 
         # Start date
-        self._start_date_edit = QDateEdit()
-        self._start_date_edit.setCalendarPopup(True)
+        self._start_date_edit = DatePicker()
         self._start_date_edit.setToolTip("Data de inicio do projeto")
         form.addRow("Data Inicio:", self._start_date_edit)
 
@@ -112,32 +122,36 @@ class ConfigDialog(QDialog):
 
     def _load_values(self) -> None:
         """Carrega valores do ViewModel para os widgets."""
-        self._velocity_spin.setValue(self._viewmodel.velocity)
-        self._start_date_edit.setDate(
-            QDate(
-                self._viewmodel.start_date.year,
-                self._viewmodel.start_date.month,
-                self._viewmodel.start_date.day,
-            )
-        )
+        self._sp_per_sprint_spin.setValue(self._viewmodel.sp_per_sprint)
+        self._workdays_per_sprint_spin.setValue(self._viewmodel.workdays_per_sprint)
+        self._update_velocity_label()
+        self._start_date_edit.set_date(self._viewmodel.start_date)
         self._max_idle_spin.setValue(self._viewmodel.max_idle_days)
 
     def _connect_signals(self) -> None:
         """Conecta signals."""
+        self._sp_per_sprint_spin.valueChanged.connect(self._update_velocity_label)
+        self._workdays_per_sprint_spin.valueChanged.connect(self._update_velocity_label)
         self._button_box.accepted.connect(self._on_apply)
         self._button_box.rejected.connect(self.reject)
         self._viewmodel.saved.connect(self._on_saved)
         self._viewmodel.error_occurred.connect(self._on_error)
 
     @Slot()
+    def _update_velocity_label(self) -> None:
+        """Recalcula e atualiza label derivada de velocidade."""
+        sp = self._sp_per_sprint_spin.value()
+        wd = self._workdays_per_sprint_spin.value()
+        velocity = sp / wd if wd > 0 else 0
+        self._velocity_label.setText(f"= {velocity:.1f} SP/dia")
+
+    @Slot()
     def _on_apply(self) -> None:
         """Handle apply button click."""
         # Transfer values to viewmodel
-        self._viewmodel.velocity = self._velocity_spin.value()
-        qdate = self._start_date_edit.date()
-        from datetime import date
-
-        self._viewmodel.start_date = date(qdate.year(), qdate.month(), qdate.day())
+        self._viewmodel.sp_per_sprint = self._sp_per_sprint_spin.value()
+        self._viewmodel.workdays_per_sprint = self._workdays_per_sprint_spin.value()
+        self._viewmodel.start_date = self._start_date_edit.get_date()
         self._viewmodel.max_idle_days = self._max_idle_spin.value()
 
         # Validate and save

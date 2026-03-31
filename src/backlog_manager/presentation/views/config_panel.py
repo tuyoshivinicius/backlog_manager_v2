@@ -9,10 +9,7 @@ import logging
 from datetime import date
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QDate, Slot
 from PySide6.QtWidgets import (
-    QDateEdit,
-    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QLabel,
@@ -20,6 +17,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from backlog_manager.presentation.views.date_picker import DatePicker
 
 if TYPE_CHECKING:
     pass
@@ -55,21 +54,34 @@ class ConfigPanel(QWidget):
         config_group = QGroupBox("Configuracao de Alocacao")
         form_layout = QFormLayout(config_group)
 
-        # Velocity input
-        self._velocity_spinbox = QDoubleSpinBox()
-        self._velocity_spinbox.setMinimum(0.1)
-        self._velocity_spinbox.setMaximum(10.0)
-        self._velocity_spinbox.setValue(2.0)
-        self._velocity_spinbox.setSingleStep(0.1)
-        self._velocity_spinbox.setDecimals(1)
-        self._velocity_spinbox.setSuffix(" SP/dia")
-        self._velocity_spinbox.setToolTip("Story Points por dia de trabalho")
-        form_layout.addRow("Velocidade:", self._velocity_spinbox)
+        # SP per Sprint input
+        self._sp_per_sprint_spin = QSpinBox()
+        self._sp_per_sprint_spin.setMinimum(1)
+        self._sp_per_sprint_spin.setMaximum(100)
+        self._sp_per_sprint_spin.setValue(20)
+        self._sp_per_sprint_spin.setSuffix(" SP/Sprint")
+        self._sp_per_sprint_spin.setToolTip("Story Points por sprint")
+        form_layout.addRow("Velocidade (SP/Sprint):", self._sp_per_sprint_spin)
+
+        # Workdays per Sprint input
+        self._workdays_per_sprint_spin = QSpinBox()
+        self._workdays_per_sprint_spin.setMinimum(1)
+        self._workdays_per_sprint_spin.setMaximum(30)
+        self._workdays_per_sprint_spin.setValue(10)
+        self._workdays_per_sprint_spin.setSuffix(" dias")
+        self._workdays_per_sprint_spin.setToolTip("Dias uteis por sprint")
+        form_layout.addRow("Dias Uteis por Sprint:", self._workdays_per_sprint_spin)
+
+        # Derived velocity label
+        self._velocity_label = QLabel("= 2.0 SP/dia")
+        self._velocity_label.setStyleSheet("color: gray;")
+        form_layout.addRow("", self._velocity_label)
+
+        self._sp_per_sprint_spin.valueChanged.connect(self._update_velocity_label)
+        self._workdays_per_sprint_spin.valueChanged.connect(self._update_velocity_label)
 
         # Start date input
-        self._start_date_edit = QDateEdit()
-        self._start_date_edit.setCalendarPopup(True)
-        self._start_date_edit.setDate(QDate.currentDate())
+        self._start_date_edit = DatePicker()
         self._start_date_edit.setToolTip("Data de inicio do projeto")
         form_layout.addRow("Data Inicio:", self._start_date_edit)
 
@@ -85,42 +97,52 @@ class ConfigPanel(QWidget):
         layout.addWidget(config_group)
         layout.addStretch()
 
+    def _update_velocity_label(self) -> None:
+        """Recalcula e atualiza label derivada de velocidade."""
+        sp = self._sp_per_sprint_spin.value()
+        wd = self._workdays_per_sprint_spin.value()
+        velocity = sp / wd if wd > 0 else 0
+        self._velocity_label.setText(f"= {velocity:.1f} SP/dia")
+
     @property
     def velocity(self) -> float:
-        """Get the configured velocity.
-
-        Returns:
-            Velocity in story points per day.
-        """
-        return self._velocity_spinbox.value()
+        """Velocidade derivada em SP/dia (retrocompatibilidade)."""
+        return self._sp_per_sprint_spin.value() / self._workdays_per_sprint_spin.value()
 
     @velocity.setter
     def velocity(self, value: float) -> None:
-        """Set the velocity value.
+        """Set velocity via sp_per_sprint assuming current workdays."""
+        self._sp_per_sprint_spin.setValue(
+            int(value * self._workdays_per_sprint_spin.value())
+        )
 
-        Args:
-            value: Velocity in story points per day.
-        """
-        self._velocity_spinbox.setValue(value)
+    @property
+    def sp_per_sprint(self) -> int:
+        """Get the configured story points per sprint."""
+        return self._sp_per_sprint_spin.value()
+
+    @sp_per_sprint.setter
+    def sp_per_sprint(self, value: int) -> None:
+        self._sp_per_sprint_spin.setValue(value)
+
+    @property
+    def workdays_per_sprint(self) -> int:
+        """Get the configured workdays per sprint."""
+        return self._workdays_per_sprint_spin.value()
+
+    @workdays_per_sprint.setter
+    def workdays_per_sprint(self, value: int) -> None:
+        self._workdays_per_sprint_spin.setValue(value)
 
     @property
     def start_date(self) -> date:
-        """Get the configured start date.
-
-        Returns:
-            Project start date.
-        """
-        qdate = self._start_date_edit.date()
-        return date(qdate.year(), qdate.month(), qdate.day())
+        """Get the configured start date."""
+        return self._start_date_edit.get_date()
 
     @start_date.setter
     def start_date(self, value: date) -> None:
-        """Set the start date value.
-
-        Args:
-            value: Project start date.
-        """
-        self._start_date_edit.setDate(QDate(value.year, value.month, value.day))
+        """Set the start date value."""
+        self._start_date_edit.set_date(value)
 
     @property
     def max_idle_days(self) -> int:

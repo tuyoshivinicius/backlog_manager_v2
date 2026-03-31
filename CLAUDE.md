@@ -15,6 +15,8 @@
 - QSettings (INI format) — sem alterações SQLite (027-column-resize)
 - Python 3.11+ (PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0) + PySide6 (QDialog, QTreeWidget, QDateEdit), Pydantic (DTOs), aiosqlite (repositorios) (028-manual-allocation)
 - SQLite (sem alteracao de schema — usa colunas existentes developer_id, start_date, end_date) (028-manual-allocation)
+- Python 3.11+ (PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0) + PySide6 (QDialog, QSpinBox, QDateEdit, QCalendarWidget), QSettings (INI format) (029-velocity-sprint-datepicker)
+- QSettings (INI format) para preferencias de UI; sem alteracoes SQLite (029-velocity-sprint-datepicker)
 - Python 3.11+ + Poetry (build), twine (upload), existing project deps unchanged (030-pypi-publish-setup)
 - N/A — no database changes (030-pypi-publish-setup)
 

@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+import pytest
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QDialogButtonBox
 
 from backlog_manager.presentation.container import DIContainer
 from backlog_manager.presentation.views.config_dialog import ConfigDialog
+
+
+@pytest.fixture(autouse=True)
+def clear_qsettings():
+    """Clear allocation QSettings before each test."""
+    settings = QSettings(
+        QSettings.Format.IniFormat,
+        QSettings.Scope.UserScope,
+        "BacklogManager",
+        "Backlog Manager",
+    )
+    settings.remove("allocation")
+    yield
 
 
 class TestConfigDialogDisplay:
@@ -44,14 +58,15 @@ class TestConfigDialogDisplay:
 class TestConfigDialogValues:
     """Tests for ConfigDialog value handling."""
 
-    def test_default_velocity(
+    def test_default_sp_per_sprint(
         self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
     ) -> None:
-        """Test default velocity value."""
+        """Test default SP/Sprint and workdays values."""
         dialog = ConfigDialog(container)
         qtbot.addWidget(dialog)
 
-        assert dialog._velocity_spin.value() == 2.0
+        assert dialog._sp_per_sprint_spin.value() == 20
+        assert dialog._workdays_per_sprint_spin.value() == 10
 
     def test_default_max_idle_days(
         self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
@@ -69,7 +84,8 @@ class TestConfigDialogValues:
         dialog = ConfigDialog(container)
         qtbot.addWidget(dialog)
 
-        dialog._velocity_spin.setValue(3.0)
+        dialog._sp_per_sprint_spin.setValue(30)
+        dialog._workdays_per_sprint_spin.setValue(10)
         dialog._max_idle_spin.setValue(5)
 
         # Click apply
@@ -77,19 +93,19 @@ class TestConfigDialogValues:
 
         # Verify viewmodel was updated
         vm = container.config_dialog_viewmodel
+        assert vm.sp_per_sprint == 30
+        assert vm.workdays_per_sprint == 10
         assert vm.velocity == 3.0
         assert vm.max_idle_days == 5
 
-    def test_reject_invalid_velocity_zero(
+    def test_velocity_label_updates_dynamically(
         self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
     ) -> None:
-        """Test that velocity 0 shows error."""
+        """Test that derived velocity label updates when spinboxes change."""
         dialog = ConfigDialog(container)
         qtbot.addWidget(dialog)
 
-        # SpinBox minimum is 0.1, so set via viewmodel
-        dialog._velocity_spin.setValue(0.1)
-        dialog._on_apply()
+        dialog._sp_per_sprint_spin.setValue(15)
+        dialog._workdays_per_sprint_spin.setValue(5)
 
-        # Should succeed at 0.1
-        assert not dialog._error_label.isVisible()
+        assert "3.0" in dialog._velocity_label.text()
