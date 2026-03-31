@@ -73,6 +73,8 @@ class StoryTableModel(QAbstractTableModel):
         60,
     ]
 
+    MINIMUM_COLUMN_WIDTH: ClassVar[int] = 30
+
     CENTER_COLUMNS: ClassVar[set[int]] = {0, 2, 6, 9, 10, 11, 12}
 
     TOOLTIP_COLUMNS: ClassVar[set[int]] = {1, 5, 7, 8}
