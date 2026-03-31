@@ -127,8 +127,7 @@ jobs:
           xvfb-run -a poetry run pytest tests/e2e/ \
             -v \
             --tb=short \
-            -m "not slow" \
-            --timeout=60
+            -m "not slow"
 
       - name: Run tests with coverage
         if: matrix.python-version == '3.13'
