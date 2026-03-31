@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -111,8 +111,8 @@ jobs:
             libxcb-xinerama0 \
             libxcb-xfixes0 \
             libxcb-cursor0 \
-            libegl1-mesa \
-            libgl1-mesa-glx \
+            libegl1 \
+            libgl1 \
             libopengl0 \
             libxcb-shape0
 
@@ -131,7 +131,7 @@ jobs:
             --timeout=60
 
       - name: Run tests with coverage
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.13'
         run: |
           xvfb-run -a poetry run pytest \
             --cov=src/backlog_manager \
@@ -143,7 +143,7 @@ jobs:
             -m "not slow"
 
       - name: Upload coverage artifact
-        if: matrix.python-version == '3.11'
+        if: matrix.python-version == '3.13'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
