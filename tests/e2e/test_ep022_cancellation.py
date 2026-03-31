@@ -36,13 +36,8 @@ class TestProgressDialogCancellation:
 
         dialog.set_cancellable_task(task)
 
-        # Manually trigger the timer timeout
-        dialog._cancel_timer.setInterval(0)
-        dialog._cancel_timer.start()
-        qtbot.waitUntil(
-            lambda: dialog.findChild(QPushButton, "cancel-button").isVisible(),
-            timeout=500,
-        )
+        # Manually trigger the timer's connected slot
+        dialog._cancel_timer.timeout.emit()
 
         cancel_btn = dialog.findChild(QPushButton, "cancel-button")
         assert cancel_btn.isVisible()
