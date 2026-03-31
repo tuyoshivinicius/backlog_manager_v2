@@ -117,7 +117,7 @@ jobs:
             libxcb-shape0
 
       - name: Run unit tests
-        run: poetry run pytest tests/unit/ -v --tb=short
+        run: xvfb-run -a poetry run pytest tests/unit/ -v --tb=short
 
       - name: Run integration tests
         run: poetry run pytest tests/integration/ -v --tb=short
