@@ -30,6 +30,7 @@ class TestProgressDialogCancellation:
         """Cancel button becomes visible after 2s timer expires."""
         dialog = ProgressDialog("Processando...")
         qtbot.addWidget(dialog)
+        dialog.show()
 
         loop = asyncio.new_event_loop()
         task = loop.create_task(asyncio.sleep(999))
