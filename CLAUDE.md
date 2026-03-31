@@ -11,6 +11,8 @@
 - SQLite (sem alteração de schema — usa status VARCHAR(20) existente) (024-story-completion)
 - Python 3.11+ + PySide6 ^6.10.0 + PySide6 (QTableView, QItemSelectionModel), qasync ^0.27.1, Pydantic ^2.0 (025-table-selection-highlight)
 - N/A (escopo puramente Presentation — sem alterações de schema ou persistência) (025-table-selection-highlight)
+- Python 3.11+ + PySide6 ^6.10.0 + PySide6 (QTableView, QHeaderView, QSettings), qasync ^0.27.1 (027-column-resize)
+- QSettings (INI format) — sem alterações SQLite (027-column-resize)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

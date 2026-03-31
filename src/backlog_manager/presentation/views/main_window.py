@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from PySide6.QtCore import QSize, Qt, QTimer, Slot
+from PySide6.QtCore import QByteArray, QSettings, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -68,6 +68,10 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+# QSettings constants for column width persistence
+QSETTINGS_GROUP = "column_widths"
+QSETTINGS_KEY = "header_state"
 
 
 class StoryTableView(QTableView):
@@ -505,16 +509,27 @@ class MainWindow(QMainWindow):
                     col, delegate_map[header_text]
                 )
 
-        # Configure column widths: fixed for all except Nome (stretch)
+        # Configure column widths: interactive for all except Nome (stretch)
         header = self._story_table.horizontalHeader()
         if header:
             header.setStretchLastSection(False)
-            for col, width in enumerate(StoryTableModel.COLUMN_WIDTHS):
-                if width == -1:
-                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
-                else:
-                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
-                    header.resizeSection(col, width)
+            header.setMinimumSectionSize(StoryTableModel.MINIMUM_COLUMN_WIDTH)
+
+            # Try to restore saved column widths; fall through to defaults
+            if not self._restore_column_widths(header):
+                self._apply_default_column_widths(header)
+
+            # Persist widths on resize
+            header.sectionResized.connect(
+                lambda _idx, _old, _new: self._save_column_widths()
+            )
+
+            # Double-click auto-fit
+            header.sectionDoubleClicked.connect(self._on_header_double_clicked)
+
+            # Context menu on header
+            header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            header.customContextMenuRequested.connect(self._show_header_context_menu)
 
         # Enable text elision for truncated columns
         self._story_table.setTextElideMode(Qt.TextElideMode.ElideRight)
@@ -540,6 +555,90 @@ class MainWindow(QMainWindow):
         selection_model = self._story_table.selectionModel()
         if selection_model:
             selection_model.currentRowChanged.connect(self._on_story_selection_changed)
+
+    # --- Column resize helpers (EP-027) ---
+
+    def _get_column_qsettings(self) -> QSettings:
+        """Get QSettings instance for column width persistence."""
+        return QSettings(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            "BacklogManager",
+            "Backlog Manager",
+        )
+
+    def _apply_default_column_widths(self, header: QHeaderView) -> None:
+        """Apply default column widths from StoryTableModel.COLUMN_WIDTHS."""
+        for col, width in enumerate(StoryTableModel.COLUMN_WIDTHS):
+            if width == -1:
+                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+            else:
+                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+                header.resizeSection(col, width)
+
+    def _save_column_widths(self) -> None:
+        """Save current header state to QSettings."""
+        header = self._story_table.horizontalHeader()
+        if not header:
+            return
+        settings = self._get_column_qsettings()
+        settings.beginGroup(QSETTINGS_GROUP)
+        settings.setValue(QSETTINGS_KEY, header.saveState())
+        settings.endGroup()
+
+    def _restore_column_widths(self, header: QHeaderView) -> bool:
+        """Restore header state from QSettings.
+
+        Returns:
+            True if state was restored, False if no saved state exists.
+        """
+        settings = self._get_column_qsettings()
+        settings.beginGroup(QSETTINGS_GROUP)
+        saved_state = settings.value(QSETTINGS_KEY)
+        settings.endGroup()
+
+        if saved_state and isinstance(saved_state, QByteArray) and len(saved_state) > 0:
+            header.restoreState(saved_state)
+            # Ensure Nome stays Stretch after restore
+            header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+            return True
+        return False
+
+    def _restore_default_widths(self) -> None:
+        """Restore default column widths and remove saved state."""
+        header = self._story_table.horizontalHeader()
+        if not header:
+            return
+
+        # Block sectionResized signal during restore to avoid re-saving
+        header.blockSignals(True)
+        self._apply_default_column_widths(header)
+        header.blockSignals(False)
+
+        # Remove saved state
+        settings = self._get_column_qsettings()
+        settings.beginGroup(QSETTINGS_GROUP)
+        settings.remove(QSETTINGS_KEY)
+        settings.endGroup()
+
+    def _show_header_context_menu(self, position: QPoint) -> None:
+        """Show context menu on header with restore defaults option."""
+        header = self._story_table.horizontalHeader()
+        if not header:
+            return
+
+        menu = QMenu(header)
+        restore_action = menu.addAction("Restaurar larguras padrão")
+        restore_action.triggered.connect(self._restore_default_widths)
+        menu.exec(header.mapToGlobal(position))
+
+    def _on_header_double_clicked(self, logical_index: int) -> None:
+        """Auto-fit column to contents on double-click."""
+        # Skip Nome column (Stretch mode)
+        if logical_index == 5:
+            return
+        self._story_table.resizeColumnToContents(logical_index)
+        self._save_column_widths()
 
     def _setup_filter_bar(self) -> None:
         """Configure zona 3 filter bar with search field, status chips, and feature combo."""
