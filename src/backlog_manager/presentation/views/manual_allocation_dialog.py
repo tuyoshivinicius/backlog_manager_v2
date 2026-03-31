@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QDate, Qt, Slot
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
-    QDateEdit,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import (
 from backlog_manager.domain.services.scheduling_service import SchedulingService
 from backlog_manager.domain.value_objects import BRAZILIAN_HOLIDAYS_2026_2028
 from backlog_manager.presentation.theme import DESIGN_TOKENS
+from backlog_manager.presentation.views.date_picker import DatePicker
 
 if TYPE_CHECKING:
     from backlog_manager.application.dto.allocation.get_developer_availability_dto import (
@@ -128,25 +128,19 @@ class ManualAllocationDialog(QDialog):
         # Date picker
         date_layout = QHBoxLayout()
         date_label = QLabel("Data de Inicio:")
-        self._date_edit = QDateEdit()
-        self._date_edit.setCalendarPopup(True)
-        self._date_edit.setDisplayFormat("dd/MM/yyyy")
 
         # Set minimum to next workday after today
         holidays = BRAZILIAN_HOLIDAYS_2026_2028
         tomorrow = date.today() + timedelta(days=1)
         min_date = SchedulingService.next_workday(tomorrow, holidays)
-        self._date_edit.setMinimumDate(
-            QDate(min_date.year, min_date.month, min_date.day)
-        )
+
+        self._date_edit = DatePicker(min_date=min_date)
 
         if self._current_start_date:
             effective_date = self._current_start_date
             if effective_date < min_date:
                 effective_date = min_date
-            self._date_edit.setDate(
-                QDate(effective_date.year, effective_date.month, effective_date.day)
-            )
+            self._date_edit.set_date(effective_date)
 
         date_layout.addWidget(date_label)
         date_layout.addWidget(self._date_edit, stretch=1)

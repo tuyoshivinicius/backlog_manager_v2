@@ -41,7 +41,8 @@ class ConfigDialogViewModel(QObject):
         super().__init__(parent)
         self._container = container
 
-        self._velocity: float = 2.0
+        self._sp_per_sprint: int = 20
+        self._workdays_per_sprint: int = 10
         self._start_date: date = date.today()
         self._max_idle_days: int = 3
 
@@ -49,14 +50,37 @@ class ConfigDialogViewModel(QObject):
         logger.debug("ConfigDialogViewModel initialized")
 
     @property
+    def sp_per_sprint(self) -> int:
+        """Story points por sprint."""
+        return self._sp_per_sprint
+
+    @sp_per_sprint.setter
+    def sp_per_sprint(self, value: int) -> None:
+        self._sp_per_sprint = value
+
+    @property
+    def workdays_per_sprint(self) -> int:
+        """Dias uteis por sprint."""
+        return self._workdays_per_sprint
+
+    @workdays_per_sprint.setter
+    def workdays_per_sprint(self, value: int) -> None:
+        self._workdays_per_sprint = value
+
+    @property
+    def velocity_per_day(self) -> float:
+        """Velocidade derivada em SP/dia (read-only)."""
+        return self._sp_per_sprint / self._workdays_per_sprint
+
+    @property
     def velocity(self) -> float:
-        """Velocidade em SP/dia."""
-        return self._velocity
+        """Velocidade em SP/dia (retrocompatibilidade)."""
+        return self.velocity_per_day
 
     @velocity.setter
     def velocity(self, value: float) -> None:
-        """Define velocidade."""
-        self._velocity = value
+        """Define velocidade (retrocompatibilidade — ignora, usa sp_per_sprint)."""
+        pass
 
     @property
     def start_date(self) -> date:
@@ -84,8 +108,10 @@ class ConfigDialogViewModel(QObject):
         Returns:
             Tuple de (is_valid, error_message).
         """
-        if self._velocity < 0.1 or self._velocity > 10.0:
-            return False, "Velocidade deve estar entre 0.1 e 10.0 SP/dia."
+        if self._sp_per_sprint < 1 or self._sp_per_sprint > 100:
+            return False, "SP/Sprint deve estar entre 1 e 100."
+        if self._workdays_per_sprint < 1 or self._workdays_per_sprint > 30:
+            return False, "Dias uteis por sprint deve estar entre 1 e 30."
         if self._max_idle_days < 2 or self._max_idle_days > 30:
             return False, "Dias ociosos deve estar entre 2 e 30."
         return True, ""
@@ -104,13 +130,22 @@ class ConfigDialogViewModel(QObject):
         settings = self._get_qsettings()
         settings.beginGroup("allocation")
 
-        # Velocity
+        # SP per sprint and workdays (new format)
         try:
-            val = settings.value("velocity")
+            val = settings.value("sp_per_sprint")
             if val is not None:
-                velocity = float(val)
-                if 0.1 <= velocity <= 10.0:
-                    self._velocity = velocity
+                sp = int(val)
+                if 1 <= sp <= 100:
+                    self._sp_per_sprint = sp
+        except (ValueError, TypeError):
+            pass
+
+        try:
+            val = settings.value("workdays_per_sprint")
+            if val is not None:
+                wd = int(val)
+                if 1 <= wd <= 30:
+                    self._workdays_per_sprint = wd
         except (ValueError, TypeError):
             pass
 
@@ -134,8 +169,10 @@ class ConfigDialogViewModel(QObject):
 
         settings.endGroup()
         logger.debug(
-            "Config loaded from QSettings: velocity=%.1f, start=%s, max_idle=%d",
-            self._velocity,
+            "Config loaded from QSettings: sp_per_sprint=%d, workdays=%d, velocity=%.1f, start=%s, max_idle=%d",
+            self._sp_per_sprint,
+            self._workdays_per_sprint,
+            self.velocity_per_day,
             self._start_date,
             self._max_idle_days,
         )
@@ -144,7 +181,8 @@ class ConfigDialogViewModel(QObject):
         """Persist current values to QSettings."""
         settings = self._get_qsettings()
         settings.beginGroup("allocation")
-        settings.setValue("velocity", self._velocity)
+        settings.setValue("sp_per_sprint", self._sp_per_sprint)
+        settings.setValue("workdays_per_sprint", self._workdays_per_sprint)
         settings.setValue("start_date", self._start_date.isoformat())
         settings.setValue("max_idle_days", self._max_idle_days)
         settings.endGroup()
@@ -163,8 +201,10 @@ class ConfigDialogViewModel(QObject):
         self._save_to_qsettings()
         self.saved.emit()
         logger.info(
-            "Config saved: velocity=%.1f, start=%s, max_idle=%d",
-            self._velocity,
+            "Config saved: sp_per_sprint=%d, workdays=%d, velocity=%.1f, start=%s, max_idle=%d",
+            self._sp_per_sprint,
+            self._workdays_per_sprint,
+            self.velocity_per_day,
             self._start_date,
             self._max_idle_days,
         )
