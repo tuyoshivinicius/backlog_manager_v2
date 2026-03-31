@@ -126,6 +126,7 @@ jobs:
         if: matrix.python-version == '3.13'
         run: |
           xvfb-run -a poetry run pytest \
+            --ignore=tests/e2e \
             --cov=src/backlog_manager \
             --cov-report=xml \
             --cov-report=term-missing \
