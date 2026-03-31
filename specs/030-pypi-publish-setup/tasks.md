@@ -43,7 +43,7 @@
 - [x] T003 [US1] Set `description` to English description in pyproject.toml (FR-007B)
 - [x] T004 [US1] Set `authors = ["Tuyoshi Vinicius <tuyoshi.dev@gmail.com>"]` in pyproject.toml (FR-003)
 - [x] T005 [US1] Set `license = "MIT"` in pyproject.toml (FR-004)
-- [x] T006 [US1] Add `homepage` and `repository` URLs pointing to `https://github.com/tuyoshivinicius/backlog_manager_v2` in pyproject.toml (FR-005)
+- [x] T006 [US1] Add `homepage` and `repository` URLs pointing to `https://github.com/tuyoshivinicius/zion-backlog-manager` in pyproject.toml (FR-005)
 - [x] T007 [US1] Add `keywords` list with domain-relevant terms (backlog, project-management, Qt, PySide6, developer-allocation) in pyproject.toml (FR-007)
 - [x] T008 [US1] Add `classifiers` list with `Development Status :: 3 - Alpha`, Framework (Qt), Environment (X11 Applications), Programming Language (Python :: 3.11), and Topic (Software Development :: Project Management) in pyproject.toml (FR-006)
 - [x] T009 [US1] Add `[tool.poetry.scripts]` entry `zion-backlog-manager = "backlog_manager.presentation.app:main"` in pyproject.toml (FR-002)

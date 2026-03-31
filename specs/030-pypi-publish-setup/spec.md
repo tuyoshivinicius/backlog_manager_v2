@@ -80,7 +80,7 @@ As an end user, I want to install the application via `pip install zion-backlog-
 - **FR-002**: The `[tool.poetry.scripts]` entry MUST define `zion-backlog-manager` as the CLI command, pointing to `backlog_manager.presentation.app:main`.
 - **FR-003**: The pyproject.toml MUST include `authors = ["Tuyoshi Vinicius <tuyoshi.dev@gmail.com>"]`.
 - **FR-004**: The pyproject.toml MUST include `license = "MIT"`.
-- **FR-005**: The pyproject.toml MUST include `homepage` and `repository` URLs pointing to `https://github.com/tuyoshivinicius/backlog_manager_v2`.
+- **FR-005**: The pyproject.toml MUST include `homepage` and `repository` URLs pointing to `https://github.com/tuyoshivinicius/zion-backlog-manager`.
 - **FR-006**: The pyproject.toml MUST include relevant PyPI classifiers: `Development Status :: 3 - Alpha`, plus Framework (Qt), Environment (X11 Applications), Programming Language (Python :: 3.11), and Topic (Software Development :: Project Management).
 - **FR-007**: The pyproject.toml MUST include keywords relevant to the project's domain (backlog, project management, Qt, etc.).
 - **FR-007B**: The pyproject.toml `description` field MUST be in English (e.g., "Backlog Manager - Automated backlog management and developer allocation system").
