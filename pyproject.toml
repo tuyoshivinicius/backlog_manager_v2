@@ -5,13 +5,17 @@ description = "A desktop backlog manager with automatic developer allocation, bu
 authors = ["Tuyoshi Vinicius <tuyoshi.dev@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/tuyoshivinicius/backlog_manager_v2"
-repository = "https://github.com/tuyoshivinicius/backlog_manager_v2"
+homepage = "https://github.com/tuyoshivinicius/backlog-manager-v2"
+repository = "https://github.com/tuyoshivinicius/backlog-manager-v2"
 keywords = ["backlog", "project-management", "Qt", "PySide6", "developer-allocation"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: X11 Applications :: Qt",
+    "Framework :: Qt for Python",
+    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Scheduling",
 ]
 packages = [{include = "backlog_manager", from = "src"}]
