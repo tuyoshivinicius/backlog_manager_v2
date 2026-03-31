@@ -10,3 +10,5 @@
 [![PyPI downloads](https://img.shields.io/pypi/dm/zion-backlog-manager)](https://pypi.org/project/zion-backlog-manager/)
 [![Python Version](https://img.shields.io/pypi/pyversions/zion-backlog-manager)](https://pypi.org/project/zion-backlog-manager/)
 [![License](https://img.shields.io/github/license/tuyoshivinicius/backlog-manager-v2)](https://github.com/tuyoshivinicius/backlog-manager-v2/blob/main/LICENSE)
+
+---
