@@ -13,6 +13,8 @@
 - N/A (escopo puramente Presentation — sem alterações de schema ou persistência) (025-table-selection-highlight)
 - Python 3.11+ + PySide6 ^6.10.0 + PySide6 (QTableView, QHeaderView, QSettings), qasync ^0.27.1 (027-column-resize)
 - QSettings (INI format) — sem alterações SQLite (027-column-resize)
+- Python 3.11+ (PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0) + PySide6 (QDialog, QTreeWidget, QDateEdit), Pydantic (DTOs), aiosqlite (repositorios) (028-manual-allocation)
+- SQLite (sem alteracao de schema — usa colunas existentes developer_id, start_date, end_date) (028-manual-allocation)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

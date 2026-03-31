@@ -865,6 +865,9 @@ class MainWindow(QMainWindow):
         excel_vm.export_error.connect(self._on_export_error)
         excel_vm.export_cancelled.connect(self._on_operation_cancelled)
 
+        # Connect double-click on table for manual allocation (EP-028)
+        self._story_table.doubleClicked.connect(self._on_table_double_clicked)
+
         # Connect config action from menu to handler
         self._action_config.triggered.connect(self._on_config)
 
@@ -994,6 +997,56 @@ class MainWindow(QMainWindow):
         """Handle inline status change from table delegate."""
         dto = EditStoryInputDTO(story_id=story_id, status=new_status)
         asyncio.create_task(self._viewmodel.edit_story(dto))
+
+    @Slot("QModelIndex")
+    def _on_table_double_clicked(self, index) -> None:  # type: ignore[no-untyped-def]
+        """Handle double-click on table for manual allocation (EP-028).
+
+        Opens ManualAllocationDialog when Developer column (7) is double-clicked.
+        """
+        # Map proxy index to source index
+        source_index = self._filter_proxy.mapToSource(index)
+        if source_index.column() != 7:  # Developer column
+            return
+
+        story_id = self._filter_proxy.data(index, Qt.ItemDataRole.UserRole)
+        if not story_id:
+            return
+
+        story = self._viewmodel.table_model.get_story_by_id(story_id)
+        if not story:
+            return
+
+        # Block if story is CONCLUIDO
+        if story.status == "CONCLUIDO":
+            return
+
+        # Check story_points
+        if not story.story_points:
+            QMessageBox.information(
+                self,
+                "Aviso",
+                "Defina os story points antes de alocar manualmente.",
+            )
+            return
+
+        from backlog_manager.presentation.views.manual_allocation_dialog import (
+            ManualAllocationDialog,
+        )
+
+        dialog = ManualAllocationDialog(
+            container=self._container,
+            story_id=story_id,
+            story_name=story.name,
+            current_developer_id=story.developer_id,
+            current_start_date=story.start_date,
+            current_end_date=story.end_date,
+            parent=self,
+        )
+        if dialog.exec():
+            QTimer.singleShot(
+                0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+            )
 
     @Slot()
     def _on_delete_story(self) -> None:
