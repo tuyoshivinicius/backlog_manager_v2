@@ -15,7 +15,6 @@ import re
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.presentation.theme.theme import (
     DESIGN_TOKENS,
     ICON_NAMES,

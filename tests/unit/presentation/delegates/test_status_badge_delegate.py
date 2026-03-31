@@ -7,17 +7,15 @@ Tests cover:
 - T037: handles unknown status gracefully
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QStyleOptionViewItem
-
 from backlog_manager.presentation.delegates.status_badge_delegate import (
     StatusBadgeDelegate,
 )
 from backlog_manager.presentation.theme import STATUS_PALETTE
+from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
+from PySide6.QtWidgets import QStyleOptionViewItem
 
 
 class TestStatusBadgeDelegateSymbols:

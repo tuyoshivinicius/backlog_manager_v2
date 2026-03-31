@@ -126,7 +126,7 @@ class ExcelService:
             rows: list[dict[str, Any]] = []
             warnings: list[str] = []
 
-            for row_idx, row_values in enumerate(
+            for _row_idx, row_values in enumerate(
                 ws.iter_rows(min_row=2, values_only=True), start=2
             ):
                 # Skip completely empty rows

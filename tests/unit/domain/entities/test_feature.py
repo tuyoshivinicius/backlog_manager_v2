@@ -1,7 +1,6 @@
 """Test Feature entity."""
 
 import pytest
-
 from backlog_manager.domain.entities import Feature
 
 

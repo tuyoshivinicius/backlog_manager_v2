@@ -7,7 +7,8 @@ coordinating story operations and emitting signals for UI updates.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal
 

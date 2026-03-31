@@ -9,7 +9,6 @@ from typing import cast
 from PySide6.QtCore import QAbstractItemModel, QModelIndex, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QComboBox,
     QStyle,
     QStyledItemDelegate,

@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.infrastructure.logging.logger_config import (
     reset_logging,
     setup_logging,

@@ -10,7 +10,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.application.dto.scheduling import (
     CalculateDurationInputDTO,
     CalculateScheduleInputDTO,

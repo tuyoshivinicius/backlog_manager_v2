@@ -6,13 +6,9 @@ verifying signal emissions and proper operation handling.
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
-from PySide6.QtCore import SignalInstance
-
 from backlog_manager.application.dto.story import (
     CreateStoryInputDTO,
     EditStoryInputDTO,
@@ -48,7 +44,9 @@ class TestMainWindowViewModelInitialization:
 class TestMainWindowViewModelSelection:
     """Tests for story selection in MainWindowViewModel."""
 
-    def test_select_story_updates_selected_id(self, container: DIContainer, qapp) -> None:  # type: ignore[no-untyped-def]
+    def test_select_story_updates_selected_id(
+        self, container: DIContainer, qapp
+    ) -> None:  # type: ignore[no-untyped-def]
         """Test that selecting a story updates the selected ID."""
         viewmodel = MainWindowViewModel(container)
         viewmodel.select_story("TEST-001")
@@ -78,7 +76,10 @@ class TestMainWindowViewModelSelection:
         assert viewmodel.selected_story_id is None
 
     def test_selected_story_returns_dto_when_found(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that selected_story returns the DTO when found."""
         viewmodel = MainWindowViewModel(container)
@@ -95,7 +96,10 @@ class TestMainWindowViewModelLoadStories:
 
     @pytest.mark.asyncio
     async def test_load_stories_success(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story loading."""
         viewmodel = MainWindowViewModel(container)
@@ -127,7 +131,9 @@ class TestMainWindowViewModelLoadStories:
 
     @pytest.mark.asyncio
     async def test_load_stories_error_emits_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that error during loading emits error_occurred signal."""
         viewmodel = MainWindowViewModel(container)
@@ -155,7 +161,9 @@ class TestMainWindowViewModelCreateStory:
 
     @pytest.mark.asyncio
     async def test_create_story_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story creation."""
         viewmodel = MainWindowViewModel(container)
@@ -204,7 +212,9 @@ class TestMainWindowViewModelCreateStory:
 
     @pytest.mark.asyncio
     async def test_create_story_validation_error(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that validation error during creation emits signal."""
         viewmodel = MainWindowViewModel(container)
@@ -238,7 +248,9 @@ class TestMainWindowViewModelEditStory:
 
     @pytest.mark.asyncio
     async def test_edit_story_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story editing."""
         viewmodel = MainWindowViewModel(container)
@@ -292,7 +304,9 @@ class TestMainWindowViewModelDeleteStory:
 
     @pytest.mark.asyncio
     async def test_delete_story_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story deletion."""
         viewmodel = MainWindowViewModel(container)
@@ -321,7 +335,9 @@ class TestMainWindowViewModelDeleteStory:
 
     @pytest.mark.asyncio
     async def test_delete_story_clears_selection_if_selected(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that deleting the selected story clears selection."""
         viewmodel = MainWindowViewModel(container)
@@ -355,7 +371,9 @@ class TestMainWindowViewModelMovePriority:
 
     @pytest.mark.asyncio
     async def test_move_priority_up_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful priority move up."""
         viewmodel = MainWindowViewModel(container)
@@ -384,7 +402,9 @@ class TestMainWindowViewModelMovePriority:
 
     @pytest.mark.asyncio
     async def test_move_priority_down_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful priority move down."""
         viewmodel = MainWindowViewModel(container)
@@ -417,7 +437,9 @@ class TestMainWindowViewModelAssignDeveloper:
 
     @pytest.mark.asyncio
     async def test_assign_developer_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful developer assignment."""
         viewmodel = MainWindowViewModel(container)
@@ -461,7 +483,9 @@ class TestMainWindowViewModelAssignDeveloper:
 
     @pytest.mark.asyncio
     async def test_unassign_developer_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful developer unassignment."""
         viewmodel = MainWindowViewModel(container)
@@ -508,7 +532,10 @@ class TestMainWindowViewModelFiltering:
     """Tests for in-memory filtering in MainWindowViewModel."""
 
     def test_get_stories_by_status(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test filtering stories by status."""
         viewmodel = MainWindowViewModel(container)
@@ -521,7 +548,10 @@ class TestMainWindowViewModelFiltering:
         assert len(doing_stories) == 1
 
     def test_get_stories_by_feature(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test filtering stories by feature."""
         viewmodel = MainWindowViewModel(container)
@@ -531,7 +561,10 @@ class TestMainWindowViewModelFiltering:
         assert len(feature_stories) == 2
 
     def test_get_stories_by_developer(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test filtering stories by developer."""
         viewmodel = MainWindowViewModel(container)
@@ -547,7 +580,9 @@ class TestMainWindowViewModelDuplicateStory:
 
     @pytest.mark.asyncio
     async def test_duplicate_story_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story duplication."""
         viewmodel = MainWindowViewModel(container)
@@ -592,7 +627,9 @@ class TestMainWindowViewModelDuplicateStory:
 
     @pytest.mark.asyncio
     async def test_duplicate_story_emits_stories_changed(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that stories_changed signal is emitted after duplication."""
         viewmodel = MainWindowViewModel(container)
@@ -640,7 +677,9 @@ class TestMainWindowViewModelDuplicateStory:
 
     @pytest.mark.asyncio
     async def test_duplicate_story_error_handling(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test error handling during duplication."""
         viewmodel = MainWindowViewModel(container)
@@ -670,7 +709,10 @@ class TestMainWindowViewModelSelectionPersistence:
 
     @pytest.mark.asyncio
     async def test_selected_story_id_preserved_after_load_stories(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that selected_story_id is NOT cleared during load_stories."""
         viewmodel = MainWindowViewModel(container)
@@ -691,7 +733,10 @@ class TestMainWindowViewModelSelectionPersistence:
 
     @pytest.mark.asyncio
     async def test_delete_story_selects_adjacent_story(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that deleting a story selects the adjacent story."""
         viewmodel = MainWindowViewModel(container)
@@ -726,7 +771,9 @@ class TestMainWindowViewModelSelectionPersistence:
 
     @pytest.mark.asyncio
     async def test_delete_last_story_clears_selection(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that deleting the last story clears selection."""
         single_story = StoryOutputDTO(
@@ -771,7 +818,10 @@ class TestMainWindowViewModelSelectionPersistence:
 
     @pytest.mark.asyncio
     async def test_delete_middle_story_selects_next(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test deleting middle story selects next story."""
         viewmodel = MainWindowViewModel(container)
@@ -806,7 +856,10 @@ class TestMainWindowViewModelSelectionPersistence:
 
     @pytest.mark.asyncio
     async def test_delete_last_row_selects_previous(
-        self, container: DIContainer, sample_stories: list[StoryOutputDTO], qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_stories: list[StoryOutputDTO],
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test deleting last row selects previous story."""
         viewmodel = MainWindowViewModel(container)
@@ -845,7 +898,9 @@ class TestMainWindowViewModelErrorHandling:
 
     @pytest.mark.asyncio
     async def test_backlog_manager_exception_handling(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that BacklogManagerException is handled properly."""
         viewmodel = MainWindowViewModel(container)

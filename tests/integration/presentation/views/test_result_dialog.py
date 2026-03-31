@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-from PySide6.QtWidgets import QLabel
-
 from backlog_manager.presentation.views.result_dialog import ResultDialog
+from PySide6.QtWidgets import QLabel
 
 
 class TestResultDialog:

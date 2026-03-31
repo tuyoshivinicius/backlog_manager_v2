@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from backlog_manager.application.dto.allocation.get_developer_availability_dto import (
     GetDeveloperAvailabilityInputDTO,
 )

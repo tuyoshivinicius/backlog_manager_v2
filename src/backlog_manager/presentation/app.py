@@ -31,7 +31,7 @@ from backlog_manager.presentation.theme import (
 )
 
 if TYPE_CHECKING:
-    from backlog_manager.presentation.views.main_window import MainWindow
+    pass
 
 # Configure logging to use %APPDATA%/BacklogManager/logs
 setup_logging()

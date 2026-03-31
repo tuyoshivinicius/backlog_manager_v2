@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
 from backlog_manager.application.dto.dependency import AddDependencyInputDTO
 from backlog_manager.application.dto.scheduling import CalculateScheduleInputDTO
 from backlog_manager.application.dto.story import CreateStoryInputDTO

@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from backlog_manager.domain.entities import Story
 from backlog_manager.domain.services.story_service import StoryService
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus

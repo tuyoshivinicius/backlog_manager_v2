@@ -6,8 +6,9 @@ stories in a table view, following the MVVM pattern.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from enum import StrEnum
-from typing import Any, ClassVar, Sequence
+from typing import Any, ClassVar
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
 from PySide6.QtGui import QColor

@@ -6,7 +6,6 @@ from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from backlog_manager.application.dto.allocation.developer_availability_dto import (
     DeveloperAvailabilityDTO,
 )

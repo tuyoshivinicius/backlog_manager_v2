@@ -3,7 +3,6 @@
 from datetime import date
 
 import pytest
-
 from backlog_manager.domain.entities import Story
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 

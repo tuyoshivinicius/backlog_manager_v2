@@ -8,18 +8,15 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 import pytest
-from PySide6.QtCore import QByteArray, QSettings, Qt
-from PySide6.QtWidgets import QHeaderView, QMenu, QTableView
-
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 from backlog_manager.presentation.views.main_window import (
     QSETTINGS_GROUP,
     QSETTINGS_KEY,
     StoryTableView,
 )
+from PySide6.QtCore import QByteArray, QSettings, Qt
+from PySide6.QtWidgets import QHeaderView
 
 
 @pytest.fixture

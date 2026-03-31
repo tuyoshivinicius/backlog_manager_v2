@@ -9,7 +9,6 @@ from datetime import date
 
 import pytest
 import pytest_asyncio
-
 from backlog_manager.application.dto.scheduling import CalculateScheduleInputDTO
 from backlog_manager.domain.entities.developer import Developer
 from backlog_manager.domain.entities.story import Story

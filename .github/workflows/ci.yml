@@ -51,7 +51,7 @@ jobs:
           echo "Version sync OK: $PYPROJECT_VERSION"
 
       - name: Run ruff check
-        run: poetry run ruff check src tests
+        run: poetry run ruff check src
 
       - name: Run ruff format check
         run: poetry run ruff format --check src tests

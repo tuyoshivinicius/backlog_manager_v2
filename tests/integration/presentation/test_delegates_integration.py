@@ -7,13 +7,12 @@ Tests cover:
 """
 
 import pytest
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
-from PySide6.QtWidgets import QApplication, QTableView
-
 from backlog_manager.presentation.delegates import (
     MonospaceDelegate,
     StatusBadgeDelegate,
 )
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
+from PySide6.QtWidgets import QApplication, QTableView
 
 
 class SimpleTableModel(QAbstractTableModel):

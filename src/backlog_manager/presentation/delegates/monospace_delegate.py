@@ -4,7 +4,7 @@ This delegate renders text values using a monospace font family
 with fallback chain for cross-platform compatibility.
 """
 
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter
 from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget
 

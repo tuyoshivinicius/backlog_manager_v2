@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import date
 
 import pytest
-
 from backlog_manager.domain.entities.developer import Developer
 from backlog_manager.domain.entities.story import Story
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus

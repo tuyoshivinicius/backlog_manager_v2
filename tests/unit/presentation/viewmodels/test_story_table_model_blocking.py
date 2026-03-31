@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.story_table_model import (
     BLOCKING_STATE_ROLE,

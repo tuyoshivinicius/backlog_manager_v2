@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from openpyxl import Workbook
-
 from backlog_manager.application.dto.excel.export_excel_dto import ExcelExportData
 from backlog_manager.infrastructure.excel.excel_service import ExcelService
 

@@ -11,7 +11,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.application.dto.allocation import ExecuteAllocationInputDTO
 from backlog_manager.application.use_cases.allocation import ExecuteAllocationUseCase
 from backlog_manager.domain.entities import Developer, Feature, Story

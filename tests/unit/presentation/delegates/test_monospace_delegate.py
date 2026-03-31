@@ -5,14 +5,11 @@ Tests cover:
 - T044: MonospaceDelegate fallback chain works correctly
 """
 
-from unittest.mock import MagicMock
-
 import pytest
-from PySide6.QtCore import QModelIndex, QRect, Qt
-from PySide6.QtGui import QFont, QFontDatabase
-from PySide6.QtWidgets import QStyleOptionViewItem
-
 from backlog_manager.presentation.delegates.monospace_delegate import MonospaceDelegate
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QFontDatabase
+from PySide6.QtWidgets import QStyleOptionViewItem
 
 
 class TestMonospaceDelegateFont:
@@ -54,7 +51,7 @@ class TestMonospaceDelegateFallback:
     def test_fallback_chain_order(self, delegate: MonospaceDelegate) -> None:
         """Fallback chain has correct order."""
         expected = ["JetBrains Mono", "Cascadia Code", "Consolas", "monospace"]
-        assert delegate.FONT_FAMILIES == expected
+        assert expected == delegate.FONT_FAMILIES
 
     def test_fallback_returns_first_available(
         self, delegate: MonospaceDelegate

@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from backlog_manager.domain.entities import Developer
 from backlog_manager.domain.services.developer_service import DeveloperService
 

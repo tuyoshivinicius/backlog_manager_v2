@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.dependency_dialog_viewmodel import (

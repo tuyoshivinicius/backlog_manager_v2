@@ -6,7 +6,6 @@ from datetime import date
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
-
 from backlog_manager.application.use_cases.planning.count_affected_stories import (
     CountAffectedStoriesUseCase,
 )

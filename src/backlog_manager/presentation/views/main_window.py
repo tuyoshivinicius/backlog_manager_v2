@@ -11,10 +11,10 @@ import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QByteArray, QSettings, QSize, Qt, QTimer, Slot
-from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
@@ -262,7 +262,7 @@ class MainWindow(QMainWindow):
 
         # Planning data tracking (R-005)
         self._has_planning_data: bool = False
-        self._last_allocation_time: Optional[datetime] = None
+        self._last_allocation_time: datetime | None = None
 
         self._setup_window()
         self._setup_toolbar()

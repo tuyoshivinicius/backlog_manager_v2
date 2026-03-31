@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
-
 from backlog_manager.application.dto.excel.import_excel_dto import (
     ExcelReadResult,
     ImportExcelInputDTO,

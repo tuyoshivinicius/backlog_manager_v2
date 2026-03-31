@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-from PySide6.QtWidgets import QLabel, QPushButton
-
 from backlog_manager.presentation.views.confirm_delete_dialog import ConfirmDeleteDialog
+from PySide6.QtWidgets import QLabel, QPushButton
 
 
 class TestConfirmDeleteDialog:

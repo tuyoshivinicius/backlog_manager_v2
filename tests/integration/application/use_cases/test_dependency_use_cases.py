@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.application.dto.dependency import (
     AddDependencyInputDTO,
     GetDependenciesInputDTO,

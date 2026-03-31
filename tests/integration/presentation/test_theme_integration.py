@@ -8,9 +8,8 @@ Tests cover:
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QApplication, QPushButton, QWidget
-
 from backlog_manager.presentation.theme import DESIGN_TOKENS, apply_theme
+from PySide6.QtWidgets import QApplication, QPushButton, QWidget
 
 
 class TestThemeIntegration:

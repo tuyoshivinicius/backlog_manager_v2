@@ -27,7 +27,6 @@ from PySide6.QtWidgets import (
 
 from backlog_manager.application.dto.feature import (
     CreateFeatureInputDTO,
-    FeatureOutputDTO,
     UpdateFeatureInputDTO,
 )
 from backlog_manager.domain.exceptions import (

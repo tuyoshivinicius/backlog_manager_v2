@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.infrastructure.database import create_connection, init_database
 
 

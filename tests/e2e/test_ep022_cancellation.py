@@ -8,10 +8,8 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QPushButton
-
 from backlog_manager.presentation.views.progress_dialog import ProgressDialog
+from PySide6.QtWidgets import QPushButton
 
 pytestmark = [pytest.mark.e2e]
 

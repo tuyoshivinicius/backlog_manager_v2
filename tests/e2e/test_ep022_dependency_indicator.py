@@ -9,12 +9,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
-from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import QStyleOptionViewItem
-
 from backlog_manager.presentation.delegates.dependency_indicator_delegate import (
-    CIRCLE_SIZE,
     COLOR_BLOCKED,
     COLOR_FREE,
     DependencyIndicatorDelegate,
@@ -24,6 +19,9 @@ from backlog_manager.presentation.viewmodels.story_table_model import (
     DEPENDENCY_IDS_ROLE,
     BlockingState,
 )
+from PySide6.QtCore import QModelIndex, QRect, QSize
+from PySide6.QtGui import QPainter
+from PySide6.QtWidgets import QStyleOptionViewItem
 
 pytestmark = [pytest.mark.e2e]
 

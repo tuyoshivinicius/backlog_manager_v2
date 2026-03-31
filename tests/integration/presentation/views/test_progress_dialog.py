@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-from PySide6.QtWidgets import QLabel, QProgressBar
-
 from backlog_manager.presentation.views.progress_dialog import ProgressDialog
+from PySide6.QtWidgets import QLabel, QProgressBar
 
 
 class TestProgressDialog:

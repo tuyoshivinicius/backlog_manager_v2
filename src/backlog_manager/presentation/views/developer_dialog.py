@@ -26,7 +26,6 @@ from PySide6.QtWidgets import (
 
 from backlog_manager.application.dto.developer import (
     CreateDeveloperInputDTO,
-    DeveloperOutputDTO,
     UpdateDeveloperInputDTO,
 )
 from backlog_manager.domain.exceptions import BacklogManagerException

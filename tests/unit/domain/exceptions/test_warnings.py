@@ -3,7 +3,6 @@
 import warnings
 
 import pytest
-
 from backlog_manager.domain.exceptions import (
     BacklogWarning,
     BetweenWavesIdlenessInfo,

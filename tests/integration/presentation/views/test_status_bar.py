@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLabel, QPushButton
-
 from backlog_manager.presentation.container import DIContainer
 from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
     MainWindowViewModel,
@@ -60,7 +58,10 @@ class TestStatusBarInMainWindow:
     """Tests for status bar integration in MainWindow."""
 
     def test_empty_backlog_shows_zero(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test empty backlog shows '0 historias · 0 SP · Sem alocacao'."""
         viewmodel = MainWindowViewModel(container)

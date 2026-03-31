@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from backlog_manager.domain.services.dependency_service import DependencyService
 
 

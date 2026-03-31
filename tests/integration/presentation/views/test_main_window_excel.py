@@ -6,22 +6,18 @@ verifying toolbar buttons, keyboard shortcuts, dialogs, and signal handling.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QMessageBox
+from unittest.mock import patch
 
 from backlog_manager.presentation.container import DIContainer
 from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
     MainWindowViewModel,
 )
 from backlog_manager.presentation.views.main_window import MainWindow
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
+from PySide6.QtWidgets import QMessageBox
 
 
 # Mock DTOs for testing

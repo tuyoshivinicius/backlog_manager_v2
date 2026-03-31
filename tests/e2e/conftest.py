@@ -13,13 +13,12 @@ Test Isolation Strategy (FR-103):
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncGenerator
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-from PySide6.QtCore import QTimer
-
 from backlog_manager.domain.entities.developer import Developer
 from backlog_manager.domain.entities.feature import Feature
 from backlog_manager.domain.entities.story import Story
@@ -27,11 +26,11 @@ from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 from backlog_manager.infrastructure.database.sqlite_connection import init_database
 from backlog_manager.infrastructure.database.unit_of_work import SQLiteUnitOfWork
 from backlog_manager.presentation.container import DIContainer
+from PySide6.QtCore import QTimer
 
 if TYPE_CHECKING:
-    from qasync import QEventLoop
-
     from backlog_manager.presentation.views.main_window import MainWindow
+    from qasync import QEventLoop
 
 pytestmark = [pytest.mark.e2e]
 

@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.domain.entities import Developer
 from backlog_manager.infrastructure.database import SQLiteUnitOfWork, init_database
 

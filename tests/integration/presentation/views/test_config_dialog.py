@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QSettings, Qt
-from PySide6.QtWidgets import QDialogButtonBox
-
 from backlog_manager.presentation.container import DIContainer
 from backlog_manager.presentation.views.config_dialog import ConfigDialog
+from PySide6.QtCore import QSettings
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +25,10 @@ class TestConfigDialogDisplay:
     """Tests for ConfigDialog display."""
 
     def test_dialog_opens_with_correct_title(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has correct title."""
         dialog = ConfigDialog(container)
@@ -36,7 +37,10 @@ class TestConfigDialogDisplay:
         assert dialog.windowTitle() == "Configuracao de Alocacao"
 
     def test_dialog_has_fixed_size(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has fixed size 420x340."""
         dialog = ConfigDialog(container)
@@ -46,7 +50,10 @@ class TestConfigDialogDisplay:
         assert dialog.height() == 340
 
     def test_dialog_is_modal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog is modal."""
         dialog = ConfigDialog(container)
@@ -59,7 +66,10 @@ class TestConfigDialogValues:
     """Tests for ConfigDialog value handling."""
 
     def test_default_sp_per_sprint(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test default SP/Sprint and workdays values."""
         dialog = ConfigDialog(container)
@@ -69,7 +79,10 @@ class TestConfigDialogValues:
         assert dialog._workdays_per_sprint_spin.value() == 10
 
     def test_default_max_idle_days(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test default max idle days value."""
         dialog = ConfigDialog(container)
@@ -78,7 +91,10 @@ class TestConfigDialogValues:
         assert dialog._max_idle_spin.value() == 3
 
     def test_apply_valid_values(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test applying valid values."""
         dialog = ConfigDialog(container)
@@ -99,7 +115,10 @@ class TestConfigDialogValues:
         assert vm.max_idle_days == 5
 
     def test_velocity_label_updates_dynamically(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that derived velocity label updates when spinboxes change."""
         dialog = ConfigDialog(container)

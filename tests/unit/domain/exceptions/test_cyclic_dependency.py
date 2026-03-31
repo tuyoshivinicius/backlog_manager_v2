@@ -1,7 +1,6 @@
 """Test CyclicDependencyException."""
 
 import pytest
-
 from backlog_manager.domain.exceptions import CyclicDependencyException
 
 

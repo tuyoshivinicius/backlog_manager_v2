@@ -11,9 +11,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel
-
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 
@@ -53,7 +50,9 @@ class TestEmptyStateModel:
         model.set_stories([_sample_dto])
         assert model.rowCount() == 1
 
-    def test_clearing_stories_returns_to_empty(self, qapp, _sample_dto: StoryOutputDTO) -> None:  # type: ignore[no-untyped-def]
+    def test_clearing_stories_returns_to_empty(
+        self, qapp, _sample_dto: StoryOutputDTO
+    ) -> None:  # type: ignore[no-untyped-def]
         """Setting empty list returns model to rowCount == 0."""
         model = StoryTableModel()
         model.set_stories([_sample_dto])

@@ -18,7 +18,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
 from backlog_manager.domain.entities import Developer, Feature, Story
 from backlog_manager.domain.exceptions.warnings import (
     BetweenWavesIdlenessInfo,

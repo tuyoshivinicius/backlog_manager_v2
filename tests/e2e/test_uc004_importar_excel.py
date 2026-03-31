@@ -7,13 +7,10 @@ and cycle detection during import.
 from __future__ import annotations
 
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 import pytest
-from openpyxl import Workbook
-
 from backlog_manager.application.dto.dependency import GetDependenciesInputDTO
-from backlog_manager.application.dto.story import CreateStoryInputDTO
+from openpyxl import Workbook
 
 pytestmark = [pytest.mark.e2e]
 

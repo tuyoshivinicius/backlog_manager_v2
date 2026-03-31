@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
-
 from backlog_manager.application.dto.excel.export_excel_dto import ExportExcelInputDTO
 from backlog_manager.application.use_cases.excel.export_excel_use_case import (
     ExportExcelUseCase,

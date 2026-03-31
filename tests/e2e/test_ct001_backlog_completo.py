@@ -11,13 +11,11 @@ from datetime import date
 
 import pytest
 import pytest_asyncio
-
 from backlog_manager.application.dto.scheduling import CalculateScheduleInputDTO
 from backlog_manager.domain.entities.developer import Developer
 from backlog_manager.domain.entities.feature import Feature
 from backlog_manager.domain.entities.story import Story
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
-from tests.e2e.factories import create_developers, create_features, create_stories
 
 pytestmark = [pytest.mark.e2e]
 

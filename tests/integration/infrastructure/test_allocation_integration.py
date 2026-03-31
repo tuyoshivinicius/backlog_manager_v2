@@ -12,7 +12,6 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
-
 from backlog_manager.domain.entities import Developer, Feature, Story
 from backlog_manager.domain.services import (
     AllocationConfig,
