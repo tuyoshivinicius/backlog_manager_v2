@@ -7,8 +7,6 @@ using FilterProxyModel and StoryTableModel together.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
-
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.filter_proxy_model import FilterProxyModel
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel

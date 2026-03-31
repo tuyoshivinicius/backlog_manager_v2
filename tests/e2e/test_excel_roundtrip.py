@@ -6,10 +6,7 @@ export/import cycle.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-
 from backlog_manager.application.dto.dependency import (
     AddDependencyInputDTO,
     GetDependenciesInputDTO,

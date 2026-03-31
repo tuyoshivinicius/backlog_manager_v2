@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import random
-from collections.abc import Sequence
 from datetime import date
 from typing import TYPE_CHECKING
 

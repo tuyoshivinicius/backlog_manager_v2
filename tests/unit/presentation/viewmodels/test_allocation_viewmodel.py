@@ -7,11 +7,9 @@ verifying allocation execution, signal emissions, and state management.
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_asyncio
-
 from backlog_manager.application.dto.allocation import (
     AllocationMetricsDTO,
     ExecuteAllocationOutputDTO,
@@ -58,7 +56,9 @@ class TestAllocationViewModelProperties:
         assert viewmodel.is_running is True
 
     def test_last_warnings_returns_copy(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that last_warnings property returns a copy."""
         viewmodel = AllocationViewModel(container)
@@ -71,7 +71,9 @@ class TestAllocationViewModelProperties:
         assert warnings1 == warnings2
 
     def test_can_execute_when_not_running(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test can_execute returns True when not running."""
         viewmodel = AllocationViewModel(container)
@@ -79,7 +81,9 @@ class TestAllocationViewModelProperties:
         assert viewmodel.can_execute() is True
 
     def test_can_execute_when_running(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test can_execute returns False when running."""
         viewmodel = AllocationViewModel(container)
@@ -93,7 +97,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_returns_none_if_already_running(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that execute returns None if allocation is already running."""
         viewmodel = AllocationViewModel(container)
@@ -108,7 +114,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_emits_started_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that execute emits allocation_started signal."""
         viewmodel = AllocationViewModel(container)
@@ -148,7 +156,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_success_emits_completed_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful execution emits allocation_completed signal."""
         viewmodel = AllocationViewModel(container)
@@ -191,7 +201,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_success_updates_state(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful execution updates internal state."""
         viewmodel = AllocationViewModel(container)
@@ -227,7 +239,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_emits_warnings_updated_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that execute emits warnings_updated signal."""
         viewmodel = AllocationViewModel(container)
@@ -267,7 +281,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_backlog_manager_exception_emits_error(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that BacklogManagerException emits error signal."""
         viewmodel = AllocationViewModel(container)
@@ -299,7 +315,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_unexpected_exception_emits_error(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that unexpected exceptions emit error signal."""
         viewmodel = AllocationViewModel(container)
@@ -329,7 +347,9 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_resets_running_state_after_exception(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that is_running is reset even after exception."""
         viewmodel = AllocationViewModel(container)
@@ -353,7 +373,9 @@ class TestAllocationViewModelClearResults:
     """Tests for clearing allocation results."""
 
     def test_clear_results_clears_metrics(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that clear_results clears the metrics."""
         viewmodel = AllocationViewModel(container)
@@ -369,7 +391,9 @@ class TestAllocationViewModelClearResults:
         assert viewmodel.last_metrics is None
 
     def test_clear_results_clears_warnings(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that clear_results clears the warnings."""
         viewmodel = AllocationViewModel(container)
@@ -380,7 +404,9 @@ class TestAllocationViewModelClearResults:
         assert viewmodel.last_warnings == []
 
     def test_clear_results_emits_warnings_updated(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that clear_results emits warnings_updated signal."""
         viewmodel = AllocationViewModel(container)

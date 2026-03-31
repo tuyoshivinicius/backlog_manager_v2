@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.application.dto.developer import CreateDeveloperInputDTO
 from backlog_manager.application.dto.feature import CreateFeatureInputDTO
 from backlog_manager.application.use_cases.developer import CreateDeveloperUseCase

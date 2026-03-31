@@ -1,7 +1,6 @@
 """Testes unitarios para StoryStatus."""
 
 import pytest
-
 from backlog_manager.domain.value_objects import StoryStatus
 
 

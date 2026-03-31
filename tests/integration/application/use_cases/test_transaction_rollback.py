@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from backlog_manager.application.dto.feature import CreateFeatureInputDTO
 from backlog_manager.application.use_cases.feature import CreateFeatureUseCase
 from backlog_manager.domain.exceptions import DuplicateWaveException

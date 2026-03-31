@@ -7,14 +7,13 @@ async fixtures and pytest-qt integration with qasync.
 from __future__ import annotations
 
 import asyncio
-import tempfile
+from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncGenerator, Generator
+from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-
 from backlog_manager.application.dto.developer import CreateDeveloperInputDTO
 from backlog_manager.application.dto.feature import CreateFeatureInputDTO
 from backlog_manager.application.dto.story import CreateStoryInputDTO, StoryOutputDTO

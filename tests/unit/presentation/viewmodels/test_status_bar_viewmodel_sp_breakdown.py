@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QObject
-
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.status_bar_viewmodel import (
     StatusBarViewModel,

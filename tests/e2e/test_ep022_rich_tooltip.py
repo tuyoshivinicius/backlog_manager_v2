@@ -6,10 +6,9 @@ Tests verify tooltip layout, content display, and design token usage.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
-
 from backlog_manager.presentation.theme import DESIGN_TOKENS
 from backlog_manager.presentation.views.rich_tooltip import RichTooltipWidget
+from PySide6.QtCore import Qt
 
 pytestmark = [pytest.mark.e2e]
 

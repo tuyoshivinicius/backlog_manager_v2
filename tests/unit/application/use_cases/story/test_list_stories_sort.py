@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from backlog_manager.application.dto.story.story_output_dto import StoryOutputDTO
 from backlog_manager.application.use_cases.story.list_stories import ListStoriesUseCase
 

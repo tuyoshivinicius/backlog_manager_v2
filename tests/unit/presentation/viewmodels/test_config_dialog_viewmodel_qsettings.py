@@ -5,11 +5,10 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock
 
-from PySide6.QtCore import QSettings
-
 from backlog_manager.presentation.viewmodels.config_dialog_viewmodel import (
     ConfigDialogViewModel,
 )
+from PySide6.QtCore import QSettings
 
 
 def _create_vm() -> ConfigDialogViewModel:

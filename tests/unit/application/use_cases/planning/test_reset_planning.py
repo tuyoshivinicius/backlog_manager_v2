@@ -6,7 +6,6 @@ from datetime import date
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
-
 from backlog_manager.application.dto.planning.reset_planning_dto import (
     ResetPlanningInputDTO,
 )

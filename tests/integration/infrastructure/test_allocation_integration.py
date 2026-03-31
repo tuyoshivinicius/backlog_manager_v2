@@ -12,7 +12,6 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 import pytest
-
 from backlog_manager.domain.entities import Developer, Feature, Story
 from backlog_manager.domain.services import (
     AllocationConfig,
@@ -377,6 +376,7 @@ class TestPerformance:
             "expected <= 5.0s"
         )
 
+    @pytest.mark.slow
     def test_500_stories_under_30_seconds(
         self,
         developers: list[Developer],

@@ -8,10 +8,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel
-
 from backlog_manager.presentation.views.about_dialog import AboutDialog
+from PySide6.QtWidgets import QLabel
 
 pytestmark = [pytest.mark.e2e]
 

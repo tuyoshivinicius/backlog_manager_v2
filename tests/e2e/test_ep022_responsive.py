@@ -6,8 +6,6 @@ Tests verify that columns are hidden/shown based on window width.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QSize
-
 from backlog_manager.presentation.views.main_window import MainWindow
 
 pytestmark = [pytest.mark.e2e]

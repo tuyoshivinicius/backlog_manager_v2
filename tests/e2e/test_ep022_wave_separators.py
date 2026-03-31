@@ -6,12 +6,10 @@ Tests verify wave palette definition and background role behavior.
 from __future__ import annotations
 
 import pytest
+from backlog_manager.presentation.theme import WAVE_PALETTE
+from backlog_manager.presentation.views.main_window import MainWindow
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-
-from backlog_manager.presentation.theme import WAVE_PALETTE
-from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
-from backlog_manager.presentation.views.main_window import MainWindow
 
 pytestmark = [pytest.mark.e2e]
 

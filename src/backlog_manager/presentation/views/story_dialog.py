@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Literal
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Slot
+from PySide6.QtCore import QEvent, QObject, QTimer, Slot
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QVBoxLayout,
     QWidget,
 )

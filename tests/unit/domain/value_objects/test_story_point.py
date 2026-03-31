@@ -1,7 +1,6 @@
 """Testes unitarios para StoryPoint."""
 
 import pytest
-
 from backlog_manager.domain.value_objects import StoryPoint
 
 

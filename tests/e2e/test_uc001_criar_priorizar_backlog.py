@@ -7,8 +7,6 @@ validation, and priority manipulation.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
-
 from backlog_manager.application.dto.story import CreateStoryInputDTO
 
 pytestmark = [pytest.mark.e2e]

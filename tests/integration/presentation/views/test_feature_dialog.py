@@ -6,24 +6,20 @@ verifying correct behavior of the feature management dialog.
 
 from __future__ import annotations
 
-import asyncio
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QListWidgetItem, QStackedWidget
-
-from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.presentation.container import DIContainer
 from backlog_manager.presentation.views.feature_dialog import FeatureDialog
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel, QListWidgetItem, QStackedWidget
 
 
 class TestFeatureDialogDisplay:
     """Tests for FeatureDialog display functionality."""
 
     def test_dialog_shows_with_correct_title(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog shows with correct title."""
         dialog = FeatureDialog(container)
@@ -32,7 +28,10 @@ class TestFeatureDialogDisplay:
         assert dialog.windowTitle() == "Gerenciar Features"
 
     def test_dialog_is_modal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog is modal."""
         dialog = FeatureDialog(container)
@@ -41,7 +40,10 @@ class TestFeatureDialogDisplay:
         assert dialog.isModal() is True
 
     def test_dialog_has_minimum_size(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has correct minimum size."""
         dialog = FeatureDialog(container)
@@ -55,7 +57,10 @@ class TestFeatureDialogComponents:
     """Tests for FeatureDialog UI components."""
 
     def test_has_feature_list(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has feature list."""
         dialog = FeatureDialog(container)
@@ -64,7 +69,10 @@ class TestFeatureDialogComponents:
         assert dialog._feature_list is not None
 
     def test_has_name_field(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has name field with correct properties."""
         dialog = FeatureDialog(container)
@@ -74,7 +82,10 @@ class TestFeatureDialogComponents:
         assert dialog._name_edit.maxLength() == 100
 
     def test_has_wave_spinbox(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has wave spinbox with correct properties."""
         dialog = FeatureDialog(container)
@@ -86,7 +97,10 @@ class TestFeatureDialogComponents:
         assert dialog._wave_spinbox.value() == 1
 
     def test_has_add_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has add button with correct label."""
         dialog = FeatureDialog(container)
@@ -96,7 +110,10 @@ class TestFeatureDialogComponents:
         assert dialog._add_button.text() == "Adicionar"
 
     def test_has_save_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has save button."""
         dialog = FeatureDialog(container)
@@ -106,7 +123,10 @@ class TestFeatureDialogComponents:
         assert dialog._save_button.text() == "Salvar"
 
     def test_has_cancel_edit_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has cancel edit button (for exiting edit mode)."""
         dialog = FeatureDialog(container)
@@ -116,7 +136,10 @@ class TestFeatureDialogComponents:
         assert dialog._cancel_edit_button.text() == "Cancelar Edicao"
 
     def test_has_remove_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has remove button."""
         dialog = FeatureDialog(container)
@@ -126,7 +149,10 @@ class TestFeatureDialogComponents:
         assert dialog._remove_button.text() == "Remover"
 
     def test_has_close_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has close button."""
         dialog = FeatureDialog(container)
@@ -136,7 +162,10 @@ class TestFeatureDialogComponents:
         assert dialog._close_button.text() == "Fechar"
 
     def test_buttons_have_tooltips(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that buttons have tooltips."""
         dialog = FeatureDialog(container)
@@ -152,7 +181,10 @@ class TestFeatureDialogButtonStates:
     """Tests for button state management."""
 
     def test_save_button_disabled_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that save button is disabled initially."""
         dialog = FeatureDialog(container)
@@ -161,7 +193,10 @@ class TestFeatureDialogButtonStates:
         assert dialog._save_button.isEnabled() is False
 
     def test_save_button_hidden_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that save button is hidden initially."""
         dialog = FeatureDialog(container)
@@ -170,7 +205,10 @@ class TestFeatureDialogButtonStates:
         assert dialog._save_button.isVisible() is False
 
     def test_cancel_edit_button_hidden_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that cancel edit button is hidden initially."""
         dialog = FeatureDialog(container)
@@ -179,7 +217,10 @@ class TestFeatureDialogButtonStates:
         assert dialog._cancel_edit_button.isVisible() is False
 
     def test_remove_button_disabled_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that remove button is disabled when no selection."""
         dialog = FeatureDialog(container)
@@ -188,7 +229,10 @@ class TestFeatureDialogButtonStates:
         assert dialog._remove_button.isEnabled() is False
 
     def test_add_button_enabled_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that add button is enabled initially."""
         dialog = FeatureDialog(container)
@@ -197,7 +241,10 @@ class TestFeatureDialogButtonStates:
         assert dialog._add_button.isEnabled() is True
 
     def test_remove_button_enabled_on_selection(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that remove button is enabled when item is selected."""
         dialog = FeatureDialog(container)
@@ -215,7 +262,10 @@ class TestFeatureDialogButtonStates:
         assert dialog._remove_button.isEnabled() is True
 
     def test_remove_button_disabled_on_deselection(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that remove button is disabled when selection is cleared."""
         dialog = FeatureDialog(container)
@@ -237,7 +287,10 @@ class TestFeatureDialogFormFields:
     """Tests for form field behavior."""
 
     def test_name_field_placeholder(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that name field has placeholder text."""
         dialog = FeatureDialog(container)
@@ -246,7 +299,10 @@ class TestFeatureDialogFormFields:
         assert dialog._name_edit.placeholderText() != ""
 
     def test_wave_spinbox_default_value(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that wave spinbox has correct default value."""
         dialog = FeatureDialog(container)
@@ -259,7 +315,10 @@ class TestFeatureDialogClose:
     """Tests for closing the dialog."""
 
     def test_close_button_accepts_dialog(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that close button accepts the dialog."""
         dialog = FeatureDialog(container)
@@ -273,7 +332,10 @@ class TestFeatureDialogSignals:
     """Tests for FeatureDialog signals."""
 
     def test_has_features_changed_signal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dialog has features_changed signal."""
         dialog = FeatureDialog(container)
@@ -286,7 +348,10 @@ class TestFeatureDialogListOperations:
     """Tests for list display operations."""
 
     def test_feature_item_stores_id_and_wave(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that feature items store their IDs and waves."""
         dialog = FeatureDialog(container)
@@ -303,7 +368,10 @@ class TestFeatureDialogListOperations:
         assert stored_data["wave"] == 2
 
     def test_feature_item_displays_name_and_wave(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that feature items display name and wave."""
         dialog = FeatureDialog(container)
@@ -322,7 +390,10 @@ class TestFeatureDialogWaveFormat:
     """Tests for wave format display in feature list."""
 
     def test_feature_dialog_wave_format(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that items display 'Onda N \u2014 Nome' format."""
         dialog = FeatureDialog(container)
@@ -343,7 +414,10 @@ class TestFeatureDialogEmptyState:
     """Tests for empty state display."""
 
     def test_feature_dialog_empty_state(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that empty list shows orientative message via QStackedWidget."""
         dialog = FeatureDialog(container)

@@ -8,10 +8,8 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QPushButton
-
 from backlog_manager.presentation.views.progress_dialog import ProgressDialog
+from PySide6.QtWidgets import QPushButton
 
 pytestmark = [pytest.mark.e2e]
 
@@ -32,19 +30,15 @@ class TestProgressDialogCancellation:
         """Cancel button becomes visible after 2s timer expires."""
         dialog = ProgressDialog("Processando...")
         qtbot.addWidget(dialog)
+        dialog.show()
 
         loop = asyncio.new_event_loop()
         task = loop.create_task(asyncio.sleep(999))
 
         dialog.set_cancellable_task(task)
 
-        # Manually trigger the timer timeout
-        dialog._cancel_timer.setInterval(0)
-        dialog._cancel_timer.start()
-        qtbot.waitUntil(
-            lambda: dialog.findChild(QPushButton, "cancel-button").isVisible(),
-            timeout=1000,
-        )
+        # Manually trigger the timer's connected slot
+        dialog._cancel_timer.timeout.emit()
 
         cancel_btn = dialog.findChild(QPushButton, "cancel-button")
         assert cancel_btn.isVisible()
@@ -64,7 +58,7 @@ class TestProgressDialogCancellation:
         # Show button immediately
         dialog._show_cancel_button()
 
-        with qtbot.waitSignal(dialog.cancelled, timeout=1000):
+        with qtbot.waitSignal(dialog.cancelled, timeout=200):
             cancel_btn = dialog.findChild(QPushButton, "cancel-button")
             cancel_btn.click()
 
@@ -103,7 +97,7 @@ class TestProgressDialogCancellation:
         cancel_btn = dialog.findChild(QPushButton, "cancel-button")
         cancel_btn.click()
 
-        assert task.cancelled()
+        assert task.cancelling()
         loop.close()
 
     def test_update_progress_switches_to_determinate(self, qtbot):

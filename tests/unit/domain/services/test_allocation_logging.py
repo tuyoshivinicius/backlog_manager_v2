@@ -17,7 +17,6 @@ from io import StringIO
 from typing import TYPE_CHECKING
 
 import pytest
-
 from backlog_manager.domain.entities import Developer, Feature, Story
 from backlog_manager.domain.services import (
     AllocationConfig,
@@ -28,7 +27,7 @@ from backlog_manager.domain.value_objects import BRAZILIAN_HOLIDAYS_2026_2028
 from backlog_manager.infrastructure.logging import reset_logging
 
 if TYPE_CHECKING:
-    from typing import Generator
+    from collections.abc import Generator
 
 
 @pytest.fixture

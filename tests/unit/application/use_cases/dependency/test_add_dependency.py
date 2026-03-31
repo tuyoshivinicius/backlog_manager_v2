@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
-
 from backlog_manager.application.dto.dependency import AddDependencyInputDTO
 from backlog_manager.application.use_cases.dependency import AddDependencyUseCase
 from backlog_manager.domain.exceptions.dependency import CyclicDependencyException

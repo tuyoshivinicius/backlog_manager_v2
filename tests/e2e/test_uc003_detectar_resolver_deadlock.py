@@ -7,7 +7,6 @@ and indirect cycle detection.
 from __future__ import annotations
 
 import pytest
-
 from backlog_manager.application.dto.dependency import (
     AddDependencyInputDTO,
     GetDependenciesInputDTO,
@@ -15,11 +14,6 @@ from backlog_manager.application.dto.dependency import (
 )
 from backlog_manager.application.dto.story import CreateStoryInputDTO
 from backlog_manager.domain.exceptions import CyclicDependencyException
-from tests.e2e.factories import (
-    create_cyclic_graph,
-    create_stories,
-    get_dependency_pairs,
-)
 
 pytestmark = [pytest.mark.e2e]
 

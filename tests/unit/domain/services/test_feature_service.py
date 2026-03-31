@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from backlog_manager.domain.entities import Feature
 from backlog_manager.domain.exceptions import DuplicateWaveException
 from backlog_manager.domain.services.feature_service import FeatureService

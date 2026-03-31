@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from backlog_manager.presentation.views.confirm_reset_dialog import ConfirmResetDialog
 
 

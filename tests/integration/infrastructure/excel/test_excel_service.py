@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from openpyxl import Workbook
-
 from backlog_manager.application.dto.excel.export_excel_dto import ExcelExportData
 from backlog_manager.application.exceptions.excel_exceptions import (
     ExcelFileCorruptedException,
@@ -14,6 +12,7 @@ from backlog_manager.application.exceptions.excel_exceptions import (
     ExcelMissingHeaderException,
 )
 from backlog_manager.infrastructure.excel.excel_service import ExcelService
+from openpyxl import Workbook
 
 
 @pytest.fixture

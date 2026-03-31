@@ -6,25 +6,21 @@ verifying correct behavior of the dependency management panel.
 
 from __future__ import annotations
 
-import asyncio
-from datetime import date
-from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QListWidgetItem
-
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.container import DIContainer
 from backlog_manager.presentation.views.dependency_panel import DependencyPanel
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QListWidgetItem
 
 
 class TestDependencyPanelDisplay:
     """Tests for DependencyPanel display functionality."""
 
     def test_panel_creates_successfully(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel creates without errors."""
         panel = DependencyPanel(container)
@@ -33,7 +29,10 @@ class TestDependencyPanelDisplay:
         assert panel is not None
 
     def test_panel_has_title(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has a title label."""
         panel = DependencyPanel(container)
@@ -51,7 +50,10 @@ class TestDependencyPanelComponents:
     """Tests for DependencyPanel UI components."""
 
     def test_has_depends_on_list(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has depends-on list."""
         panel = DependencyPanel(container)
@@ -60,7 +62,10 @@ class TestDependencyPanelComponents:
         assert panel._depends_on_list is not None
 
     def test_has_dependents_list(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has dependents list."""
         panel = DependencyPanel(container)
@@ -69,7 +74,10 @@ class TestDependencyPanelComponents:
         assert panel._dependents_list is not None
 
     def test_has_story_combo(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has story selection combo."""
         panel = DependencyPanel(container)
@@ -78,7 +86,10 @@ class TestDependencyPanelComponents:
         assert panel._story_combo is not None
 
     def test_has_add_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has add dependency button."""
         panel = DependencyPanel(container)
@@ -88,7 +99,10 @@ class TestDependencyPanelComponents:
         assert panel._add_dep_button.text() == "Adicionar"
 
     def test_has_remove_button(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has remove dependency button."""
         panel = DependencyPanel(container)
@@ -98,7 +112,10 @@ class TestDependencyPanelComponents:
         assert "Remover" in panel._remove_dep_button.text()
 
     def test_story_combo_has_placeholder(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that story combo has placeholder text."""
         panel = DependencyPanel(container)
@@ -111,7 +128,10 @@ class TestDependencyPanelButtonStates:
     """Tests for button state management."""
 
     def test_add_button_disabled_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that add button is disabled initially."""
         panel = DependencyPanel(container)
@@ -120,7 +140,10 @@ class TestDependencyPanelButtonStates:
         assert panel._add_dep_button.isEnabled() is False
 
     def test_remove_button_disabled_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that remove button is disabled initially."""
         panel = DependencyPanel(container)
@@ -129,7 +152,10 @@ class TestDependencyPanelButtonStates:
         assert panel._remove_dep_button.isEnabled() is False
 
     def test_remove_button_enabled_on_selection(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that remove button is enabled when dependency is selected."""
         panel = DependencyPanel(container)
@@ -146,7 +172,10 @@ class TestDependencyPanelButtonStates:
         assert panel._remove_dep_button.isEnabled() is True
 
     def test_remove_button_disabled_on_deselection(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that remove button is disabled when selection is cleared."""
         panel = DependencyPanel(container)
@@ -168,7 +197,10 @@ class TestDependencyPanelSignals:
     """Tests for DependencyPanel signals."""
 
     def test_has_dependency_added_signal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has dependency_added signal."""
         panel = DependencyPanel(container)
@@ -177,7 +209,10 @@ class TestDependencyPanelSignals:
         assert hasattr(panel, "dependency_added")
 
     def test_has_dependency_removed_signal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has dependency_removed signal."""
         panel = DependencyPanel(container)
@@ -186,7 +221,10 @@ class TestDependencyPanelSignals:
         assert hasattr(panel, "dependency_removed")
 
     def test_has_error_occurred_signal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that panel has error_occurred signal."""
         panel = DependencyPanel(container)
@@ -199,7 +237,10 @@ class TestDependencyPanelStorySelection:
     """Tests for story selection functionality."""
 
     def test_set_story_updates_current_story_id(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that set_story updates the current story ID."""
         panel = DependencyPanel(container)
@@ -210,7 +251,10 @@ class TestDependencyPanelStorySelection:
         assert panel._current_story_id == "STORY-001"
 
     def test_clear_lists_on_none_story(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that setting None story clears the lists."""
         panel = DependencyPanel(container)
@@ -235,7 +279,10 @@ class TestDependencyPanelListOperations:
     """Tests for list display operations."""
 
     def test_dependency_item_stores_id(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dependency items store their story IDs."""
         panel = DependencyPanel(container)
@@ -251,7 +298,10 @@ class TestDependencyPanelListOperations:
         assert stored_id == "STORY-001"
 
     def test_dependency_item_displays_story_info(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dependency items display story information."""
         panel = DependencyPanel(container)
@@ -266,7 +316,10 @@ class TestDependencyPanelListOperations:
         assert "STORY-001" in text
 
     def test_dependent_item_stores_id(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dependent items store their story IDs."""
         panel = DependencyPanel(container)
@@ -286,7 +339,10 @@ class TestDependencyPanelListMaxHeight:
     """Tests for list maximum height constraints."""
 
     def test_depends_on_list_has_max_height(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that depends-on list has maximum height."""
         panel = DependencyPanel(container)
@@ -295,7 +351,10 @@ class TestDependencyPanelListMaxHeight:
         assert panel._depends_on_list.maximumHeight() == 120
 
     def test_dependents_list_has_max_height(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that dependents list has maximum height."""
         panel = DependencyPanel(container)
@@ -308,7 +367,10 @@ class TestDependencyPanelStoryCombo:
     """Tests for story combo functionality."""
 
     def test_story_combo_initially_empty(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that story combo is initially empty."""
         panel = DependencyPanel(container)
@@ -317,7 +379,10 @@ class TestDependencyPanelStoryCombo:
         assert panel._story_combo.count() == 0
 
     def test_set_stories_populates_combo(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that setting stories populates the combo."""
         panel = DependencyPanel(container)

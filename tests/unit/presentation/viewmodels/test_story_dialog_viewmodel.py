@@ -6,13 +6,9 @@ verifying validation, signal emissions, and proper operation handling.
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
-from PySide6.QtCore import SignalInstance
-
 from backlog_manager.application.dto.developer import DeveloperOutputDTO
 from backlog_manager.application.dto.feature import FeatureOutputDTO
 from backlog_manager.application.dto.story import StoryOutputDTO
@@ -52,7 +48,9 @@ class TestStoryDialogViewModelProperties:
     """Tests for StoryDialogViewModel properties."""
 
     def test_component_setter_strips_and_uppercases(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that component setter strips whitespace and uppercases."""
         viewmodel = StoryDialogViewModel(container)
@@ -61,7 +59,9 @@ class TestStoryDialogViewModelProperties:
         assert viewmodel.component == "API"
 
     def test_name_setter_strips_whitespace(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that name setter strips whitespace."""
         viewmodel = StoryDialogViewModel(container)
@@ -70,7 +70,9 @@ class TestStoryDialogViewModelProperties:
         assert viewmodel.name == "Test Story"
 
     def test_story_points_setter_valid(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test setting valid story points."""
         viewmodel = StoryDialogViewModel(container)
@@ -80,7 +82,9 @@ class TestStoryDialogViewModelProperties:
             assert viewmodel.story_points == sp
 
     def test_story_points_setter_invalid_ignored(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that invalid story points are ignored."""
         viewmodel = StoryDialogViewModel(container)
@@ -90,7 +94,9 @@ class TestStoryDialogViewModelProperties:
         assert viewmodel.story_points == 5  # Unchanged
 
     def test_feature_id_setter(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test setting feature ID."""
         viewmodel = StoryDialogViewModel(container)
@@ -99,7 +105,9 @@ class TestStoryDialogViewModelProperties:
         assert viewmodel.feature_id == 42
 
     def test_feature_id_can_be_none(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that feature ID can be set to None."""
         viewmodel = StoryDialogViewModel(container)
@@ -109,7 +117,9 @@ class TestStoryDialogViewModelProperties:
         assert viewmodel.feature_id is None
 
     def test_features_returns_copy(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that features property returns a copy."""
         viewmodel = StoryDialogViewModel(container)
@@ -123,7 +133,9 @@ class TestStoryDialogViewModelMode:
     """Tests for mode management."""
 
     def test_set_mode_to_create(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test setting mode to create."""
         viewmodel = StoryDialogViewModel(container)
@@ -137,7 +149,9 @@ class TestStoryDialogViewModelMode:
         assert viewmodel.name == ""
 
     def test_set_mode_to_edit(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test setting mode to edit."""
         viewmodel = StoryDialogViewModel(container)
@@ -146,7 +160,10 @@ class TestStoryDialogViewModelMode:
         assert viewmodel.mode == "edit"
 
     def test_set_story_populates_form(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that set_story populates the form."""
         viewmodel = StoryDialogViewModel(container)
@@ -164,7 +181,9 @@ class TestStoryDialogViewModelValidation:
     """Tests for form validation."""
 
     def test_validate_empty_component(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validation fails with empty component."""
         viewmodel = StoryDialogViewModel(container)
@@ -176,7 +195,9 @@ class TestStoryDialogViewModelValidation:
         assert "Componente" in error
 
     def test_validate_component_too_long(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validation fails with component > 50 chars."""
         viewmodel = StoryDialogViewModel(container)
@@ -189,7 +210,9 @@ class TestStoryDialogViewModelValidation:
         assert "50" in error
 
     def test_validate_empty_name(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validation fails with empty name."""
         viewmodel = StoryDialogViewModel(container)
@@ -201,7 +224,9 @@ class TestStoryDialogViewModelValidation:
         assert "Nome" in error
 
     def test_validate_name_too_long(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validation fails with name > 200 chars."""
         viewmodel = StoryDialogViewModel(container)
@@ -214,7 +239,9 @@ class TestStoryDialogViewModelValidation:
         assert "200" in error
 
     def test_validate_invalid_story_points(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validation fails with invalid story points."""
         viewmodel = StoryDialogViewModel(container)
@@ -228,7 +255,9 @@ class TestStoryDialogViewModelValidation:
         assert "Story Points" in error
 
     def test_validate_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validation succeeds with valid data."""
         viewmodel = StoryDialogViewModel(container)
@@ -247,7 +276,9 @@ class TestStoryDialogViewModelLoadFeatures:
 
     @pytest.mark.asyncio
     async def test_load_features_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful feature loading."""
         viewmodel = StoryDialogViewModel(container)
@@ -281,7 +312,9 @@ class TestStoryDialogViewModelLoadFeatures:
 
     @pytest.mark.asyncio
     async def test_load_features_error_emits_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that feature loading errors emit error signal."""
         viewmodel = StoryDialogViewModel(container)
@@ -310,7 +343,9 @@ class TestStoryDialogViewModelSave:
 
     @pytest.mark.asyncio
     async def test_save_validation_error_emits_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that validation errors emit error signal."""
         viewmodel = StoryDialogViewModel(container)
@@ -331,7 +366,9 @@ class TestStoryDialogViewModelSave:
 
     @pytest.mark.asyncio
     async def test_save_create_success(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story creation."""
         viewmodel = StoryDialogViewModel(container)
@@ -374,7 +411,10 @@ class TestStoryDialogViewModelSave:
 
     @pytest.mark.asyncio
     async def test_save_edit_success(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test successful story editing."""
         viewmodel = StoryDialogViewModel(container)
@@ -416,7 +456,9 @@ class TestStoryDialogViewModelSave:
 
     @pytest.mark.asyncio
     async def test_save_backlog_manager_exception_emits_error(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that BacklogManagerException emits error signal."""
         viewmodel = StoryDialogViewModel(container)
@@ -447,7 +489,9 @@ class TestStoryDialogViewModelSave:
 
     @pytest.mark.asyncio
     async def test_save_unexpected_exception_emits_error(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that unexpected exceptions emit error signal."""
         viewmodel = StoryDialogViewModel(container)
@@ -479,7 +523,9 @@ class TestStoryDialogViewModelDeveloperId:
     """Tests for developer_id property and load_developers (US1)."""
 
     def test_developer_id_property_get_set(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test developer_id property accepts int and None."""
         viewmodel = StoryDialogViewModel(container)
@@ -490,14 +536,19 @@ class TestStoryDialogViewModelDeveloperId:
         assert viewmodel.developer_id is None
 
     def test_developer_id_initial_none(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test initial developer_id is None."""
         viewmodel = StoryDialogViewModel(container)
         assert viewmodel.developer_id is None
 
     def test_set_story_loads_developer_id(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that set_story recovers developer_id."""
         viewmodel = StoryDialogViewModel(container)
@@ -506,7 +557,9 @@ class TestStoryDialogViewModelDeveloperId:
 
     @pytest.mark.asyncio
     async def test_load_developers_returns_list(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test load_developers populates list via ListDevelopersUseCase."""
         viewmodel = StoryDialogViewModel(container)
@@ -538,7 +591,9 @@ class TestStoryDialogViewModelDeveloperId:
 
     @pytest.mark.asyncio
     async def test_load_developers_includes_none_option(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test loaded list allows 'Nenhum' (no developer) as first dropdown option."""
         viewmodel = StoryDialogViewModel(container)
@@ -569,7 +624,9 @@ class TestStoryDialogViewModelDeveloperId:
 
     @pytest.mark.asyncio
     async def test_load_developers_error_emits_signal(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test load failure emits error_occurred."""
         viewmodel = StoryDialogViewModel(container)
@@ -593,7 +650,10 @@ class TestStoryDialogViewModelDeveloperId:
 
     @pytest.mark.asyncio
     async def test_save_with_developer_id(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test save in edit mode includes developer_id."""
         viewmodel = StoryDialogViewModel(container)
@@ -628,7 +688,10 @@ class TestStoryDialogViewModelDeveloperId:
 
     @pytest.mark.asyncio
     async def test_save_without_developer(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test save in edit mode without developer."""
         viewmodel = StoryDialogViewModel(container)
@@ -665,7 +728,9 @@ class TestStoryDialogViewModelStatus:
     """Tests for status property and edit flow."""
 
     def test_status_property_get_set(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test status property accepts string values."""
         viewmodel = StoryDialogViewModel(container)
@@ -673,14 +738,19 @@ class TestStoryDialogViewModelStatus:
         assert viewmodel.status == "CONCLUIDO"
 
     def test_status_initial_backlog(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test initial status is BACKLOG."""
         viewmodel = StoryDialogViewModel(container)
         assert viewmodel.status == "BACKLOG"
 
     def test_set_story_loads_status(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that set_story loads status from DTO."""
         viewmodel = StoryDialogViewModel(container)
@@ -688,7 +758,9 @@ class TestStoryDialogViewModelStatus:
         assert viewmodel.status == sample_story_dto.status
 
     def test_reset_form_resets_status(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that reset_form resets status to BACKLOG."""
         viewmodel = StoryDialogViewModel(container)
@@ -698,7 +770,10 @@ class TestStoryDialogViewModelStatus:
 
     @pytest.mark.asyncio
     async def test_save_with_status(
-        self, container: DIContainer, sample_story_dto: StoryOutputDTO, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        sample_story_dto: StoryOutputDTO,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test save in edit mode includes status in DTO."""
         viewmodel = StoryDialogViewModel(container)
@@ -735,7 +810,9 @@ class TestStoryDialogViewModelValidateField:
     """Tests for validate_field method (US2)."""
 
     def test_validate_field_component_empty(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns (False, 'Campo obrigatorio') for empty component."""
         viewmodel = StoryDialogViewModel(container)
@@ -744,7 +821,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == "Campo obrigatorio"
 
     def test_validate_field_component_too_long(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns error for component > 50 chars."""
         viewmodel = StoryDialogViewModel(container)
@@ -754,7 +833,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == "Maximo de 50 caracteres"
 
     def test_validate_field_component_valid(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns (True, '') for valid component."""
         viewmodel = StoryDialogViewModel(container)
@@ -764,7 +845,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == ""
 
     def test_validate_field_name_empty(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns (False, 'Campo obrigatorio') for empty name."""
         viewmodel = StoryDialogViewModel(container)
@@ -773,7 +856,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == "Campo obrigatorio"
 
     def test_validate_field_name_too_long(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns error for name > 200 chars."""
         viewmodel = StoryDialogViewModel(container)
@@ -783,7 +868,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == "Maximo de 200 caracteres"
 
     def test_validate_field_name_valid(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns (True, '') for valid name."""
         viewmodel = StoryDialogViewModel(container)
@@ -793,7 +880,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == ""
 
     def test_validate_field_unknown(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test validate_field returns (True, '') for unknown fields."""
         viewmodel = StoryDialogViewModel(container)
@@ -802,7 +891,9 @@ class TestStoryDialogViewModelValidateField:
         assert msg == ""
 
     def test_validate_global_still_works(
-        self, container: DIContainer, qapp  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test existing validate() unchanged."""
         viewmodel = StoryDialogViewModel(container)

@@ -9,10 +9,9 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from PySide6.QtCore import QModelIndex, Qt
-
 from backlog_manager.application.dto.story import StoryOutputDTO
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
+from PySide6.QtCore import QModelIndex, Qt
 
 
 class TestStoryTableModelBasics:
@@ -27,7 +26,7 @@ class TestStoryTableModelBasics:
         """T019: Test that the model has 13 columns."""
         model = StoryTableModel()
         assert model.columnCount() == 13
-        assert model.COLUMNS == [
+        assert [
             "Prioridade",
             "Feature",
             "Onda",
@@ -41,7 +40,7 @@ class TestStoryTableModelBasics:
             "Inicio",
             "Fim",
             "Duracao",
-        ]
+        ] == model.COLUMNS
 
     def test_header_data_horizontal(self, qapp) -> None:  # type: ignore[no-untyped-def]
         """T019: Test horizontal header data returns correct names for all 13 columns."""
@@ -75,7 +74,9 @@ class TestStoryTableModelDisplayRole:
     """T020: Tests for data(DisplayRole) with fully populated DTO."""
 
     @pytest.fixture
-    def model_with_stories(self, sample_stories: list[StoryOutputDTO], qapp) -> StoryTableModel:  # type: ignore[no-untyped-def]
+    def model_with_stories(
+        self, sample_stories: list[StoryOutputDTO], qapp
+    ) -> StoryTableModel:  # type: ignore[no-untyped-def]
         """Create a model with sample stories."""
         model = StoryTableModel()
         model.set_stories(sample_stories)
@@ -376,7 +377,9 @@ class TestStoryTableModelHelpers:
     """Tests for StoryTableModel helper methods."""
 
     @pytest.fixture
-    def model_with_stories(self, sample_stories: list[StoryOutputDTO], qapp) -> StoryTableModel:  # type: ignore[no-untyped-def]
+    def model_with_stories(
+        self, sample_stories: list[StoryOutputDTO], qapp
+    ) -> StoryTableModel:  # type: ignore[no-untyped-def]
         model = StoryTableModel()
         model.set_stories(sample_stories)
         return model

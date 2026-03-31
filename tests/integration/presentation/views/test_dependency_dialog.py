@@ -56,7 +56,10 @@ class TestDependencyDialogDisplay:
     """Tests for DependencyDialog display."""
 
     def test_dialog_title_contains_story_id(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test dialog title contains story ID and name."""
         stories = _make_stories()
@@ -67,7 +70,10 @@ class TestDependencyDialogDisplay:
         assert "Story 1" in dialog.windowTitle()
 
     def test_dialog_fixed_size(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test dialog has fixed size 500x420."""
         stories = _make_stories()
@@ -78,7 +84,10 @@ class TestDependencyDialogDisplay:
         assert dialog.height() == 420
 
     def test_dialog_is_modal(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test dialog is modal."""
         stories = _make_stories()
@@ -88,7 +97,10 @@ class TestDependencyDialogDisplay:
         assert dialog.isModal()
 
     def test_combo_excludes_current_story(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that combo box excludes the current story."""
         stories = _make_stories()
@@ -104,7 +116,10 @@ class TestDependencyDialogDisplay:
         assert any("S3:" in item for item in combo_items)
 
     def test_cycle_error_banner_hidden_initially(
-        self, container: DIContainer, qapp, qtbot  # type: ignore[no-untyped-def]
+        self,
+        container: DIContainer,
+        qapp,
+        qtbot,  # type: ignore[no-untyped-def]
     ) -> None:
         """Test that cycle error banner is hidden initially."""
         stories = _make_stories()

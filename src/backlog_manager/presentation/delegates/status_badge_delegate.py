@@ -6,10 +6,17 @@ non-chromatic symbols for accessibility (WCAG compliant).
 
 from typing import cast
 
-from PySide6.QtCore import QAbstractItemModel, QModelIndex, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import (
+    QAbstractItemModel,
+    QModelIndex,
+    QPersistentModelIndex,
+    QRect,
+    QSize,
+    Qt,
+    QTimer,
+)
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QComboBox,
     QStyle,
     QStyledItemDelegate,
@@ -61,7 +68,10 @@ class StatusBadgeDelegate(QStyledItemDelegate):
         )
 
     def paint(
-        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         """Paint the status badge.
 
@@ -187,7 +197,9 @@ class StatusBadgeDelegate(QStyledItemDelegate):
         text = f"{config.symbol} {status}"
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
+    def sizeHint(
+        self, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex
+    ) -> QSize:
         """Return the preferred size for the badge.
 
         Args:
@@ -200,7 +212,10 @@ class StatusBadgeDelegate(QStyledItemDelegate):
         return QSize(self.MIN_BADGE_WIDTH + 20, self.MIN_BADGE_HEIGHT + 8)
 
     def createEditor(
-        self, parent: QWidget, option: QStyleOptionViewItem, index: QModelIndex
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
     ) -> QWidget:
         """Create a QComboBox editor for inline status change."""
         combo = QComboBox(parent)
@@ -210,7 +225,9 @@ class StatusBadgeDelegate(QStyledItemDelegate):
         combo.currentIndexChanged.connect(lambda: self.closeEditor.emit(combo))
         return combo
 
-    def setEditorData(self, editor: QWidget, index: QModelIndex) -> None:
+    def setEditorData(
+        self, editor: QWidget, index: QModelIndex | QPersistentModelIndex
+    ) -> None:
         """Pre-select the current status in the combo box."""
         combo = cast(QComboBox, editor)
         current_status = index.data(Qt.ItemDataRole.DisplayRole)
@@ -221,7 +238,10 @@ class StatusBadgeDelegate(QStyledItemDelegate):
         QTimer.singleShot(0, combo.showPopup)
 
     def setModelData(
-        self, editor: QWidget, model: QAbstractItemModel, index: QModelIndex
+        self,
+        editor: QWidget,
+        model: QAbstractItemModel,
+        index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         """Pass the selected status value to the model."""
         combo = cast(QComboBox, editor)

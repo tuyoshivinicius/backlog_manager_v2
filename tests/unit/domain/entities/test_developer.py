@@ -1,7 +1,6 @@
 """Test Developer entity."""
 
 import pytest
-
 from backlog_manager.domain.entities import Developer
 
 

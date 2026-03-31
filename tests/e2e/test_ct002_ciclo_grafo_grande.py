@@ -10,7 +10,6 @@ import time
 
 import pytest
 import pytest_asyncio
-
 from backlog_manager.application.dto.dependency import (
     AddDependencyInputDTO,
     GetDependenciesInputDTO,
@@ -18,7 +17,6 @@ from backlog_manager.application.dto.dependency import (
 from backlog_manager.domain.entities.story import Story
 from backlog_manager.domain.exceptions import CyclicDependencyException
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
-from tests.e2e.factories import create_cyclic_graph
 
 pytestmark = [pytest.mark.e2e]
 
