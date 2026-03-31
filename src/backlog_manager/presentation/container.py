@@ -11,7 +11,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from backlog_manager.application.use_cases.allocation import ExecuteAllocationUseCase
+from backlog_manager.application.use_cases.allocation import (
+    ExecuteAllocationUseCase,
+    GetDeveloperAvailabilityUseCase,
+)
 from backlog_manager.application.use_cases.dependency import (
     AddDependencyUseCase,
     GetDependenciesUseCase,
@@ -69,6 +72,9 @@ if TYPE_CHECKING:
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
     )
+    from backlog_manager.presentation.viewmodels.manual_allocation_dialog_viewmodel import (
+        ManualAllocationDialogViewModel,
+    )
     from backlog_manager.presentation.viewmodels.reset_planning_viewmodel import (
         ResetPlanningViewModel,
     )
@@ -121,6 +127,9 @@ class DIContainer:
         self._dependency_dialog_viewmodel: DependencyDialogViewModel | None = None
         self._status_bar_viewmodel: StatusBarViewModel | None = None
         self._reset_planning_viewmodel: ResetPlanningViewModel | None = None
+        self._manual_allocation_dialog_viewmodel: (
+            ManualAllocationDialogViewModel | None
+        ) = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -440,6 +449,19 @@ class DIContainer:
         """
         return ExecuteAllocationUseCase(uow)
 
+    def create_get_developer_availability_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> GetDeveloperAvailabilityUseCase:
+        """Create a GetDeveloperAvailabilityUseCase instance.
+
+        Args:
+            uow: Unit of Work for repository access.
+
+        Returns:
+            A new GetDeveloperAvailabilityUseCase instance.
+        """
+        return GetDeveloperAvailabilityUseCase(uow)
+
     def create_calculate_schedule_use_case(
         self, uow: SQLiteUnitOfWork
     ) -> CalculateScheduleUseCase:
@@ -630,3 +652,16 @@ class DIContainer:
 
             self._reset_planning_viewmodel = ResetPlanningViewModel(self)
         return self._reset_planning_viewmodel
+
+    @property
+    def manual_allocation_dialog_viewmodel(self) -> ManualAllocationDialogViewModel:
+        """Get the ManualAllocationDialogViewModel instance (lazy loaded)."""
+        if self._manual_allocation_dialog_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.manual_allocation_dialog_viewmodel import (
+                ManualAllocationDialogViewModel,
+            )
+
+            self._manual_allocation_dialog_viewmodel = ManualAllocationDialogViewModel(
+                self
+            )
+        return self._manual_allocation_dialog_viewmodel
