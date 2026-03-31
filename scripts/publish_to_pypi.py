@@ -17,6 +17,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 DIST_DIR = Path("dist")
 EXPECTED_NAME = "zion_backlog_manager"
 TESTPYPI_URL = "https://test.pypi.org/legacy/"
@@ -31,19 +33,29 @@ def check_tool(name: str) -> None:
         sys.exit(1)
 
 
+def resolve_token(use_test: bool) -> str | None:
+    """Return the appropriate token for the target registry."""
+    if use_test:
+        token = os.environ.get("TESTPYPI_TOKEN") or os.environ.get("PYPI_TOKEN")
+    else:
+        token = os.environ.get("PYPI_TOKEN")
+    return token
+
+
 def check_credentials(use_test: bool) -> None:
     """Verify PyPI credentials are available via environment variables."""
-    pypi_token = os.environ.get("PYPI_TOKEN")
+    token = resolve_token(use_test)
     twine_user = os.environ.get("TWINE_USERNAME")
     twine_pass = os.environ.get("TWINE_PASSWORD")
 
-    if pypi_token or (twine_user and twine_pass):
+    if token or (twine_user and twine_pass):
         return
 
     target = "TestPyPI" if use_test else "PyPI"
+    env_var = "TESTPYPI_TOKEN" if use_test else "PYPI_TOKEN"
     print(f"ERROR: No {target} credentials found.")
     print("Set one of:")
-    print("  - PYPI_TOKEN (recommended)")
+    print(f"  - {env_var} in .env or environment (recommended)")
     print("  - TWINE_USERNAME + TWINE_PASSWORD")
     sys.exit(1)
 
@@ -52,7 +64,7 @@ def clean_dist() -> None:
     """Remove the dist/ directory if it exists."""
     if DIST_DIR.exists():
         shutil.rmtree(DIST_DIR)
-    print("\u2713 Cleaned dist/")
+    print("[OK] Cleaned dist/")
 
 
 def build_package() -> None:
@@ -97,17 +109,17 @@ def validate_artifacts() -> None:
             )
             sys.exit(1)
 
-    print(f"\u2713 Validated {len(artifacts)} artifact(s)")
+    print(f"[OK] Validated {len(artifacts)} artifact(s)")
 
 
 def upload_package(use_test: bool) -> None:
     """Upload artifacts to PyPI or TestPyPI via twine."""
     env = os.environ.copy()
 
-    pypi_token = env.get("PYPI_TOKEN")
-    if pypi_token:
+    token = resolve_token(use_test)
+    if token:
         env["TWINE_USERNAME"] = "__token__"
-        env["TWINE_PASSWORD"] = pypi_token
+        env["TWINE_PASSWORD"] = token
 
     cmd = ["twine", "upload", "dist/*"]
     if use_test:
@@ -123,8 +135,8 @@ def print_summary(version: str, use_test: bool) -> None:
     """Display a success summary with the package URL."""
     base_url = TESTPYPI_PROJECT_URL if use_test else PYPI_PROJECT_URL
     target = "TestPyPI" if use_test else "PyPI"
-    print(f"\u2713 Uploaded to {target}")
-    print(f"  \u2192 {base_url}/{version}/")
+    print(f"[OK] Uploaded to {target}")
+    print(f"  -> {base_url}/{version}/")
 
 
 def main() -> None:
@@ -139,13 +151,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    load_dotenv()
     check_tool("poetry")
     check_tool("twine")
     check_credentials(args.test)
     clean_dist()
     build_package()
     version = get_version()
-    print(f"\u2713 Built package v{version}")
+    print(f"[OK] Built package v{version}")
     validate_artifacts()
     upload_package(args.test)
     print_summary(version, args.test)

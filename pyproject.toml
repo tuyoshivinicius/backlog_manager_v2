@@ -41,6 +41,7 @@ pydocstyle = "^6.3"
 types-aiofiles = "^23.0"
 ruff = "^0.3.0"
 twine = "^6.0"
+python-dotenv = "^1.2.2"
 
 [build-system]
 requires = ["poetry-core"]
