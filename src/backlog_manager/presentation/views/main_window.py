@@ -161,8 +161,8 @@ class StoryTableView(QTableView):
         from backlog_manager.presentation.views.rich_tooltip import RichTooltipWidget
 
         model = self.model()
-        if model is None:
-            return
+        if model is None:  # type: ignore[unreachable,unused-ignore]
+            return  # type: ignore[unreachable,unused-ignore]
 
         # Get story data from UserRole
         index = model.index(self._hovered_row, 0)
@@ -597,7 +597,11 @@ class MainWindow(QMainWindow):
         saved_state = settings.value(QSETTINGS_KEY)
         settings.endGroup()
 
-        if saved_state and isinstance(saved_state, QByteArray) and len(saved_state) > 0:
+        if (
+            saved_state
+            and isinstance(saved_state, QByteArray)
+            and saved_state.size() > 0
+        ):
             header.restoreState(saved_state)
             # Ensure Nome stays Stretch after restore
             header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
@@ -1067,12 +1071,12 @@ class MainWindow(QMainWindow):
 
         dialog = ConfirmDeleteDialog.for_story(story.id, story.name, self)
         if dialog.exec():
-            QTimer.singleShot(
-                0,
-                lambda: asyncio.create_task(
-                    self._viewmodel.delete_story(self._viewmodel.selected_story_id)
-                ),
-            )
+            story_id = self._viewmodel.selected_story_id
+            if story_id is not None:
+                QTimer.singleShot(
+                    0,
+                    lambda: asyncio.create_task(self._viewmodel.delete_story(story_id)),
+                )
 
     @Slot()
     def _on_duplicate_story(self) -> None:

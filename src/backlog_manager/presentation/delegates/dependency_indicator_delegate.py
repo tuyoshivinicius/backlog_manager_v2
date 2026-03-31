@@ -4,7 +4,7 @@ This delegate renders a colored circle indicator (red/green) next to
 dependency IDs to show blocking state, or an em-dash for no dependencies.
 """
 
-from PySide6.QtCore import QModelIndex, QRect, QSize, Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QRect, QSize, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget
 
@@ -40,7 +40,10 @@ class DependencyIndicatorDelegate(QStyledItemDelegate):
         super().__init__(parent)
 
     def paint(
-        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         """Paint the blocking indicator and dependency text.
 
@@ -105,7 +108,9 @@ class DependencyIndicatorDelegate(QStyledItemDelegate):
         finally:
             painter.restore()
 
-    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
+    def sizeHint(
+        self, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex
+    ) -> QSize:
         """Return preferred size for the cell.
 
         Args:

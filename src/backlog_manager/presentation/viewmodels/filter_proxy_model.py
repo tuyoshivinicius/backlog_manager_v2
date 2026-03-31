@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QModelIndex, QSortFilterProxyModel
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSortFilterProxyModel
 
 from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
 
@@ -81,7 +81,9 @@ class FilterProxyModel(QSortFilterProxyModel):
             or self._feature_filter is not None
         )
 
-    def filterAcceptsRow(self, source_row: int, source_parent: QModelIndex) -> bool:
+    def filterAcceptsRow(
+        self, source_row: int, source_parent: QModelIndex | QPersistentModelIndex
+    ) -> bool:
         """Apply AND logic of all 3 filters to determine if a row is visible.
 
         Args:

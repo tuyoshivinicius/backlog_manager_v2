@@ -4,7 +4,7 @@ This delegate renders text values using a monospace font family
 with fallback chain for cross-platform compatibility.
 """
 
-from PySide6.QtCore import QModelIndex
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter
 from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget
 
@@ -53,7 +53,10 @@ class MonospaceDelegate(QStyledItemDelegate):
         return "monospace"
 
     def paint(
-        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex
+        self,
+        painter: QPainter,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         """Paint the text in monospace font.
 

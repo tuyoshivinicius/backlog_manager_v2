@@ -10,7 +10,13 @@ from collections.abc import Sequence
 from enum import StrEnum
 from typing import Any, ClassVar
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
+from PySide6.QtCore import (
+    QAbstractTableModel,
+    QModelIndex,
+    QPersistentModelIndex,
+    Qt,
+    Signal,
+)
 from PySide6.QtGui import QColor
 
 from backlog_manager.application.dto.story import StoryOutputDTO
@@ -90,7 +96,9 @@ class StoryTableModel(QAbstractTableModel):
         self._stories: list[StoryOutputDTO] = []
         self._story_status_map: dict[str, str] = {}
 
-    def rowCount(self, parent: QModelIndex | None = None) -> int:
+    def rowCount(
+        self, parent: QModelIndex | QPersistentModelIndex | None = None
+    ) -> int:
         """Return the number of rows in the model.
 
         Args:
@@ -103,7 +111,9 @@ class StoryTableModel(QAbstractTableModel):
             return 0
         return len(self._stories)
 
-    def columnCount(self, parent: QModelIndex | None = None) -> int:
+    def columnCount(
+        self, parent: QModelIndex | QPersistentModelIndex | None = None
+    ) -> int:
         """Return the number of columns in the model.
 
         Args:
@@ -116,7 +126,11 @@ class StoryTableModel(QAbstractTableModel):
             return 0
         return len(self.COLUMNS)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+    def data(
+        self,
+        index: QModelIndex | QPersistentModelIndex,
+        role: int = Qt.ItemDataRole.DisplayRole,
+    ) -> Any:
         """Return data for the given index and role.
 
         Args:
@@ -154,7 +168,7 @@ class StoryTableModel(QAbstractTableModel):
 
         return None
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+    def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlag:
         """Return item flags, making the Status column editable."""
         base_flags = super().flags(index)
         if index.isValid() and index.column() == 6:  # Status column
@@ -162,7 +176,10 @@ class StoryTableModel(QAbstractTableModel):
         return base_flags
 
     def setData(
-        self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole
+        self,
+        index: QModelIndex | QPersistentModelIndex,
+        value: Any,
+        role: int = Qt.ItemDataRole.EditRole,
     ) -> bool:
         """Handle inline status edit by emitting a signal."""
         if not index.isValid() or role != Qt.ItemDataRole.EditRole:
