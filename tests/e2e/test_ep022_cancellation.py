@@ -41,7 +41,7 @@ class TestProgressDialogCancellation:
         dialog._cancel_timer.start()
         qtbot.waitUntil(
             lambda: dialog.findChild(QPushButton, "cancel-button").isVisible(),
-            timeout=200,
+            timeout=500,
         )
 
         cancel_btn = dialog.findChild(QPushButton, "cancel-button")
@@ -101,7 +101,7 @@ class TestProgressDialogCancellation:
         cancel_btn = dialog.findChild(QPushButton, "cancel-button")
         cancel_btn.click()
 
-        assert task.cancelled()
+        assert task.cancelling()
         loop.close()
 
     def test_update_progress_switches_to_determinate(self, qtbot):

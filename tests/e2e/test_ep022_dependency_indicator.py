@@ -103,16 +103,20 @@ class TestDependencyIndicatorDelegate:
 
     def test_paint_no_blocking_state_falls_back_to_super(self, qtbot):
         """When BLOCKING_STATE_ROLE returns None, delegate falls back to super."""
+        from PySide6.QtGui import QImage, QStandardItemModel
+
         delegate = DependencyIndicatorDelegate()
-        painter = MagicMock(spec=QPainter)
+        image = QImage(120, 30, QImage.Format.Format_ARGB32)
+        painter = QPainter(image)
         option = QStyleOptionViewItem()
         option.rect = QRect(0, 0, 120, 30)
 
-        index = MagicMock(spec=QModelIndex)
-        index.data.return_value = None
+        model = QStandardItemModel(1, 1)
+        index = model.index(0, 0)
 
-        # Should not raise
+        # Should not raise — blocking_state is None, falls back to super().paint()
         delegate.paint(painter, option, index)
+        painter.end()
 
     def test_colors_use_design_tokens(self):
         """Verify colors are derived from DESIGN_TOKENS."""
