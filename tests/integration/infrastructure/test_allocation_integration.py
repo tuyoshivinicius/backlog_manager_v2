@@ -376,6 +376,7 @@ class TestPerformance:
             "expected <= 5.0s"
         )
 
+    @pytest.mark.slow
     def test_500_stories_under_30_seconds(
         self,
         developers: list[Developer],
