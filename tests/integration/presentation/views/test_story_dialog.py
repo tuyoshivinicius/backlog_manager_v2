@@ -491,7 +491,9 @@ class TestStoryDialogValidationUI:
 
         # Focus component, then leave without filling
         dialog._component_edit.setFocus()
+        qapp.processEvents()
         dialog._name_edit.setFocus()  # Triggers focusOut on component
+        qapp.processEvents()
 
         assert dialog._component_error_label.isHidden() is False
         assert dialog._component_edit.property("error") == "true"
@@ -509,8 +511,11 @@ class TestStoryDialogValidationUI:
 
         # Trigger validation on both fields
         dialog._component_edit.setFocus()
+        qapp.processEvents()
         dialog._name_edit.setFocus()
+        qapp.processEvents()
         dialog._sp_combo.setFocus()  # Leave name field
+        qapp.processEvents()
 
         save_button = dialog._button_box.button(QDialogButtonBox.StandardButton.Ok)
         assert save_button.isEnabled() is False
