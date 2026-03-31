@@ -225,13 +225,13 @@ class SQLiteStoryRepository:
         """Get max priority in backlog.
 
         Returns:
-            Max priority or 0 if empty.
+            Max priority or -1 if empty.
         """
         async with self._conn.execute(
-            "SELECT COALESCE(MAX(priority), 0) FROM Story"
+            "SELECT COALESCE(MAX(priority), -1) FROM Story"
         ) as cursor:
             row = await cursor.fetchone()
-            return int(row[0]) if row else 0
+            return int(row[0]) if row else -1
 
     async def get_by_priority(self, priority: int) -> Story | None:
         """Get story by exact priority.

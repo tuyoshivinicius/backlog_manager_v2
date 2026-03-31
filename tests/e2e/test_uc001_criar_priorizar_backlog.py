@@ -43,7 +43,7 @@ class TestUC001CriarHistoria:
         assert story.name == "Historia de Teste E2E"
         assert story.story_points == 5
         assert story.status == "BACKLOG"
-        assert story.priority == 1
+        assert story.priority == 0
 
         # Reload to verify story appears in table
         await viewmodel.load_stories()
@@ -74,7 +74,7 @@ class TestUC001CriarHistoria:
         stories = viewmodel.stories
         assert len(stories) == 5
         for i, story in enumerate(stories):
-            assert story.priority == i + 1
+            assert story.priority == i
 
 
 class TestUC001RejeitarSPInvalido:
@@ -211,7 +211,7 @@ class TestUC001AlterarPrioridade:
         await viewmodel.load_stories()
         stories = viewmodel.stories
         assert stories[0].id == "EDGE-001"
-        assert stories[0].priority == 1
+        assert stories[0].priority == 0
 
     @pytest.mark.asyncio
     async def test_mover_ultima_historia_baixo_sem_efeito(
@@ -239,7 +239,7 @@ class TestUC001AlterarPrioridade:
         await viewmodel.load_stories()
         stories = viewmodel.stories
         assert stories[1].id == "EDGE-002"
-        assert stories[1].priority == 2
+        assert stories[1].priority == 1
 
 
 class TestUC001DeleteStory:

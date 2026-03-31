@@ -102,10 +102,7 @@ class StoryService:
         Returns:
             True se pode mover, False caso contrario.
         """
-        if story.priority <= 0:
-            return False
-        previous = await self._story_repo.get_by_priority(story.priority - 1)
-        return previous is not None
+        return story.priority > 0
 
     async def validate_can_move_down(self, story: Story) -> bool:
         """Valida se historia pode mover para baixo (maior prioridade).

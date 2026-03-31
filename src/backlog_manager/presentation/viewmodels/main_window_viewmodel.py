@@ -180,9 +180,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_story_use_case_factory(uow)
                 story = await use_case.execute(dto)
-                await self.load_stories()
-                logger.info("Created story: %s", story.id)
-                return story
+            await self.load_stories()
+            logger.info("Created story: %s", story.id)
+            return story
         except Exception as e:
             self._handle_error(e, "criar historia")
             return None
@@ -203,9 +203,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_edit_story_use_case(uow)
                 story = await use_case.execute(dto)
-                await self.load_stories()
-                logger.info("Edited story: %s", story.id)
-                return story
+            await self.load_stories()
+            logger.info("Edited story: %s", story.id)
+            return story
         except IncompleteDependencyException as e:
             deps_lines = "\n".join(
                 f"  - {dep_id} ({dep_name}) — Status: {dep_status}"
@@ -263,9 +263,9 @@ class MainWindowViewModel(QObject):
                 await use_case.execute(story_id)
                 if self._selected_story_id == story_id:
                     self._selected_story_id = self._compute_adjacent_story_id(story_id)
-                await self.load_stories()
-                logger.info("Deleted story: %s", story_id)
-                return True
+            await self.load_stories()
+            logger.info("Deleted story: %s", story_id)
+            return True
         except ValueError as e:
             # Story not found - likely already deleted (e.g., double-click)
             # Just refresh the list without showing error to user
@@ -297,9 +297,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_move_priority_use_case(uow)
                 await use_case.move_up(story_id)
-                await self.load_stories()
-                logger.info("Moved story priority up: %s", story_id)
-                return True
+            await self.load_stories()
+            logger.info("Moved story priority up: %s", story_id)
+            return True
         except Exception as e:
             self._handle_error(e, "mover prioridade")
             return False
@@ -320,9 +320,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_move_priority_use_case(uow)
                 await use_case.move_down(story_id)
-                await self.load_stories()
-                logger.info("Moved story priority down: %s", story_id)
-                return True
+            await self.load_stories()
+            logger.info("Moved story priority down: %s", story_id)
+            return True
         except Exception as e:
             self._handle_error(e, "mover prioridade")
             return False
@@ -346,9 +346,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_assign_developer_use_case(uow)
                 story = await use_case.assign(story_id, developer_id)
-                await self.load_stories()
-                logger.info("Assigned developer %d to story %s", developer_id, story_id)
-                return story
+            await self.load_stories()
+            logger.info("Assigned developer %d to story %s", developer_id, story_id)
+            return story
         except Exception as e:
             self._handle_error(e, "atribuir desenvolvedor")
             return None
@@ -369,9 +369,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_assign_developer_use_case(uow)
                 story = await use_case.unassign(story_id)
-                await self.load_stories()
-                logger.info("Unassigned developer from story %s", story_id)
-                return story
+            await self.load_stories()
+            logger.info("Unassigned developer from story %s", story_id)
+            return story
         except Exception as e:
             self._handle_error(e, "remover desenvolvedor")
             return None
@@ -392,9 +392,9 @@ class MainWindowViewModel(QObject):
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_duplicate_story_use_case(uow)
                 story = await use_case.execute(story_id)
-                await self.load_stories()
-                logger.info("Duplicated story: %s -> %s", story_id, story.id)
-                return story
+            await self.load_stories()
+            logger.info("Duplicated story: %s -> %s", story_id, story.id)
+            return story
         except Exception as e:
             self._handle_error(e, "duplicar historia")
             return None
