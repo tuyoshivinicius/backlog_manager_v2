@@ -1,9 +1,19 @@
 [tool.poetry]
-name = "backlog-manager"
+name = "zion-backlog-manager"
 version = "0.1.0"
-description = "Backlog Manager - Sistema de gerenciamento de backlog com alocacao automatica"
-authors = []
+description = "A desktop backlog manager with automatic developer allocation, built with PySide6"
+authors = ["Tuyoshi Vinicius <tuyoshi.dev@gmail.com>"]
+license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/tuyoshivinicius/backlog_manager_v2"
+repository = "https://github.com/tuyoshivinicius/backlog_manager_v2"
+keywords = ["backlog", "project-management", "Qt", "PySide6", "developer-allocation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Office/Business :: Scheduling",
+]
 packages = [{include = "backlog_manager", from = "src"}]
 
 [tool.poetry.dependencies]
@@ -16,7 +26,7 @@ qasync = "^0.27.1"
 openpyxl = "^3.1.0"
 
 [tool.poetry.scripts]
-backlog-manager = "backlog_manager.presentation.app:main"
+zion-backlog-manager = "backlog_manager.presentation.app:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -30,6 +40,7 @@ pre-commit = "^3.6"
 pydocstyle = "^6.3"
 types-aiofiles = "^23.0"
 ruff = "^0.3.0"
+twine = "^6.0"
 
 [build-system]
 requires = ["poetry-core"]
