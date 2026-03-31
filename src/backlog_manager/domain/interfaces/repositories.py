@@ -123,7 +123,7 @@ class StoryRepository(Protocol):
         """Retorna a maior prioridade existente no backlog.
 
         Returns:
-            Maior prioridade ou 0 se backlog vazio.
+            Maior prioridade ou -1 se backlog vazio.
         """
         ...
 

@@ -711,11 +711,11 @@ class MainWindow(QMainWindow):
 
     def _setup_shortcuts(self) -> None:
         """Configure keyboard shortcuts."""
-        # Alt+Up for priority up
+        # Alt+Up moves story up (lower priority number = more important)
         shortcut_up = QShortcut(QKeySequence("Alt+Up"), self)
         shortcut_up.activated.connect(self._on_move_up)
 
-        # Alt+Down for priority down
+        # Alt+Down moves story down (higher priority number = less important)
         shortcut_down = QShortcut(QKeySequence("Alt+Down"), self)
         shortcut_down.activated.connect(self._on_move_down)
 

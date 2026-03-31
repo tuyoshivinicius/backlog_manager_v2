@@ -50,15 +50,16 @@ class MovePriorityUseCase:
 
         # Get adjacent story
         adjacent = await self._uow.stories.get_by_priority(story.priority - 1)
-        if adjacent is None:
-            raise ValueError("Historia adjacente nao encontrada")
 
-        # Swap priorities
-        await story_service.swap_priorities(story, adjacent)
-
-        # Persist both
-        await self._uow.stories.update(story)
-        await self._uow.stories.update(adjacent)
+        if adjacent is not None:
+            # Swap priorities with adjacent story
+            await story_service.swap_priorities(story, adjacent)
+            await self._uow.stories.update(story)
+            await self._uow.stories.update(adjacent)
+        else:
+            # No adjacent story (gap in priorities), just decrement
+            story.priority -= 1
+            await self._uow.stories.update(story)
 
         return StoryOutputDTO.from_entity(story)
 
@@ -86,14 +87,15 @@ class MovePriorityUseCase:
 
         # Get adjacent story
         adjacent = await self._uow.stories.get_by_priority(story.priority + 1)
-        if adjacent is None:
-            raise ValueError("Historia adjacente nao encontrada")
 
-        # Swap priorities
-        await story_service.swap_priorities(story, adjacent)
-
-        # Persist both
-        await self._uow.stories.update(story)
-        await self._uow.stories.update(adjacent)
+        if adjacent is not None:
+            # Swap priorities with adjacent story
+            await story_service.swap_priorities(story, adjacent)
+            await self._uow.stories.update(story)
+            await self._uow.stories.update(adjacent)
+        else:
+            # No adjacent story (gap in priorities), just increment
+            story.priority += 1
+            await self._uow.stories.update(story)
 
         return StoryOutputDTO.from_entity(story)

@@ -168,10 +168,10 @@ class TestValidateCanMoveUp:
 
         assert result is False
 
-    async def test_returns_true_when_previous_exists(
+    async def test_returns_true_when_priority_above_zero(
         self, story_service, mock_story_repo
     ):
-        """Should return True when story with previous priority exists."""
+        """Should return True when priority is above zero."""
         story = Story(
             id="AUTH-002",
             component="AUTH",
@@ -179,18 +179,10 @@ class TestValidateCanMoveUp:
             story_points=StoryPoint.SMALL,
             priority=2,
         )
-        mock_story_repo.get_by_priority.return_value = Story(
-            id="AUTH-001",
-            component="AUTH",
-            name="Previous",
-            story_points=StoryPoint.SMALL,
-            priority=1,
-        )
 
         result = await story_service.validate_can_move_up(story)
 
         assert result is True
-        mock_story_repo.get_by_priority.assert_called_once_with(1)
 
 
 class TestValidateCanMoveDown:

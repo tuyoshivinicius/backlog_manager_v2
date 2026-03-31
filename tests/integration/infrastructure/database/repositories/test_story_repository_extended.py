@@ -113,13 +113,13 @@ class TestGetMaxPriority:
         with tempfile.TemporaryDirectory() as tmp_dir:
             yield Path(tmp_dir) / "test.db"
 
-    async def test_returns_zero_when_empty(self, db_path: Path):
-        """Should return 0 when no stories exist."""
+    async def test_returns_minus_one_when_empty(self, db_path: Path):
+        """Should return -1 when no stories exist."""
         await init_database(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             result = await uow.stories.get_max_priority()
-            assert result == 0
+            assert result == -1
 
     async def test_returns_max_priority(self, db_path: Path):
         """Should return highest priority value."""
