@@ -40,7 +40,7 @@ pytestmark = [pytest.mark.e2e]
 # ============================================================================
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def qasync_loop(qapp) -> QEventLoop:
     """Create asyncio event loop integrated with Qt.
 
@@ -54,7 +54,7 @@ def qasync_loop(qapp) -> QEventLoop:
         Event loop for async E2E tests.
 
     Note:
-        The loop is closed after each test to prevent event loop leaks.
+        Session-scoped for performance — the loop carries no test state.
     """
     from qasync import QEventLoop
 
@@ -82,6 +82,8 @@ def e2e_app(qasync_loop: QEventLoop, temp_db_path: Path) -> DIContainer:
     Note:
         DIContainer is reset after each test for proper isolation.
     """
+    # Ensure the session-scoped loop is set as the current event loop
+    asyncio.set_event_loop(qasync_loop)
     # Initialize database schema before creating container
     qasync_loop.run_until_complete(init_database(temp_db_path))
 

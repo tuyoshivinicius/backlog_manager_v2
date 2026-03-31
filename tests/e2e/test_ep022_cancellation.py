@@ -41,7 +41,7 @@ class TestProgressDialogCancellation:
         dialog._cancel_timer.start()
         qtbot.waitUntil(
             lambda: dialog.findChild(QPushButton, "cancel-button").isVisible(),
-            timeout=1000,
+            timeout=200,
         )
 
         cancel_btn = dialog.findChild(QPushButton, "cancel-button")
@@ -62,7 +62,7 @@ class TestProgressDialogCancellation:
         # Show button immediately
         dialog._show_cancel_button()
 
-        with qtbot.waitSignal(dialog.cancelled, timeout=1000):
+        with qtbot.waitSignal(dialog.cancelled, timeout=200):
             cancel_btn = dialog.findChild(QPushButton, "cancel-button")
             cancel_btn.click()
 
