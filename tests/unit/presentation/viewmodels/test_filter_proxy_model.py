@@ -142,16 +142,16 @@ def _build_source_model(stories: list[StoryOutputDTO]) -> StoryTableModel:
 
     class _Sig:
         def __init__(self, *a):
-            pass
+            """Stub intencional para mock de teste."""
 
         def emit(self, *a):
-            pass
+            """Stub intencional para mock de teste."""
 
         def connect(self, *a):
-            pass
+            """Stub intencional para mock de teste."""
 
         def disconnect(self, *a):
-            pass
+            """Stub intencional para mock de teste."""
 
     model.status_change_requested = _Sig()
     # Provide index() since QAbstractTableModel.index is not available

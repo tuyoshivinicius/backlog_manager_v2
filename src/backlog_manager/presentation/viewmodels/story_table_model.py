@@ -150,20 +150,54 @@ class StoryTableModel(QAbstractTableModel):
             return None
 
         story = self._stories[row]
+        return self._resolve_role_data(story, col, role)
 
-        if role == Qt.ItemDataRole.DisplayRole:
-            return self._get_display_value(story, col)
-        elif role == Qt.ItemDataRole.TextAlignmentRole:
-            return self._get_alignment(col)
-        elif role == Qt.ItemDataRole.ToolTipRole:
-            return self._get_tooltip(story, col)
-        elif role == Qt.ItemDataRole.BackgroundRole:
-            return self._get_wave_background(story.wave)
-        elif role == Qt.ItemDataRole.UserRole:
-            return story.id
-        elif role == BLOCKING_STATE_ROLE and col == 8:
+    def _resolve_role_data(self, story: StoryOutputDTO, col: int, role: int) -> Any:
+        """Dispatch data retrieval to the appropriate handler by role.
+
+        Args:
+            story: The story DTO for the current row.
+            col: Column index.
+            role: Data role requested by the view.
+
+        Returns:
+            Data for the requested role, or None.
+        """
+        role_handlers: dict[int, Any] = {
+            Qt.ItemDataRole.DisplayRole: lambda: self._get_display_value(story, col),
+            Qt.ItemDataRole.TextAlignmentRole: lambda: self._get_alignment(col),
+            Qt.ItemDataRole.ToolTipRole: lambda: self._get_tooltip(story, col),
+            Qt.ItemDataRole.BackgroundRole: lambda: self._get_wave_background(
+                story.wave
+            ),
+            Qt.ItemDataRole.UserRole: lambda: story.id,
+        }
+
+        handler = role_handlers.get(role)
+        if handler is not None:
+            return handler()
+
+        return self._resolve_dependency_role(story, col, role)
+
+    def _resolve_dependency_role(
+        self, story: StoryOutputDTO, col: int, role: int
+    ) -> Any:
+        """Handle custom dependency-related roles for column 8.
+
+        Args:
+            story: The story DTO for the current row.
+            col: Column index.
+            role: Custom data role.
+
+        Returns:
+            Blocking state, dependency IDs, or None.
+        """
+        if col != 8:
+            return None
+
+        if role == BLOCKING_STATE_ROLE:
             return self._get_blocking_state(story)
-        elif role == DEPENDENCY_IDS_ROLE and col == 8:
+        if role == DEPENDENCY_IDS_ROLE:
             return story.dependency_ids
 
         return None
@@ -191,7 +225,7 @@ class StoryTableModel(QAbstractTableModel):
         if new_status == story.status:
             return False
         self.status_change_requested.emit(story.id, new_status)
-        return False  # Don't update locally; wait for use case reload
+        return True  # Signal emitted successfully; actual update via async reload
 
     def _get_display_value(self, story: StoryOutputDTO, column: int) -> str:
         """Get the display value for a story at a given column.

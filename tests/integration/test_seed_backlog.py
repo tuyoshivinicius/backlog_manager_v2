@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 from seed_test_backlog import seed_database
 
 if TYPE_CHECKING:
-    pass
+    pass  # Required for conditional imports used by type checkers only
 
 
 @pytest.fixture
@@ -120,7 +120,7 @@ async def test_no_cycles_in_dependencies(temp_db_path: Path) -> None:
 
         # DFS-based cycle detection
         WHITE, GRAY, BLACK = 0, 1, 2
-        color: dict[str, int] = {node: WHITE for node in all_nodes}
+        color: dict[str, int] = dict.fromkeys(all_nodes, WHITE)
 
         def has_cycle_from(node: str) -> bool:
             """DFS to detect cycle starting from node."""

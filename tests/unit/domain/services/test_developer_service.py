@@ -36,11 +36,11 @@ def developer_service(mock_developer_repo, mock_story_repo):
 class TestCreateDeveloper:
     """Tests for create_developer method."""
 
-    async def test_creates_developer_with_normalized_name(
+    def test_creates_developer_with_normalized_name(
         self, developer_service, mock_developer_repo
     ):
         """Should create developer with stripped name."""
-        result = await developer_service.create_developer("  Ana Silva  ")
+        result = developer_service.create_developer("  Ana Silva  ")
 
         assert result.name == "Ana Silva"
         assert result.id is None

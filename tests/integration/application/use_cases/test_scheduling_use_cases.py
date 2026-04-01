@@ -34,7 +34,7 @@ class TestCalculateDurationUseCaseIntegration:
     async def test_calculate_duration_use_case(self) -> None:
         """T055a: Test duration calculation via use case."""
         use_case = CalculateDurationUseCase()
-        result = await use_case.execute(
+        result = use_case.execute(
             CalculateDurationInputDTO(story_points=5, velocity=2.0)
         )
         assert result.duration == 3

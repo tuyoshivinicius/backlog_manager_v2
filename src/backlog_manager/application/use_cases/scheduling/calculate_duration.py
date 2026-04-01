@@ -18,13 +18,13 @@ class CalculateDurationUseCase:
 
     Example:
         >>> use_case = CalculateDurationUseCase()
-        >>> result = await use_case.execute(
+        >>> result = use_case.execute(
         ...     CalculateDurationInputDTO(story_points=5, velocity=2.0)
         ... )
         >>> print(result.duration)  # 3
     """
 
-    async def execute(
+    def execute(
         self, input_dto: CalculateDurationInputDTO
     ) -> CalculateDurationOutputDTO:
         """Execute duration calculation.

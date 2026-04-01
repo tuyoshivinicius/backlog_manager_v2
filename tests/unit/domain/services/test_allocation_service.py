@@ -1570,7 +1570,7 @@ class TestAllocationConfig:
             max_iterations=500,
             random_seed=42,
         )
-        assert config.velocity == 2.0
+        assert config.velocity == pytest.approx(2.0)
         assert config.max_idle_days == 5
 
 

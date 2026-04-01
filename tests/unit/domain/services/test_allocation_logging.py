@@ -400,7 +400,7 @@ class TestFR004IdlenessLogging:
         assert "Alocacao completa" in log_output
 
         # The idleness pattern, if present, should match the format
-        pattern = r"Ociosidade detectada: dev .+ \(\d+\) - \d+ dias na onda \d+"
+        _pattern = r"Ociosidade detectada: dev .+ \(\d+\) - \d+ dias na onda \d+"
         # This test passes if allocation completes - the idleness warning is conditional
         # on the actual gap after all date adjustments by the algorithm
 

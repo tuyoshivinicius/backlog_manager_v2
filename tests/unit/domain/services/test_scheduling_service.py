@@ -227,7 +227,7 @@ class TestCalculateStoryDates:
 
     def test_calculate_story_dates_single_dependency(self, story_5sp: Story) -> None:
         """T039: Story with single dependency (A.end=Wed -> B.start=Thu)."""
-        start, end, duration = SchedulingService.calculate_story_dates(
+        start, _, duration = SchedulingService.calculate_story_dates(
             story=story_5sp,
             velocity=2.0,
             start_date=date(2026, 3, 2),
@@ -241,7 +241,7 @@ class TestCalculateStoryDates:
         self, story_5sp: Story
     ) -> None:
         """T040: Story with multiple dependencies uses max end date."""
-        start, end, duration = SchedulingService.calculate_story_dates(
+        start, _, duration = SchedulingService.calculate_story_dates(
             story=story_5sp,
             velocity=2.0,
             start_date=date(2026, 3, 2),
@@ -255,7 +255,7 @@ class TestCalculateStoryDates:
         self, story_5sp: Story
     ) -> None:
         """T041: Dependency ends Friday -> Story starts Monday."""
-        start, end, duration = SchedulingService.calculate_story_dates(
+        start, _, duration = SchedulingService.calculate_story_dates(
             story=story_5sp,
             velocity=2.0,
             start_date=date(2026, 3, 2),
@@ -270,7 +270,7 @@ class TestCalculateStoryDates:
     ) -> None:
         """T042: Dependency ends 2026-04-20 -> Story starts 2026-04-22."""
         # 2026-04-20 is Mon, 2026-04-21 is Tiradentes (Tue)
-        start, end, duration = SchedulingService.calculate_story_dates(
+        start, _, duration = SchedulingService.calculate_story_dates(
             story=story_5sp,
             velocity=2.0,
             start_date=date(2026, 3, 2),

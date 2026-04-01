@@ -23,6 +23,8 @@
 - N/A — sem alteracoes de banco de dados (031-cicd-gitflow-pipeline)
 - Python 3.11+ + pytest ^8.0, pytest-cov ^4.0, pytest-asyncio ^0.23, unittest.mock (stdlib) (032-test-refactor-headless)
 - N/A (sem alteracoes de banco — escopo puramente de testes) (032-test-refactor-headless)
+- Python 3.11+ + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite, aiofiles, openpyxl (033-sonarqube-issues-fix)
+- SQLite (sem alteracoes de schema) (033-sonarqube-issues-fix)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

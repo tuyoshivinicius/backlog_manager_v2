@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from tests.headless_mocks import create_pyside6_mocks
 
 _mock_qt_core, _pyside6_mocks = create_pyside6_mocks()
@@ -110,8 +112,8 @@ class TestSpBreakdownComputation:
 
         vm.update_sp_breakdown(stories)
 
-        assert vm.sp_percentages["BACKLOG"] == 50.0
-        assert vm.sp_percentages["EXECUCAO"] == 50.0
+        assert vm.sp_percentages["BACKLOG"] == pytest.approx(50.0)
+        assert vm.sp_percentages["EXECUCAO"] == pytest.approx(50.0)
 
     def test_percentages_empty(self) -> None:
         """SP percentages are empty for no stories."""

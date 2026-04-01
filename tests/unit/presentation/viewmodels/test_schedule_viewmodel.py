@@ -81,7 +81,7 @@ class TestScheduleExecuteSuccess:
         mock_container.create_calculate_schedule_use_case.return_value = mock_uc
         await viewmodel.execute(velocity=3.0, start_date=date(2026, 6, 15))
         call_args = mock_uc.execute.call_args[0][0]
-        assert call_args.velocity == 3.0
+        assert call_args.velocity == pytest.approx(3.0)
         assert call_args.start_date == date(2026, 6, 15)
         assert call_args.recalculate_all is True
 
@@ -107,7 +107,7 @@ class TestScheduleExecuteGuard:
     async def test_sets_flag_during_execution(self, viewmodel, mock_container) -> None:
         captured = {}
 
-        async def capture(*args, **kwargs):
+        def capture(*args, **kwargs):
             captured["v"] = viewmodel.is_running
             return _make_schedule_result()
 

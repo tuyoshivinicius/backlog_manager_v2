@@ -187,7 +187,7 @@ class ExcelViewModel(QObject):
         except asyncio.CancelledError:
             logger.info("Import cancelled by user")
             self.import_cancelled.emit()
-            return None
+            raise
 
         except Exception as e:
             error_msg = self._get_error_message(e)
@@ -249,7 +249,7 @@ class ExcelViewModel(QObject):
                 except OSError:
                     logger.warning("Could not delete partial file: %s", file_path)
             self.export_cancelled.emit()
-            return None
+            raise
 
         except Exception as e:
             error_msg = self._get_error_message(e)

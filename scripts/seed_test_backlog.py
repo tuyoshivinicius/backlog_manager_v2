@@ -36,7 +36,7 @@ from scripts.common.db_path import (
 )
 
 if TYPE_CHECKING:
-    pass
+    pass  # Required for conditional imports used by type checkers only
 
 # =============================================================================
 # Constants (T003)
@@ -513,6 +513,214 @@ async def generate_stories(
     return stories
 
 
+def _build_story_wave_index(
+    stories: list[tuple[str, int, int]],
+) -> dict[int, list[tuple[str, int]]]:
+    """Build index mapping wave number to list of (story_id, index) tuples.
+
+    Args:
+        stories: List of (story_id, wave, priority) in topological order.
+
+    Returns:
+        Dict mapping wave number to list of (story_id, global_index).
+    """
+    story_by_wave: dict[int, list[tuple[str, int]]] = {}
+    for idx, (story_id, wave, _priority) in enumerate(stories):
+        if wave not in story_by_wave:
+            story_by_wave[wave] = []
+        story_by_wave[wave].append((story_id, idx))
+    return story_by_wave
+
+
+def _try_add_dependency(
+    story_id: str,
+    depends_on_id: str,
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> bool:
+    """Add dependency if valid (no self-dep, max 3, no duplicate).
+
+    Args:
+        story_id: The dependent story.
+        depends_on_id: The dependency target.
+        dependencies: Existing dependencies list (mutated in place).
+        story_dep_count: Per-story dependency count (mutated in place).
+
+    Returns:
+        True if dependency was added.
+    """
+    if story_id == depends_on_id:
+        return False
+    if story_dep_count.get(story_id, 0) >= 3:
+        return False
+    if (story_id, depends_on_id) in dependencies:
+        return False
+    dependencies.append((story_id, depends_on_id))
+    story_dep_count[story_id] = story_dep_count.get(story_id, 0) + 1
+    return True
+
+
+def _generate_intra_wave_deps(
+    story_by_wave: dict[int, list[tuple[str, int]]],
+    target: int,
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> int:
+    """Generate intra-wave dependencies (within same wave).
+
+    Args:
+        story_by_wave: Wave-to-stories index.
+        target: Target number of intra-wave dependencies.
+        dependencies: Existing dependencies list (mutated).
+        story_dep_count: Per-story dependency count (mutated).
+
+    Returns:
+        Number of intra-wave dependencies created.
+    """
+    count = 0
+    for wave in range(2, 8):
+        wave_stories = story_by_wave.get(wave, [])
+        for story_id, story_idx in wave_stories:
+            if count >= target:
+                return count
+            earlier_in_wave = [
+                (sid, idx) for sid, idx in wave_stories if idx < story_idx
+            ]
+            if earlier_in_wave and random.random() < 0.4:
+                depends_on = random.choice(earlier_in_wave)
+                if _try_add_dependency(
+                    story_id, depends_on[0], dependencies, story_dep_count
+                ):
+                    count += 1
+        if count >= target:
+            break
+    return count
+
+
+def _generate_inter_wave_deps(
+    story_by_wave: dict[int, list[tuple[str, int]]],
+    target: int,
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> int:
+    """Generate inter-wave dependencies (across waves).
+
+    Args:
+        story_by_wave: Wave-to-stories index.
+        target: Target number of inter-wave dependencies.
+        dependencies: Existing dependencies list (mutated).
+        story_dep_count: Per-story dependency count (mutated).
+
+    Returns:
+        Number of inter-wave dependencies created.
+    """
+    count = 0
+    for wave in range(2, 8):
+        wave_stories = story_by_wave.get(wave, [])
+        for story_id, _story_idx in wave_stories:
+            if count >= target:
+                return count
+            earlier_waves = []
+            for earlier_wave in range(1, wave):
+                earlier_waves.extend(story_by_wave.get(earlier_wave, []))
+            if earlier_waves and random.random() < 0.3:
+                depends_on = random.choice(earlier_waves)
+                if _try_add_dependency(
+                    story_id, depends_on[0], dependencies, story_dep_count
+                ):
+                    count += 1
+        if count >= target:
+            break
+    return count
+
+
+def _ensure_cross_wave_chain(
+    story_by_wave: dict[int, list[tuple[str, int]]],
+    stories: list[tuple[str, int, int]],
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> None:
+    """Ensure a dependency chain crossing 3+ waves (FR-014 scenario 1).
+
+    Creates chain: wave1 -> wave3 -> wave5 -> wave7.
+
+    Args:
+        story_by_wave: Wave-to-stories index.
+        stories: Full stories list (used for length check).
+        dependencies: Existing dependencies list (mutated).
+        story_dep_count: Per-story dependency count (mutated).
+    """
+    if len(stories) < 100:
+        return
+
+    wave1_stories = story_by_wave.get(1, [])
+    wave3_stories = story_by_wave.get(3, [])
+    wave5_stories = story_by_wave.get(5, [])
+    wave7_stories = story_by_wave.get(7, [])
+
+    if wave1_stories and wave3_stories:
+        _try_add_dependency(
+            wave3_stories[-1][0], wave1_stories[0][0], dependencies, story_dep_count
+        )
+    if wave3_stories and wave5_stories:
+        _try_add_dependency(
+            wave5_stories[-1][0], wave3_stories[-1][0], dependencies, story_dep_count
+        )
+    if wave5_stories and wave7_stories:
+        _try_add_dependency(
+            wave7_stories[-1][0], wave5_stories[-1][0], dependencies, story_dep_count
+        )
+
+
+def _ensure_max_deps_story(
+    story_by_wave: dict[int, list[tuple[str, int]]],
+    stories: list[tuple[str, int, int]],
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> None:
+    """Ensure at least one story with 3 dependencies (FR-014 scenario 2).
+
+    Args:
+        story_by_wave: Wave-to-stories index.
+        stories: Full stories list (used for length check).
+        dependencies: Existing dependencies list (mutated).
+        story_dep_count: Per-story dependency count (mutated).
+    """
+    wave6_stories = story_by_wave.get(6, [])
+    if not wave6_stories or len(stories) < 50:
+        return
+
+    target_story = wave6_stories[-1][0]
+    current_count = story_dep_count.get(target_story, 0)
+    for earlier_wave in [1, 2, 3]:
+        if current_count >= 3:
+            break
+        earlier = story_by_wave.get(earlier_wave, [])
+        if earlier:
+            dep = earlier[0][0]
+            if (target_story, dep) not in dependencies:
+                dependencies.append((target_story, dep))
+                current_count += 1
+    story_dep_count[target_story] = current_count
+
+
+async def _insert_dependencies(
+    conn: aiosqlite.Connection,
+    dependencies: list[tuple[str, str]],
+) -> None:
+    """Insert all dependencies into the database.
+
+    Args:
+        conn: Database connection.
+        dependencies: List of (story_id, depends_on_id) tuples.
+    """
+    for story_id, depends_on_id in dependencies:
+        await conn.execute(
+            "INSERT INTO Story_Dependency (story_id, depends_on_id) VALUES (?, ?)",
+            (story_id, depends_on_id),
+        )
+
+
 async def generate_dependencies(
     conn: aiosqlite.Connection,
     stories: list[tuple[str, int, int]],
@@ -532,12 +740,7 @@ async def generate_dependencies(
     Returns:
         Number of dependencies created.
     """
-    # Build index for efficient lookup
-    story_by_wave: dict[int, list[tuple[str, int]]] = {}
-    for idx, (story_id, wave, _priority) in enumerate(stories):
-        if wave not in story_by_wave:
-            story_by_wave[wave] = []
-        story_by_wave[wave].append((story_id, idx))
+    story_by_wave = _build_story_wave_index(stories)
 
     target_deps = random.randint(80, 120)
     intra_wave_target = int(target_deps * 0.6)
@@ -546,93 +749,18 @@ async def generate_dependencies(
     dependencies: list[tuple[str, str]] = []
     story_dep_count: dict[str, int] = {}
 
-    def add_dependency(story_id: str, depends_on_id: str) -> bool:
-        """Add dependency if valid."""
-        if story_id == depends_on_id:
-            return False
-        if story_dep_count.get(story_id, 0) >= 3:
-            return False
-        if (story_id, depends_on_id) in dependencies:
-            return False
-        dependencies.append((story_id, depends_on_id))
-        story_dep_count[story_id] = story_dep_count.get(story_id, 0) + 1
-        return True
-
-    # Generate intra-wave dependencies (within same wave)
-    intra_count = 0
-    for wave in range(2, 8):  # Skip wave 1
-        wave_stories = story_by_wave.get(wave, [])
-        for story_id, story_idx in wave_stories:
-            if intra_count >= intra_wave_target:
-                break
-            # Can depend on earlier stories in same wave
-            earlier_in_wave = [
-                (sid, idx) for sid, idx in wave_stories if idx < story_idx
-            ]
-            if earlier_in_wave and random.random() < 0.4:
-                depends_on = random.choice(earlier_in_wave)
-                if add_dependency(story_id, depends_on[0]):
-                    intra_count += 1
-        if intra_count >= intra_wave_target:
-            break
-
-    # Generate inter-wave dependencies (across waves)
-    inter_count = 0
-    for wave in range(2, 8):  # Skip wave 1
-        wave_stories = story_by_wave.get(wave, [])
-        for story_id, _story_idx in wave_stories:
-            if inter_count >= inter_wave_target:
-                break
-            # Can depend on stories from earlier waves
-            earlier_waves = []
-            for earlier_wave in range(1, wave):
-                earlier_waves.extend(story_by_wave.get(earlier_wave, []))
-            if earlier_waves and random.random() < 0.3:
-                depends_on = random.choice(earlier_waves)
-                if add_dependency(story_id, depends_on[0]):
-                    inter_count += 1
-        if inter_count >= inter_wave_target:
-            break
+    _generate_intra_wave_deps(
+        story_by_wave, intra_wave_target, dependencies, story_dep_count
+    )
+    _generate_inter_wave_deps(
+        story_by_wave, inter_wave_target, dependencies, story_dep_count
+    )
 
     # Ensure critical scenarios per FR-014
-    # 1. Dependency chain crossing 3+ waves
-    if len(stories) >= 100:
-        # Create chain: wave1 -> wave3 -> wave5 -> wave7
-        wave1_stories = story_by_wave.get(1, [])
-        wave3_stories = story_by_wave.get(3, [])
-        wave5_stories = story_by_wave.get(5, [])
-        wave7_stories = story_by_wave.get(7, [])
+    _ensure_cross_wave_chain(story_by_wave, stories, dependencies, story_dep_count)
+    _ensure_max_deps_story(story_by_wave, stories, dependencies, story_dep_count)
 
-        if wave1_stories and wave3_stories:
-            add_dependency(wave3_stories[-1][0], wave1_stories[0][0])
-        if wave3_stories and wave5_stories:
-            add_dependency(wave5_stories[-1][0], wave3_stories[-1][0])
-        if wave5_stories and wave7_stories:
-            add_dependency(wave7_stories[-1][0], wave5_stories[-1][0])
-
-    # 2. At least one story with 3 dependencies
-    wave6_stories = story_by_wave.get(6, [])
-    if wave6_stories and len(stories) >= 50:
-        target_story = wave6_stories[-1][0]
-        # Reset count for this story to add more deps
-        current_count = story_dep_count.get(target_story, 0)
-        for earlier_wave in [1, 2, 3]:
-            if current_count >= 3:
-                break
-            earlier = story_by_wave.get(earlier_wave, [])
-            if earlier:
-                dep = earlier[0][0]
-                if (target_story, dep) not in dependencies:
-                    dependencies.append((target_story, dep))
-                    current_count += 1
-        story_dep_count[target_story] = current_count
-
-    # Insert all dependencies
-    for story_id, depends_on_id in dependencies:
-        await conn.execute(
-            "INSERT INTO Story_Dependency (story_id, depends_on_id) VALUES (?, ?)",
-            (story_id, depends_on_id),
-        )
+    await _insert_dependencies(conn, dependencies)
 
     logger.info("Criadas %d dependencias", len(dependencies))
     return len(dependencies)
@@ -641,7 +769,7 @@ async def generate_dependencies(
 async def calculate_story_dates(
     conn: aiosqlite.Connection,
     stories: list[tuple[str, int, int]],
-    wave_to_feature: dict[int, int],
+    _wave_to_feature: dict[int, int],
     velocity: float = 2.0,
     project_start: date | None = None,
 ) -> None:
@@ -653,7 +781,7 @@ async def calculate_story_dates(
     Args:
         conn: Database connection.
         stories: List of (story_id, wave, priority) tuples.
-        wave_to_feature: Mapping of wave number to feature_id.
+        _wave_to_feature: Mapping of wave number to feature_id (unused, kept for API compat).
         velocity: Team velocity in story points per day (default: 2.0).
         project_start: Project start date (default: 2026-03-23).
     """

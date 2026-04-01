@@ -44,7 +44,7 @@ class MovePriorityUseCase:
 
         story_service = StoryService(self._uow.stories)
 
-        can_move = await story_service.validate_can_move_up(story)
+        can_move = story_service.validate_can_move_up(story)
         if not can_move:
             raise ValueError(f"Historia {story_id} ja esta no topo do backlog")
 
@@ -53,7 +53,7 @@ class MovePriorityUseCase:
 
         if adjacent is not None:
             # Swap priorities with adjacent story
-            await story_service.swap_priorities(story, adjacent)
+            story_service.swap_priorities(story, adjacent)
             await self._uow.stories.update(story)
             await self._uow.stories.update(adjacent)
         else:
@@ -90,7 +90,7 @@ class MovePriorityUseCase:
 
         if adjacent is not None:
             # Swap priorities with adjacent story
-            await story_service.swap_priorities(story, adjacent)
+            story_service.swap_priorities(story, adjacent)
             await self._uow.stories.update(story)
             await self._uow.stories.update(adjacent)
         else:

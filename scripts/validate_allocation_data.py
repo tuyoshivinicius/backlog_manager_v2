@@ -264,7 +264,7 @@ async def check_stories_exist(conn) -> ValidationResult:
     )
 
 
-async def validate_data(db_path: Path, strict: bool = False) -> bool:
+async def validate_data(db_path: Path, _strict: bool = False) -> bool:
     """Run all validation checks.
 
     Args:

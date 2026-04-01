@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Coroutine
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QByteArray, QSettings, QSize, Qt, QTimer, Slot
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
@@ -272,6 +273,9 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._connect_signals()
 
+        # Task tracking for S7502 compliance
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
+
         # Initialize action states (disabled until selection)
         self._update_move_actions_state()
 
@@ -285,6 +289,13 @@ class MainWindow(QMainWindow):
             The MainWindowViewModel instance.
         """
         return self._viewmodel
+
+    def _create_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Cria e rastreia uma task assincrona com limpeza automatica."""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     def _setup_window(self) -> None:
         """Configure window properties."""
@@ -971,7 +982,7 @@ class MainWindow(QMainWindow):
         dialog = StoryDialog(self._container, self, mode="create")
         if dialog.exec():
             QTimer.singleShot(
-                0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+                0, lambda: self._create_task(self._viewmodel.load_stories())
             )
 
     @Slot()
@@ -993,14 +1004,14 @@ class MainWindow(QMainWindow):
         dialog = StoryDialog(self._container, self, mode="edit", story=story)
         if dialog.exec():
             QTimer.singleShot(
-                0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+                0, lambda: self._create_task(self._viewmodel.load_stories())
             )
 
     @Slot(str, str)
     def _on_inline_status_change(self, story_id: str, new_status: str) -> None:
         """Handle inline status change from table delegate."""
         dto = EditStoryInputDTO(story_id=story_id, status=new_status)
-        asyncio.create_task(self._viewmodel.edit_story(dto))
+        self._create_task(self._viewmodel.edit_story(dto))
 
     @Slot("QModelIndex")
     def _on_table_double_clicked(self, index) -> None:  # type: ignore[no-untyped-def]
@@ -1049,7 +1060,7 @@ class MainWindow(QMainWindow):
         )
         if dialog.exec():
             QTimer.singleShot(
-                0, lambda: asyncio.create_task(self._viewmodel.load_stories())
+                0, lambda: self._create_task(self._viewmodel.load_stories())
             )
 
     @Slot()
@@ -1075,7 +1086,7 @@ class MainWindow(QMainWindow):
             if story_id is not None:
                 QTimer.singleShot(
                     0,
-                    lambda: asyncio.create_task(self._viewmodel.delete_story(story_id)),
+                    lambda: self._create_task(self._viewmodel.delete_story(story_id)),
                 )
 
     @Slot()
@@ -1094,14 +1105,14 @@ class MainWindow(QMainWindow):
                     f"Historia duplicada: {story_id} -> {result.id}", 5000
                 )
 
-        asyncio.create_task(_do_duplicate())
+        self._create_task(_do_duplicate())
 
     @Slot()
     def _on_move_up(self) -> None:
         """Handle move priority up action."""
         if not self._viewmodel.selected_story_id:
             return
-        asyncio.create_task(
+        self._create_task(
             self._viewmodel.move_priority_up(self._viewmodel.selected_story_id)
         )
 
@@ -1110,7 +1121,7 @@ class MainWindow(QMainWindow):
         """Handle move priority down action."""
         if not self._viewmodel.selected_story_id:
             return
-        asyncio.create_task(
+        self._create_task(
             self._viewmodel.move_priority_down(self._viewmodel.selected_story_id)
         )
 
@@ -1150,9 +1161,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def _on_data_changed(self) -> None:
         """Handle data changed from dialogs."""
-        QTimer.singleShot(
-            0, lambda: asyncio.create_task(self._viewmodel.load_stories())
-        )
+        QTimer.singleShot(0, lambda: self._create_task(self._viewmodel.load_stories()))
 
     # --- Context menu ---
 
@@ -1231,9 +1240,7 @@ class MainWindow(QMainWindow):
         )
         dialog.exec()
         # Reload stories to reflect dependency changes
-        QTimer.singleShot(
-            0, lambda: asyncio.create_task(self._viewmodel.load_stories())
-        )
+        QTimer.singleShot(0, lambda: self._create_task(self._viewmodel.load_stories()))
 
     # --- Reset planning handlers ---
 
@@ -1251,7 +1258,7 @@ class MainWindow(QMainWindow):
     def _on_new_planning(self) -> None:
         """Handle new planning (reset) action."""
         logger.debug("New planning action triggered")
-        QTimer.singleShot(0, lambda: asyncio.create_task(self._execute_new_planning()))
+        QTimer.singleShot(0, lambda: self._create_task(self._execute_new_planning()))
 
     async def _execute_new_planning(self) -> None:
         """Execute the new planning flow: preview -> confirm -> reset."""
@@ -1324,7 +1331,7 @@ class MainWindow(QMainWindow):
             return
 
         QTimer.singleShot(
-            0, lambda: asyncio.create_task(self._execute_schedule_calculation())
+            0, lambda: self._create_task(self._execute_schedule_calculation())
         )
 
     async def _execute_schedule_calculation(self) -> None:
@@ -1375,7 +1382,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Configuracao Invalida", error)
             return
 
-        QTimer.singleShot(0, lambda: asyncio.create_task(self._execute_allocation()))
+        QTimer.singleShot(0, lambda: self._create_task(self._execute_allocation()))
 
     async def _execute_allocation(self) -> None:
         """Execute allocation with config values and cancellation support."""
@@ -1386,7 +1393,7 @@ class MainWindow(QMainWindow):
         progress = CustomProgressDialog("Alocando desenvolvedores...", self)
         progress.show()
 
-        task = asyncio.ensure_future(
+        task = self._create_task(
             allocation_vm.execute(
                 velocity=config_vm.velocity,
                 start_date=config_vm.start_date,
@@ -1398,7 +1405,7 @@ class MainWindow(QMainWindow):
         try:
             await task
         except asyncio.CancelledError:
-            pass
+            raise
         finally:
             progress.close()
 
@@ -1528,7 +1535,7 @@ class MainWindow(QMainWindow):
         )
         if file_path:
             progress = self._start_excel_operation("Importando dados do Excel...")
-            task = asyncio.ensure_future(
+            task = self._create_task(
                 self._container.excel_viewmodel.import_from_file(Path(file_path))
             )
             progress.set_cancellable_task(task)
@@ -1556,7 +1563,7 @@ class MainWindow(QMainWindow):
                     return
 
             progress = self._start_excel_operation("Exportando dados para Excel...")
-            task = asyncio.ensure_future(
+            task = self._create_task(
                 self._container.excel_viewmodel.export_to_file(Path(file_path))
             )
             progress.set_cancellable_task(task)
@@ -1574,9 +1581,7 @@ class MainWindow(QMainWindow):
         if result.warnings:
             msg += f"\n{len(result.warnings)} avisos"
         QMessageBox.information(self, "Importacao Concluida", msg)
-        QTimer.singleShot(
-            0, lambda: asyncio.create_task(self._viewmodel.load_stories())
-        )
+        QTimer.singleShot(0, lambda: self._create_task(self._viewmodel.load_stories()))
 
     @Slot(str)
     def _on_import_error(self, error: str) -> None:

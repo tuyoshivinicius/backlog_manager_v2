@@ -16,7 +16,7 @@ from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 def create_stories(
     count: int = 5,
     component: str = "TEST",
-    with_dependencies: bool = False,
+    _with_dependencies: bool = False,
     story_points: int = 5,
     feature_id: int | None = None,
     start_priority: int = 1,

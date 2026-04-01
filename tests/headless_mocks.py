@@ -19,10 +19,10 @@ class _SignalInstance:
         self.emissions.append(args)
 
     def connect(self, slot):
-        pass
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
     def disconnect(self, slot=None):
-        pass
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
 
 class MockSignal:
@@ -46,13 +46,13 @@ class MockSignal:
         return getattr(obj, self._attr)
 
     def emit(self, *args):
-        pass
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
     def connect(self, slot):
-        pass
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
     def disconnect(self, slot=None):
-        pass
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
 
 class MockQBase:
@@ -64,26 +64,26 @@ class MockQBase:
     """
 
     def __init__(self, *args, **kwargs):
-        pass
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
     # QAbstractItemModel stubs used by set_stories / data reset
-    def beginResetModel(self):
-        pass
+    def beginResetModel(self):  # noqa: N802
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
-    def endResetModel(self):
-        pass
+    def endResetModel(self):  # noqa: N802
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
-    def beginInsertRows(self, *args):
-        pass
+    def beginInsertRows(self, *args):  # noqa: N802
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
-    def endInsertRows(self):
-        pass
+    def endInsertRows(self):  # noqa: N802
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
-    def beginRemoveRows(self, *args):
-        pass
+    def beginRemoveRows(self, *args):  # noqa: N802
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
-    def endRemoveRows(self):
-        pass
+    def endRemoveRows(self):  # noqa: N802
+        """Stub: simula interface QAbstractItemModel para testes headless."""
 
 
 class MockQSettings:
@@ -93,15 +93,15 @@ class MockQSettings:
     _group: str = ""
 
     def __init__(self, *args, **kwargs):
-        pass
+        """Stub: simula interface QSettings para testes headless."""
 
-    def beginGroup(self, group):
+    def beginGroup(self, group):  # noqa: N802
         self._group = group
 
-    def endGroup(self):
+    def endGroup(self):  # noqa: N802
         self._group = ""
 
-    def setValue(self, key, value):
+    def setValue(self, key, value):  # noqa: N802
         MockQSettings._store[f"{self._group}/{key}"] = value
 
     def value(self, key, default=None):
@@ -114,13 +114,13 @@ class MockQSettings:
             del MockQSettings._store[k]
 
     def sync(self):
-        pass
+        """Stub: simula interface QSettings para testes headless."""
 
     class Format:  # noqa: D106
-        IniFormat = 0
+        IniFormat = 0  # noqa: N815 - Simula enum Qt.QSettings.Format
 
     class Scope:  # noqa: D106
-        UserScope = 0
+        UserScope = 0  # noqa: N815 - Simula enum Qt.QSettings.Scope
 
     @classmethod
     def reset(cls):

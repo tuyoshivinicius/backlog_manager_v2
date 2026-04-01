@@ -155,7 +155,7 @@ class AllocationViewModel(QObject):
         except asyncio.CancelledError:
             logger.info("Allocation cancelled by user")
             self.allocation_cancelled.emit()
-            return None
+            raise
         except BacklogManagerException as e:
             error_msg = str(e)
             logger.warning("Allocation failed: %s", error_msg)
