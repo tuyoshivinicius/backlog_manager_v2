@@ -35,7 +35,10 @@ with patch.dict("sys.modules", _pyside6_mocks):
         EditStoryInputDTO,
         StoryOutputDTO,
     )
-    from backlog_manager.domain.exceptions import BacklogManagerException
+    from backlog_manager.domain.exceptions import (
+        BacklogManagerException,
+        IncompleteDependencyException,
+    )
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
     )
@@ -967,3 +970,263 @@ class TestMainWindowViewModelErrorHandling:
 
         assert len(viewmodel.error_occurred.emissions) == 1
         assert "Test error message" in viewmodel.error_occurred.emissions[0][0]
+
+
+# ---------------------------------------------------------------------------
+# Tests: Edit Story Error Handling (lines 210-225)
+# ---------------------------------------------------------------------------
+
+
+class TestMainWindowViewModelEditStoryErrors:
+    """Tests for error handling in edit_story."""
+
+    @pytest.mark.asyncio
+    async def test_edit_story_incomplete_dependency_exception(self) -> None:
+        """Test that IncompleteDependencyException shows dependency details."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        exc = IncompleteDependencyException(
+            story_id="COMP-001",
+            incomplete_dependencies=[
+                ("DEP-001", "Dependencia A", "BACKLOG"),
+                ("DEP-002", "Dependencia B", "DOING"),
+            ],
+        )
+
+        mock_edit_use_case = MagicMock()
+        mock_edit_use_case.execute = AsyncMock(side_effect=exc)
+
+        with patch.object(
+            container,
+            "create_edit_story_use_case",
+            return_value=mock_edit_use_case,
+        ):
+            dto = EditStoryInputDTO(
+                story_id="COMP-001",
+                status="CONCLUIDO",
+            )
+            result = await viewmodel.edit_story(dto)
+
+        assert result is None
+        assert len(viewmodel.error_occurred.emissions) == 1
+        error_msg = viewmodel.error_occurred.emissions[0][0]
+        assert "COMP-001" in error_msg
+        assert "DEP-001" in error_msg
+        assert "Dependencia A" in error_msg
+        assert "BACKLOG" in error_msg
+        assert "DEP-002" in error_msg
+
+    @pytest.mark.asyncio
+    async def test_edit_story_generic_exception(self) -> None:
+        """Test that generic exception in edit_story emits error signal."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_edit_use_case = MagicMock()
+        mock_edit_use_case.execute = AsyncMock(
+            side_effect=RuntimeError("Database failure")
+        )
+
+        with patch.object(
+            container,
+            "create_edit_story_use_case",
+            return_value=mock_edit_use_case,
+        ):
+            dto = EditStoryInputDTO(
+                story_id="COMP-001",
+                name="Updated",
+            )
+            result = await viewmodel.edit_story(dto)
+
+        assert result is None
+        assert len(viewmodel.error_occurred.emissions) == 1
+        assert "Erro inesperado" in viewmodel.error_occurred.emissions[0][0]
+
+
+# ---------------------------------------------------------------------------
+# Tests: Delete Story Error Handling (lines 270-283)
+# ---------------------------------------------------------------------------
+
+
+class TestMainWindowViewModelDeleteStoryErrors:
+    """Tests for error handling in delete_story."""
+
+    @pytest.mark.asyncio
+    async def test_delete_story_not_found_refreshes_list(self) -> None:
+        """Test that ValueError with 'nao encontrada' refreshes without error."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+        viewmodel.select_story("COMP-001")
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock(
+            side_effect=ValueError("Historia nao encontrada")
+        )
+
+        mock_list_use_case = MagicMock()
+        mock_list_use_case.execute = AsyncMock(return_value=[])
+
+        with (
+            patch.object(
+                container,
+                "create_delete_story_use_case",
+                return_value=mock_delete_use_case,
+            ),
+            patch.object(
+                container,
+                "create_list_stories_use_case",
+                return_value=mock_list_use_case,
+            ),
+        ):
+            result = await viewmodel.delete_story("COMP-001")
+
+        assert result is True
+        assert viewmodel.selected_story_id is None
+        # No error_occurred emission for "nao encontrada"
+        assert len(viewmodel.error_occurred.emissions) == 0
+
+    @pytest.mark.asyncio
+    async def test_delete_story_value_error_other(self) -> None:
+        """Test that ValueError without 'nao encontrada' emits error."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock(
+            side_effect=ValueError("Invalid ID format")
+        )
+
+        with patch.object(
+            container,
+            "create_delete_story_use_case",
+            return_value=mock_delete_use_case,
+        ):
+            result = await viewmodel.delete_story("BAD-ID")
+
+        assert result is False
+        assert len(viewmodel.error_occurred.emissions) == 1
+
+    @pytest.mark.asyncio
+    async def test_delete_story_generic_exception(self) -> None:
+        """Test that generic exception in delete_story emits error."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_delete_use_case = MagicMock()
+        mock_delete_use_case.execute = AsyncMock(
+            side_effect=RuntimeError("Connection lost")
+        )
+
+        with patch.object(
+            container,
+            "create_delete_story_use_case",
+            return_value=mock_delete_use_case,
+        ):
+            result = await viewmodel.delete_story("COMP-001")
+
+        assert result is False
+        assert len(viewmodel.error_occurred.emissions) == 1
+        assert "Erro inesperado" in viewmodel.error_occurred.emissions[0][0]
+
+
+# ---------------------------------------------------------------------------
+# Tests: Move Priority Error Handling (lines 304-306, 327-329)
+# ---------------------------------------------------------------------------
+
+
+class TestMainWindowViewModelMovePriorityErrors:
+    """Tests for error handling in move_priority_up/down."""
+
+    @pytest.mark.asyncio
+    async def test_move_priority_up_error(self) -> None:
+        """Test that exception in move_priority_up emits error and returns False."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_move_use_case = MagicMock()
+        mock_move_use_case.move_up = AsyncMock(
+            side_effect=RuntimeError("Cannot move up")
+        )
+
+        with patch.object(
+            container,
+            "create_move_priority_use_case",
+            return_value=mock_move_use_case,
+        ):
+            result = await viewmodel.move_priority_up("COMP-001")
+
+        assert result is False
+        assert len(viewmodel.error_occurred.emissions) == 1
+
+    @pytest.mark.asyncio
+    async def test_move_priority_down_error(self) -> None:
+        """Test that exception in move_priority_down emits error and returns False."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_move_use_case = MagicMock()
+        mock_move_use_case.move_down = AsyncMock(
+            side_effect=RuntimeError("Cannot move down")
+        )
+
+        with patch.object(
+            container,
+            "create_move_priority_use_case",
+            return_value=mock_move_use_case,
+        ):
+            result = await viewmodel.move_priority_down("COMP-001")
+
+        assert result is False
+        assert len(viewmodel.error_occurred.emissions) == 1
+
+
+# ---------------------------------------------------------------------------
+# Tests: Assign/Unassign Developer Error Handling (lines 353-355, 376-378)
+# ---------------------------------------------------------------------------
+
+
+class TestMainWindowViewModelAssignDeveloperErrors:
+    """Tests for error handling in assign/unassign developer."""
+
+    @pytest.mark.asyncio
+    async def test_assign_developer_error(self) -> None:
+        """Test that exception in assign_developer emits error and returns None."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_assign_use_case = MagicMock()
+        mock_assign_use_case.assign = AsyncMock(
+            side_effect=RuntimeError("Developer not found")
+        )
+
+        with patch.object(
+            container,
+            "create_assign_developer_use_case",
+            return_value=mock_assign_use_case,
+        ):
+            result = await viewmodel.assign_developer("COMP-001", 999)
+
+        assert result is None
+        assert len(viewmodel.error_occurred.emissions) == 1
+
+    @pytest.mark.asyncio
+    async def test_unassign_developer_error(self) -> None:
+        """Test that exception in unassign_developer emits error and returns None."""
+        container = _make_container()
+        viewmodel = MainWindowViewModel(container)
+
+        mock_assign_use_case = MagicMock()
+        mock_assign_use_case.unassign = AsyncMock(
+            side_effect=RuntimeError("Unassign failed")
+        )
+
+        with patch.object(
+            container,
+            "create_assign_developer_use_case",
+            return_value=mock_assign_use_case,
+        ):
+            result = await viewmodel.unassign_developer("COMP-001")
+
+        assert result is None
+        assert len(viewmodel.error_occurred.emissions) == 1

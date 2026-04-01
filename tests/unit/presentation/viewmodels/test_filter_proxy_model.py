@@ -442,3 +442,72 @@ class TestHasActiveFilters:  # noqa: D101
         assert proxy.has_active_filters is True  # status still active
         proxy.set_status_filter(None)
         assert proxy.has_active_filters is False
+
+
+# ---------------------------------------------------------------------------
+# Tests: __init__ constructor (lines 32-42)
+# ---------------------------------------------------------------------------
+
+
+class TestConstructor:  # noqa: D101
+    def test_init_sets_default_filters(self) -> None:
+        """Verify __init__ initializes filters and resolves column indices."""
+        proxy = FilterProxyModel()
+        assert proxy._text_filter == ""
+        assert proxy._status_filter is None
+        assert proxy._feature_filter is None
+
+    def test_init_resolves_column_indices(self) -> None:
+        """Verify __init__ resolves column indices from StoryTableModel.COLUMNS."""
+        proxy = FilterProxyModel()
+        assert proxy._col_id == StoryTableModel.COLUMNS.index("ID")
+        assert proxy._col_component == StoryTableModel.COLUMNS.index("Componente")
+        assert proxy._col_name == StoryTableModel.COLUMNS.index("Nome")
+        assert proxy._col_status == StoryTableModel.COLUMNS.index("Status")
+
+    def test_init_with_parent(self) -> None:
+        """Verify __init__ accepts an optional parent argument."""
+        parent = MagicMock()
+        proxy = FilterProxyModel(parent)
+        assert proxy._text_filter == ""
+        assert proxy._col_id == StoryTableModel.COLUMNS.index("ID")
+
+
+# ---------------------------------------------------------------------------
+# Tests: filterAcceptsRow with non-StoryTableModel source (line 98)
+# ---------------------------------------------------------------------------
+
+
+class TestNonStoryTableModelSource:  # noqa: D101
+    def test_filter_accepts_row_with_non_story_source_model(self) -> None:
+        """When sourceModel is not a StoryTableModel, filterAcceptsRow returns True."""
+        proxy = FilterProxyModel.__new__(FilterProxyModel)
+        proxy._text_filter = "something"
+        proxy._status_filter = "BACKLOG"
+        proxy._feature_filter = 1
+        proxy._col_id = StoryTableModel.COLUMNS.index("ID")
+        proxy._col_component = StoryTableModel.COLUMNS.index("Componente")
+        proxy._col_name = StoryTableModel.COLUMNS.index("Nome")
+        proxy._col_status = StoryTableModel.COLUMNS.index("Status")
+        # sourceModel returns a plain MagicMock (not StoryTableModel)
+        proxy.sourceModel = lambda: MagicMock()
+        proxy.invalidateFilter = lambda: None
+
+        parent = MagicMock()
+        assert proxy.filterAcceptsRow(0, parent) is True
+
+    def test_filter_accepts_row_with_none_source_model(self) -> None:
+        """When sourceModel returns None, filterAcceptsRow returns True."""
+        proxy = FilterProxyModel.__new__(FilterProxyModel)
+        proxy._text_filter = "test"
+        proxy._status_filter = None
+        proxy._feature_filter = None
+        proxy._col_id = StoryTableModel.COLUMNS.index("ID")
+        proxy._col_component = StoryTableModel.COLUMNS.index("Componente")
+        proxy._col_name = StoryTableModel.COLUMNS.index("Nome")
+        proxy._col_status = StoryTableModel.COLUMNS.index("Status")
+        proxy.sourceModel = lambda: None
+        proxy.invalidateFilter = lambda: None
+
+        parent = MagicMock()
+        assert proxy.filterAcceptsRow(0, parent) is True

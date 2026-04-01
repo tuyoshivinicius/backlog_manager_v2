@@ -497,3 +497,320 @@ class TestDependencyParsing:
 
         assert result.stories_imported == 3
         assert mock_dependency_repo.add.call_count == 2
+
+
+class TestLargeFileAndEdgeCases:
+    """Tests for large file warning, truncation, and other edge cases."""
+
+    async def test_large_file_warning_over_500_rows(
+        self, use_case, mock_excel_service, mock_story_repo, valid_excel_file
+    ):
+        """Should add performance warning when file has more than 500 rows."""
+        rows = [
+            {
+                "ID": f"X-{i:04d}",
+                "Componente": "X",
+                "Nome": f"Story {i}",
+                "SP": 5,
+                "Feature": "",
+                "Dependencias": "",
+            }
+            for i in range(1, 502)
+        ]
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=rows,
+            warnings=[],
+        )
+
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert any("mais de 500" in w for w in result.warnings)
+
+    async def test_name_exceeding_200_chars_is_truncated(
+        self, use_case, mock_excel_service, mock_story_repo, valid_excel_file
+    ):
+        """Should truncate name longer than 200 characters and add warning."""
+        long_name = "A" * 250
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": long_name,
+                    "SP": 5,
+                    "Feature": "",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 1
+        assert any("200 caracteres" in w for w in result.warnings)
+        added_story = mock_story_repo.add.call_args[0][0]
+        assert len(added_story.name) == 200
+
+    async def test_non_integer_sp_skips_row(
+        self, use_case, mock_excel_service, mock_story_repo, valid_excel_file
+    ):
+        """Should skip row when SP cannot be converted to int."""
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": "Story with bad SP",
+                    "SP": "abc",
+                    "Feature": "",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 0
+        assert any("Story Points invalido" in w for w in result.warnings)
+
+    async def test_component_exceeding_50_chars_skips_row(
+        self, use_case, mock_excel_service, mock_story_repo, valid_excel_file
+    ):
+        """Should skip row when component exceeds 50 characters (auto-ID generation)."""
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "",
+                    "Componente": "C" * 51,
+                    "Nome": "Story with long component",
+                    "SP": 5,
+                    "Feature": "",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 0
+
+    async def test_exception_in_pass_one_adds_warning(
+        self, mock_uow, mock_excel_service, valid_excel_file
+    ):
+        """Should catch exceptions during row processing and add warning."""
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": "Valid story",
+                    "SP": 5,
+                    "Feature": "",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+        # Force an exception during story processing
+        mock_uow.stories.exists = AsyncMock(side_effect=RuntimeError("DB error"))
+
+        use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 0
+        assert any("DB error" in w for w in result.warnings)
+
+    async def test_exception_in_dependency_creation_adds_warning(
+        self,
+        mock_uow,
+        mock_excel_service,
+        valid_excel_file,
+    ):
+        """Should catch exceptions during dependency creation and add warning."""
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": "Base story",
+                    "SP": 5,
+                    "Feature": "",
+                    "Dependencias": "",
+                },
+                {
+                    "ID": "AUTH-002",
+                    "Componente": "AUTH",
+                    "Nome": "Dependent story",
+                    "SP": 3,
+                    "Feature": "",
+                    "Dependencias": "AUTH-001",
+                },
+            ],
+            warnings=[],
+        )
+        # exists check succeeds but add throws
+        mock_uow.dependencies.exists = AsyncMock(return_value=False)
+        mock_uow.dependencies.add = AsyncMock(
+            side_effect=RuntimeError("Dep creation error")
+        )
+
+        use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 2
+        assert any("Erro ao criar dependencia" in w for w in result.warnings)
+
+
+class TestFeatureHandling:
+    """Tests for feature cache and wave assignment."""
+
+    async def test_feature_found_in_cache_reuses_id(
+        self, mock_uow, mock_excel_service, valid_excel_file
+    ):
+        """Should reuse feature_id from cache when same feature appears twice."""
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": "Story 1",
+                    "SP": 5,
+                    "Feature": "SharedFeature",
+                    "Dependencias": "",
+                },
+                {
+                    "ID": "AUTH-002",
+                    "Componente": "AUTH",
+                    "Nome": "Story 2",
+                    "SP": 3,
+                    "Feature": "SharedFeature",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+        mock_uow.features.get_by_name = AsyncMock(return_value=None)
+        mock_uow.features.add = AsyncMock(return_value=42)
+        mock_uow.features.get_all = AsyncMock(return_value=[])
+
+        use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 2
+        assert result.features_created == 1
+        # Feature add should only be called once (second time uses cache)
+        mock_uow.features.add.assert_called_once()
+
+    async def test_feature_found_in_db_not_created(
+        self, mock_uow, mock_excel_service, valid_excel_file
+    ):
+        """Should not create feature if it already exists in database."""
+        from backlog_manager.domain.entities import Feature
+
+        existing_feature = Feature(name="ExistingFeature", wave=1)
+        object.__setattr__(existing_feature, "id", 99)
+
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": "Story 1",
+                    "SP": 5,
+                    "Feature": "ExistingFeature",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+        mock_uow.features.get_by_name = AsyncMock(return_value=existing_feature)
+
+        use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.stories_imported == 1
+        assert result.features_created == 0
+        mock_uow.features.add.assert_not_called()
+
+    async def test_feature_wave_increments_when_waves_taken(
+        self, mock_uow, mock_excel_service, valid_excel_file
+    ):
+        """Should assign next available wave when existing waves are taken."""
+        from backlog_manager.domain.entities import Feature
+
+        existing_features = [
+            Feature(name="F1", wave=1),
+            Feature(name="F2", wave=2),
+        ]
+
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "AUTH-001",
+                    "Componente": "AUTH",
+                    "Nome": "Story 1",
+                    "SP": 5,
+                    "Feature": "NewFeature",
+                    "Dependencias": "",
+                },
+            ],
+            warnings=[],
+        )
+        mock_uow.features.get_by_name = AsyncMock(return_value=None)
+        mock_uow.features.add = AsyncMock(return_value=3)
+        mock_uow.features.get_all = AsyncMock(return_value=existing_features)
+
+        use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        assert result.features_created == 1
+        added_feature = mock_uow.features.add.call_args[0][0]
+        assert added_feature.wave == 3  # Next available after 1 and 2
+
+
+class TestParsingEdgeCases:
+    """Tests for parsing edge cases in dependencies."""
+
+    async def test_empty_dep_id_after_split_is_ignored(
+        self, use_case, mock_excel_service, mock_story_repo, valid_excel_file
+    ):
+        """Should ignore empty dependency IDs from trailing semicolons."""
+        mock_excel_service.read_stories_from_file.return_value = ExcelReadResult(
+            rows=[
+                {
+                    "ID": "A-001",
+                    "Componente": "A",
+                    "Nome": "Story A",
+                    "SP": 3,
+                    "Feature": "",
+                    "Dependencias": "",
+                },
+                {
+                    "ID": "B-001",
+                    "Componente": "B",
+                    "Nome": "Story B",
+                    "SP": 3,
+                    "Feature": "",
+                    "Dependencias": "A-001;  ;",
+                },
+            ],
+            warnings=[],
+        )
+
+        input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
+        result = await use_case.execute(input_dto)
+
+        # Only one real dependency (A-001), empty parts should be ignored
+        assert result.stories_imported == 2

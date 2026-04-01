@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from backlog_manager.application.dto.story.story_output_dto import StoryOutputDTO
 from backlog_manager.application.use_cases.story.list_stories import ListStoriesUseCase
+from backlog_manager.domain.entities.developer import Developer
+from backlog_manager.domain.entities.feature import Feature
+from backlog_manager.domain.entities.story import Story
 
 
 def _make_dto(
@@ -173,3 +179,267 @@ class TestSortDtos:
         result = ListStoriesUseCase._sort_dtos(dtos)
         # MISSING-001 not in group, so A-001 has in-degree 0
         assert [d.id for d in result] == ["A-001", "B-001"]
+
+
+def _make_story(
+    story_id: str,
+    component: str = "COMP",
+    priority: int = 0,
+    developer_id: int | None = None,
+    feature_id: int | None = None,
+) -> Story:
+    """Helper to create a Story entity for testing."""
+    return Story(
+        id=story_id,
+        component=component,
+        name=f"Story {story_id}",
+        story_points=5,
+        priority=priority,
+        developer_id=developer_id,
+        feature_id=feature_id,
+    )
+
+
+def _make_uow(
+    stories: list[Story] | None = None,
+    developers: list[Developer] | None = None,
+    features: list[Feature] | None = None,
+    dependency_map: dict[str, list[str]] | None = None,
+) -> MagicMock:
+    """Helper to create a mock UnitOfWork."""
+    uow = MagicMock()
+    uow.stories = MagicMock()
+    uow.developers = MagicMock()
+    uow.features = MagicMock()
+    uow.dependencies = MagicMock()
+
+    uow.stories.get_all = AsyncMock(return_value=stories or [])
+    uow.stories.get_by_status = AsyncMock(return_value=stories or [])
+    uow.stories.get_by_feature = AsyncMock(return_value=stories or [])
+    uow.stories.get_by_developer = AsyncMock(return_value=stories or [])
+    uow.developers.get_all = AsyncMock(return_value=developers or [])
+    uow.features.get_all = AsyncMock(return_value=features or [])
+
+    dep_map = dependency_map or {}
+    uow.dependencies.get_dependencies = AsyncMock(
+        side_effect=lambda sid: dep_map.get(sid, [])
+    )
+
+    return uow
+
+
+@pytest.mark.unit
+class TestExecute:
+    """Tests for ListStoriesUseCase.execute (lines 174-175)."""
+
+    async def test_execute_returns_empty_for_no_stories(self):
+        uow = _make_uow()
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result == []
+        uow.stories.get_all.assert_awaited_once()
+
+    async def test_execute_returns_enriched_dtos(self):
+        stories = [_make_story("A-001", developer_id=1, feature_id=10)]
+        developers = [Developer(name="Alice", id=1)]
+        features = [Feature(name="Login", wave=1, id=10)]
+        uow = _make_uow(stories=stories, developers=developers, features=features)
+
+        use_case = ListStoriesUseCase(uow)
+        result = await use_case.execute()
+
+        assert len(result) == 1
+        assert result[0].id == "A-001"
+        assert result[0].developer_name == "Alice"
+        assert result[0].feature_name == "Login"
+        assert result[0].wave == 1
+
+
+@pytest.mark.unit
+class TestExecuteByStatus:
+    """Tests for ListStoriesUseCase.execute_by_status (lines 186-187)."""
+
+    async def test_execute_by_status_calls_repository(self):
+        stories = [_make_story("A-001")]
+        uow = _make_uow(stories=stories)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute_by_status("BACKLOG")
+
+        assert len(result) == 1
+        uow.stories.get_by_status.assert_awaited_once_with("BACKLOG")
+
+    async def test_execute_by_status_empty(self):
+        uow = _make_uow(stories=[])
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute_by_status("DONE")
+
+        assert result == []
+
+
+@pytest.mark.unit
+class TestExecuteByFeature:
+    """Tests for ListStoriesUseCase.execute_by_feature (lines 198-199)."""
+
+    async def test_execute_by_feature_calls_repository(self):
+        stories = [_make_story("A-001", feature_id=5)]
+        features = [Feature(name="Feat", wave=2, id=5)]
+        uow = _make_uow(stories=stories, features=features)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute_by_feature(5)
+
+        assert len(result) == 1
+        uow.stories.get_by_feature.assert_awaited_once_with(5)
+        assert result[0].feature_name == "Feat"
+        assert result[0].wave == 2
+
+    async def test_execute_by_feature_empty(self):
+        uow = _make_uow(stories=[])
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute_by_feature(999)
+
+        assert result == []
+
+
+@pytest.mark.unit
+class TestExecuteByDeveloper:
+    """Tests for ListStoriesUseCase.execute_by_developer (lines 210-211)."""
+
+    async def test_execute_by_developer_calls_repository(self):
+        stories = [_make_story("A-001", developer_id=3)]
+        developers = [Developer(name="Bob", id=3)]
+        uow = _make_uow(stories=stories, developers=developers)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute_by_developer(3)
+
+        assert len(result) == 1
+        uow.stories.get_by_developer.assert_awaited_once_with(3)
+        assert result[0].developer_name == "Bob"
+
+    async def test_execute_by_developer_empty(self):
+        uow = _make_uow(stories=[])
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute_by_developer(999)
+
+        assert result == []
+
+
+@pytest.mark.unit
+class TestEnrichDtos:
+    """Tests for ListStoriesUseCase._enrich_dtos (lines 38-64)."""
+
+    async def test_enrich_sets_developer_name(self):
+        stories = [_make_story("A-001", developer_id=1)]
+        developers = [Developer(name="Alice", id=1)]
+        uow = _make_uow(stories=stories, developers=developers)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result[0].developer_name == "Alice"
+
+    async def test_enrich_no_developer_id_leaves_name_none(self):
+        stories = [_make_story("A-001", developer_id=None)]
+        uow = _make_uow(stories=stories)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result[0].developer_name is None
+
+    async def test_enrich_developer_id_not_in_map_returns_none(self):
+        stories = [_make_story("A-001", developer_id=999)]
+        developers = [Developer(name="Alice", id=1)]
+        uow = _make_uow(stories=stories, developers=developers)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result[0].developer_name is None
+
+    async def test_enrich_sets_feature_name_and_wave(self):
+        stories = [_make_story("A-001", feature_id=10)]
+        features = [Feature(name="Auth", wave=2, id=10)]
+        uow = _make_uow(stories=stories, features=features)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result[0].feature_name == "Auth"
+        assert result[0].wave == 2
+
+    async def test_enrich_no_feature_id_leaves_defaults(self):
+        stories = [_make_story("A-001", feature_id=None)]
+        uow = _make_uow(stories=stories)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result[0].feature_name is None
+        assert result[0].wave == 0
+
+    async def test_enrich_feature_id_not_in_map_leaves_defaults(self):
+        stories = [_make_story("A-001", feature_id=999)]
+        features = [Feature(name="Auth", wave=2, id=10)]
+        uow = _make_uow(stories=stories, features=features)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert result[0].feature_name is None
+        assert result[0].wave == 0
+
+    async def test_enrich_loads_dependency_ids(self):
+        stories = [_make_story("A-001"), _make_story("B-001")]
+        dep_map = {"A-001": ["B-001"], "B-001": []}
+        uow = _make_uow(stories=stories, dependency_map=dep_map)
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        dto_a = next(d for d in result if d.id == "A-001")
+        dto_b = next(d for d in result if d.id == "B-001")
+        assert dto_a.dependency_ids == ["B-001"]
+        assert dto_b.dependency_ids == []
+
+    async def test_enrich_multiple_stories_full(self):
+        """Full enrichment with multiple stories, developers, features, deps."""
+        stories = [
+            _make_story("A-001", developer_id=1, feature_id=10),
+            _make_story("B-001", developer_id=2, feature_id=20),
+        ]
+        developers = [
+            Developer(name="Alice", id=1),
+            Developer(name="Bob", id=2),
+        ]
+        features = [
+            Feature(name="Auth", wave=1, id=10),
+            Feature(name="Dashboard", wave=2, id=20),
+        ]
+        dep_map = {"A-001": [], "B-001": ["A-001"]}
+        uow = _make_uow(
+            stories=stories,
+            developers=developers,
+            features=features,
+            dependency_map=dep_map,
+        )
+        use_case = ListStoriesUseCase(uow)
+
+        result = await use_case.execute()
+
+        assert len(result) == 2
+        # Wave 1 first (A-001), then wave 2 (B-001)
+        assert result[0].id == "A-001"
+        assert result[0].developer_name == "Alice"
+        assert result[0].feature_name == "Auth"
+        assert result[1].id == "B-001"
+        assert result[1].developer_name == "Bob"
+        assert result[1].feature_name == "Dashboard"
+        assert result[1].dependency_ids == ["A-001"]
