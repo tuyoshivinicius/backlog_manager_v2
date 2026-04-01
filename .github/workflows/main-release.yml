@@ -51,13 +51,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OUTPUT=$(semantic-release version --push 2>&1) || true
+          echo "$OUTPUT"
+
           TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || true)
           if [ -n "$TAG" ]; then
+            echo "Tag found locally: $TAG"
+            # Ensure tag is pushed to remote (fallback if semantic-release failed to push)
+            git push origin "$TAG" 2>&1 || true
             VERSION="${TAG#v}"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
             echo "released=true" >> "$GITHUB_OUTPUT"
           else
+            echo "No tag found on HEAD"
             echo "version=" >> "$GITHUB_OUTPUT"
             echo "tag=" >> "$GITHUB_OUTPUT"
             echo "released=false" >> "$GITHUB_OUTPUT"
