@@ -99,11 +99,11 @@ class TestNoCycleDAG:
     def test_no_cycle_simple_dag(self) -> None:
         """Simple DAG A->B->C has no cycle."""
         graph = {"A": ["B"], "B": ["C"], "C": []}
-        cycle = DependencyService.detect_cycle(graph, "A", "B")
+        _ = DependencyService.detect_cycle(graph, "A", "B")
         # Since this is existing graph, we test from A
         # Actually detect_cycle checks from target
-        cycle = DependencyService.would_create_cycle(graph, "D", "C")
-        assert cycle is None
+        result = DependencyService.would_create_cycle(graph, "D", "C")
+        assert result is None
 
     def test_no_cycle_diamond(self) -> None:
         """Diamond DAG has no cycle."""

@@ -165,6 +165,70 @@ class AllocationService:
     """
 
     @staticmethod
+    def _recalculate_end_date(
+        story: Story,
+        new_start: date,
+        holidays: frozenset[date],
+        config: AllocationConfig,
+    ) -> date:
+        """Calcula nova end_date a partir de start_date usando duracao ou SP."""
+        if story.duration:
+            return SchedulingService.add_workdays(new_start, story.duration, holidays)
+        sp = (
+            story.story_points.value
+            if hasattr(story.story_points, "value")
+            else story.story_points
+        )
+        duration = SchedulingService.calculate_duration(sp, config.velocity)
+        return SchedulingService.add_workdays(new_start, duration, holidays)
+
+    @staticmethod
+    def _move_story_dates(
+        story: Story,
+        new_start: date,
+        holidays: frozenset[date],
+        config: AllocationConfig,
+    ) -> None:
+        """Atualiza start_date e end_date de uma historia."""
+        new_end = AllocationService._recalculate_end_date(
+            story, new_start, holidays, config
+        )
+        object.__setattr__(story, "start_date", new_start)
+        object.__setattr__(story, "end_date", new_end)
+
+    @staticmethod
+    def _group_stories_by_developer(stories: Sequence[Story]) -> dict[int, list[Story]]:
+        """Agrupa historias por developer_id."""
+        dev_stories: dict[int, list[Story]] = {}
+        for story in stories:
+            if story.developer_id is not None:
+                if story.developer_id not in dev_stories:
+                    dev_stories[story.developer_id] = []
+                dev_stories[story.developer_id].append(story)
+        return dev_stories
+
+    @staticmethod
+    def _find_max_dependency_end_date(
+        story_id: str,
+        dependency_graph: dict[str, list[str]],
+        story_map: dict[str, Story],
+    ) -> date | None:
+        """Encontra a maior end_date entre as dependencias de uma historia."""
+        deps = dependency_graph.get(story_id, [])
+        if not deps:
+            return None
+        max_dep_end: date | None = None
+        for dep_id in deps:
+            dep_story = story_map.get(dep_id)
+            if (
+                dep_story
+                and dep_story.end_date
+                and (max_dep_end is None or dep_story.end_date > max_dep_end)
+            ):
+                max_dep_end = dep_story.end_date
+        return max_dep_end
+
+    @staticmethod
     def _is_eligible(story: Story) -> bool:
         """Verifica se historia e elegivel para alocacao.
 
@@ -401,81 +465,48 @@ class AllocationService:
         return None
 
     @staticmethod
+    def _fix_single_overlap(
+        current: Story,
+        next_story: Story,
+        holidays: frozenset[date],
+        config: AllocationConfig,
+    ) -> bool:
+        """Corrige sobreposicao entre duas historias consecutivas do mesmo dev."""
+        if not AllocationService._has_period_overlap(current, next_story):
+            return False
+        if current.end_date is None:
+            return False
+
+        from datetime import timedelta
+
+        new_start = SchedulingService.next_workday(
+            current.end_date + timedelta(days=1), holidays
+        )
+        AllocationService._move_story_dates(next_story, new_start, holidays, config)
+        return True
+
+    @staticmethod
     def _resolve_allocation_conflicts(
         stories: list[Story],
         holidays: frozenset[date],
         config: AllocationConfig,
         metrics: AllocationMetrics,
     ) -> None:
-        """Resolve conflitos de periodo entre historias do mesmo dev.
-
-        Percorre historias por desenvolvedor e ajusta start_date/end_date
-        quando ha sobreposicao.
-
-        Args:
-            stories: Lista de historias alocadas (modificada in-place).
-            holidays: Conjunto de feriados.
-            config: Configuracao de alocacao.
-            metrics: Metricas a atualizar.
-        """
-        # Group stories by developer
-        dev_stories: dict[int, list[Story]] = {}
-        for story in stories:
-            if story.developer_id is not None:
-                if story.developer_id not in dev_stories:
-                    dev_stories[story.developer_id] = []
-                dev_stories[story.developer_id].append(story)
+        """Resolve conflitos de periodo entre historias do mesmo dev."""
+        dev_stories = AllocationService._group_stories_by_developer(stories)
 
         for _pass_num in range(MAX_CONFLICT_PASSES):
             conflicts_fixed = 0
 
             for _dev_id, dev_story_list in dev_stories.items():
-                # Sort by start_date
                 sorted_stories = sorted(
                     dev_story_list,
                     key=lambda s: s.start_date if s.start_date else date.min,
                 )
-
                 for i in range(len(sorted_stories) - 1):
-                    current = sorted_stories[i]
-                    next_story = sorted_stories[i + 1]
-
-                    if (
-                        AllocationService._has_period_overlap(current, next_story)
-                        and current.end_date is not None
+                    if AllocationService._fix_single_overlap(
+                        sorted_stories[i], sorted_stories[i + 1], holidays, config
                     ):
-                        new_start = SchedulingService.next_workday(
-                            current.end_date, holidays
-                        )
-                        # Move to next workday after end_date
-                        from datetime import timedelta
-
-                        new_start = SchedulingService.next_workday(
-                            current.end_date + timedelta(days=1), holidays
-                        )
-
-                        # Calculate new end_date
-                        if next_story.duration:
-                            new_end = SchedulingService.add_workdays(
-                                new_start, next_story.duration, holidays
-                            )
-                        else:
-                            # Recalculate duration
-                            sp = (
-                                next_story.story_points.value
-                                if hasattr(next_story.story_points, "value")
-                                else next_story.story_points
-                            )
-                            duration = SchedulingService.calculate_duration(
-                                sp, config.velocity
-                            )
-                            new_end = SchedulingService.add_workdays(
-                                new_start, duration, holidays
-                            )
-
-                        # Update story dates
-                        object.__setattr__(next_story, "start_date", new_start)
-                        object.__setattr__(next_story, "end_date", new_end)
                         metrics.validation_conflict_fixes += 1
                         metrics.date_adjustments += 1
                         conflicts_fixed += 1
@@ -510,45 +541,17 @@ class AllocationService:
         """
         from datetime import timedelta
 
-        deps = dependency_graph.get(story.id, [])
-        if not deps:
-            return False
-
-        # Find max end_date of dependencies
-        max_dep_end: date | None = None
-        for dep_id in deps:
-            dep_story = story_map.get(dep_id)
-            if (
-                dep_story
-                and dep_story.end_date
-                and (max_dep_end is None or dep_story.end_date > max_dep_end)
-            ):
-                max_dep_end = dep_story.end_date
-
+        max_dep_end = AllocationService._find_max_dependency_end_date(
+            story.id, dependency_graph, story_map
+        )
         if max_dep_end is None or not story.start_date:
             return False
 
-        # Check if story starts before dependency ends
         if story.start_date <= max_dep_end:
             new_start = SchedulingService.next_workday(
                 max_dep_end + timedelta(days=1), holidays
             )
-
-            if story.duration:
-                new_end = SchedulingService.add_workdays(
-                    new_start, story.duration, holidays
-                )
-            else:
-                sp = (
-                    story.story_points.value
-                    if hasattr(story.story_points, "value")
-                    else story.story_points
-                )
-                duration = SchedulingService.calculate_duration(sp, config.velocity)
-                new_end = SchedulingService.add_workdays(new_start, duration, holidays)
-
-            object.__setattr__(story, "start_date", new_start)
-            object.__setattr__(story, "end_date", new_end)
+            AllocationService._move_story_dates(story, new_start, holidays, config)
             metrics.date_adjustments += 1
             return True
 
@@ -584,52 +587,83 @@ class AllocationService:
         any_fixed = False
 
         for story in stories:
-            deps = dependency_graph.get(story.id, [])
-            if not deps:
-                continue
-
-            # Find max end_date of dependencies
-            max_dep_end: date | None = None
-            for dep_id in deps:
-                dep_story = story_map.get(dep_id)
-                if (
-                    dep_story
-                    and dep_story.end_date
-                    and (max_dep_end is None or dep_story.end_date > max_dep_end)
-                ):
-                    max_dep_end = dep_story.end_date
-
+            max_dep_end = AllocationService._find_max_dependency_end_date(
+                story.id, dependency_graph, story_map
+            )
             if max_dep_end is None:
                 continue
 
-            # Check if story starts before dependency ends
             if story.start_date and story.start_date <= max_dep_end:
                 new_start = SchedulingService.next_workday(
                     max_dep_end + timedelta(days=1), holidays
                 )
-
-                if story.duration:
-                    new_end = SchedulingService.add_workdays(
-                        new_start, story.duration, holidays
-                    )
-                else:
-                    sp = (
-                        story.story_points.value
-                        if hasattr(story.story_points, "value")
-                        else story.story_points
-                    )
-                    duration = SchedulingService.calculate_duration(sp, config.velocity)
-                    new_end = SchedulingService.add_workdays(
-                        new_start, duration, holidays
-                    )
-
-                object.__setattr__(story, "start_date", new_start)
-                object.__setattr__(story, "end_date", new_end)
+                AllocationService._move_story_dates(story, new_start, holidays, config)
                 metrics.validation_dependency_fixes += 1
                 metrics.date_adjustments += 1
                 any_fixed = True
 
         return any_fixed
+
+    @staticmethod
+    def _emit_idleness_if_excessive(
+        current: Story,
+        next_story: Story,
+        dev_id: int,
+        dev: Developer,
+        feature_map: dict[int, int],
+        holidays: frozenset[date],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+        warnings: list[BacklogWarning],
+    ) -> None:
+        """Emite warning de ociosidade se gap entre historias excede max_idle_days."""
+        if current.end_date is None or next_story.start_date is None:
+            return
+
+        idle_days = SchedulingService.count_workdays_between(
+            current.end_date, next_story.start_date, holidays
+        )
+        if idle_days <= config.max_idle_days:
+            return
+
+        current_wave = AllocationService._get_story_wave(current, feature_map)
+        next_wave = AllocationService._get_story_wave(next_story, feature_map)
+
+        if current_wave == next_wave:
+            metrics.max_idle_violations_detected += 1
+            warnings.append(
+                IdlenessWarning(
+                    developer_id=dev_id,
+                    developer_name=dev.name,
+                    idle_days=idle_days,
+                    wave=current_wave,
+                )
+            )
+            logger.warning(
+                "Ociosidade detectada: dev %s (%d) - %d dias na onda %d",
+                dev.name,
+                dev_id,
+                idle_days,
+                current_wave,
+            )
+        else:
+            warnings.append(
+                BetweenWavesIdlenessInfo(
+                    developer_id=dev_id,
+                    developer_name=dev.name,
+                    idle_days=idle_days,
+                    from_wave=current_wave,
+                    to_wave=next_wave,
+                )
+            )
+            logger.info(
+                "Ociosidade inter-wave: dev %s (%d) - %d dias entre ondas %d e %d",
+                dev.name,
+                dev_id,
+                idle_days,
+                current_wave,
+                next_wave,
+            )
 
     @staticmethod
     def _check_idleness(
@@ -656,85 +690,83 @@ class AllocationService:
             warnings: Lista de warnings a adicionar.
         """
         dev_map = {d.id: d for d in developers if d.id is not None}
-
-        # Group stories by developer
-        dev_stories: dict[int, list[Story]] = {}
-        for story in stories:
-            if story.developer_id is not None:
-                if story.developer_id not in dev_stories:
-                    dev_stories[story.developer_id] = []
-                dev_stories[story.developer_id].append(story)
+        dev_stories = AllocationService._group_stories_by_developer(stories)
 
         for dev_id, dev_story_list in dev_stories.items():
             dev = dev_map.get(dev_id)
             if not dev:
                 continue
 
-            # Sort by end_date
             sorted_stories = sorted(
                 dev_story_list,
                 key=lambda s: s.end_date if s.end_date else date.min,
             )
 
             for i in range(len(sorted_stories) - 1):
-                current = sorted_stories[i]
-                next_story = sorted_stories[i + 1]
-
-                if current.end_date is None or next_story.start_date is None:
-                    continue
-
-                # Count workdays between stories
-                idle_days = SchedulingService.count_workdays_between(
-                    current.end_date, next_story.start_date, holidays
+                AllocationService._emit_idleness_if_excessive(
+                    sorted_stories[i],
+                    sorted_stories[i + 1],
+                    dev_id,
+                    dev,
+                    feature_map,
+                    holidays,
+                    config,
+                    metrics,
+                    warnings,
                 )
 
-                if idle_days > config.max_idle_days:
-                    current_wave = AllocationService._get_story_wave(
-                        current, feature_map
-                    )
-                    next_wave = AllocationService._get_story_wave(
-                        next_story, feature_map
-                    )
+    @staticmethod
+    def _try_reallocate_idle_story(
+        current: Story,
+        next_story: Story,
+        dev_id: int,
+        developers: Sequence[Developer],
+        dev_count: dict[int, int],
+        feature_map: dict[int, int],
+        reallocation_count: dict[str, int],
+        holidays: frozenset[date],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+        rng: random.Random,
+    ) -> bool:
+        """Tenta realocar uma historia ociosa para outro desenvolvedor."""
+        if current.end_date is None or next_story.start_date is None:
+            return False
 
-                    if current_wave == next_wave:
-                        # Intra-wave idleness - problem
-                        metrics.max_idle_violations_detected += 1
-                        warnings.append(
-                            IdlenessWarning(
-                                developer_id=dev_id,
-                                developer_name=dev.name,
-                                idle_days=idle_days,
-                                wave=current_wave,
-                            )
-                        )
-                        # T016: FR-004 - Log intra-wave idleness warning
-                        logger.warning(
-                            "Ociosidade detectada: dev %s (%d) - %d dias na onda %d",
-                            dev.name,
-                            dev_id,
-                            idle_days,
-                            current_wave,
-                        )
-                    else:
-                        # Inter-wave idleness - informative only
-                        warnings.append(
-                            BetweenWavesIdlenessInfo(
-                                developer_id=dev_id,
-                                developer_name=dev.name,
-                                idle_days=idle_days,
-                                from_wave=current_wave,
-                                to_wave=next_wave,
-                            )
-                        )
-                        # T016: FR-004 - Log inter-wave idleness info
-                        logger.info(
-                            "Ociosidade inter-wave: dev %s (%d) - %d dias entre ondas %d e %d",
-                            dev.name,
-                            dev_id,
-                            idle_days,
-                            current_wave,
-                            next_wave,
-                        )
+        idle_days = SchedulingService.count_workdays_between(
+            current.end_date, next_story.start_date, holidays
+        )
+        if idle_days <= config.max_idle_days:
+            return False
+
+        current_wave = AllocationService._get_story_wave(current, feature_map)
+        next_wave = AllocationService._get_story_wave(next_story, feature_map)
+        if current_wave != next_wave:
+            return False
+
+        if reallocation_count.get(next_story.id, 0) >= MAX_REALLOCATIONS_PER_STORY:
+            metrics.failed_reallocations += 1
+            return False
+
+        other_devs = [d for d in developers if d.id != dev_id]
+        if not other_devs:
+            metrics.failed_reallocations += 1
+            return False
+
+        new_dev = AllocationService._select_by_load_balancing(
+            other_devs, dev_count, rng
+        )
+        if not new_dev or new_dev.id is None:
+            metrics.failed_reallocations += 1
+            return False
+
+        dev_count[dev_id] = dev_count.get(dev_id, 1) - 1
+        dev_count[new_dev.id] = dev_count.get(new_dev.id, 0) + 1
+        object.__setattr__(next_story, "developer_id", new_dev.id)
+        reallocation_count[next_story.id] = reallocation_count.get(next_story.id, 0) + 1
+        metrics.validation_reallocations += 1
+        metrics.max_idle_violations_fixed += 1
+        return True
 
     @staticmethod
     def _check_and_fix_idle_violations(
@@ -769,14 +801,7 @@ class AllocationService:
             True se houve realocacao, False caso contrario.
         """
         any_reallocation = False
-
-        # Group stories by developer
-        dev_stories: dict[int, list[Story]] = {}
-        for story in stories:
-            if story.developer_id is not None:
-                if story.developer_id not in dev_stories:
-                    dev_stories[story.developer_id] = []
-                dev_stories[story.developer_id].append(story)
+        dev_stories = AllocationService._group_stories_by_developer(stories)
 
         for dev_id, dev_story_list in dev_stories.items():
             sorted_stories = sorted(
@@ -785,60 +810,21 @@ class AllocationService:
             )
 
             for i in range(len(sorted_stories) - 1):
-                current = sorted_stories[i]
-                next_story = sorted_stories[i + 1]
-
-                if current.end_date is None or next_story.start_date is None:
-                    continue
-
-                idle_days = SchedulingService.count_workdays_between(
-                    current.end_date, next_story.start_date, holidays
+                result = AllocationService._try_reallocate_idle_story(
+                    sorted_stories[i],
+                    sorted_stories[i + 1],
+                    dev_id,
+                    developers,
+                    dev_count,
+                    feature_map,
+                    reallocation_count,
+                    holidays,
+                    config,
+                    metrics,
+                    rng,
                 )
-
-                if idle_days > config.max_idle_days:
-                    current_wave = AllocationService._get_story_wave(
-                        current, feature_map
-                    )
-                    next_wave = AllocationService._get_story_wave(
-                        next_story, feature_map
-                    )
-
-                    # Only try to fix intra-wave idleness
-                    if current_wave != next_wave:
-                        continue
-
-                    # Check reallocation limit
-                    if (
-                        reallocation_count.get(next_story.id, 0)
-                        >= MAX_REALLOCATIONS_PER_STORY
-                    ):
-                        metrics.failed_reallocations += 1
-                        continue
-
-                    # Try to reallocate to another developer
-                    other_devs = [d for d in developers if d.id != dev_id]
-                    if not other_devs:
-                        metrics.failed_reallocations += 1
-                        continue
-
-                    new_dev = AllocationService._select_by_load_balancing(
-                        other_devs, dev_count, rng
-                    )
-                    if new_dev and new_dev.id is not None:
-                        # Update dev counts
-                        dev_count[dev_id] = dev_count.get(dev_id, 1) - 1
-                        dev_count[new_dev.id] = dev_count.get(new_dev.id, 0) + 1
-
-                        # Update story
-                        object.__setattr__(next_story, "developer_id", new_dev.id)
-                        reallocation_count[next_story.id] = (
-                            reallocation_count.get(next_story.id, 0) + 1
-                        )
-                        metrics.validation_reallocations += 1
-                        metrics.max_idle_violations_fixed += 1
-                        any_reallocation = True
-                    else:
-                        metrics.failed_reallocations += 1
+                if result:
+                    any_reallocation = True
 
         return any_reallocation
 
@@ -874,53 +860,38 @@ class AllocationService:
         if story.start_date is None:
             return False
 
-        # If no developers at all, can't adjust dates to help - deadlock situation
         valid_devs = [d for d in developers if d.id is not None]
         if not valid_devs:
             return False
 
-        # Check if any developer can take the story at current date
-        for dev in valid_devs:
-            # Check if this dev has conflicts at this date
-            # dev.id is guaranteed non-None because we filtered valid_devs above
-            assert dev.id is not None
-            dev_story_list = dev_stories.get(dev.id, [])
-            has_conflict = False
+        if AllocationService._any_dev_available(story, valid_devs, dev_stories):
+            return False
 
-            for dev_story in dev_story_list:
-                if dev_story.id == story.id:
-                    continue
-                if AllocationService._has_period_overlap(story, dev_story):
-                    has_conflict = True
-                    break
-
-            if not has_conflict:
-                # At least one dev can take it
-                return False
-
-        # No dev available - adjust date by +1 workday
         new_start = SchedulingService.next_workday(
             story.start_date + timedelta(days=1), holidays
         )
-
-        if story.duration:
-            new_end = SchedulingService.add_workdays(
-                new_start, story.duration, holidays
-            )
-        else:
-            sp = (
-                story.story_points.value
-                if hasattr(story.story_points, "value")
-                else story.story_points
-            )
-            duration = SchedulingService.calculate_duration(sp, config.velocity)
-            new_end = SchedulingService.add_workdays(new_start, duration, holidays)
-
-        object.__setattr__(story, "start_date", new_start)
-        object.__setattr__(story, "end_date", new_end)
+        AllocationService._move_story_dates(story, new_start, holidays, config)
         metrics.date_adjustments += 1
-
         return True
+
+    @staticmethod
+    def _any_dev_available(
+        story: Story,
+        valid_devs: list[Developer],
+        dev_stories: dict[int, list[Story]],
+    ) -> bool:
+        """Verifica se algum dev pode assumir a historia sem conflito."""
+        for dev in valid_devs:
+            assert dev.id is not None
+            dev_story_list = dev_stories.get(dev.id, [])
+            has_conflict = any(
+                AllocationService._has_period_overlap(story, ds)
+                for ds in dev_story_list
+                if ds.id != story.id
+            )
+            if not has_conflict:
+                return True
+        return False
 
     @staticmethod
     def _allocate_by_wave(
@@ -960,179 +931,39 @@ class AllocationService:
         allocated_in_wave: list[Story] = []
         wave_start_time = time.perf_counter()
 
-        # Build dev_stories map for availability checking
-        dev_stories: dict[int, list[Story]] = {}
-        for story in story_map.values():
-            if story.developer_id is not None:
-                if story.developer_id not in dev_stories:
-                    dev_stories[story.developer_id] = []
-                dev_stories[story.developer_id].append(story)
+        dev_stories = AllocationService._group_stories_by_developer(
+            list(story_map.values())
+        )
 
-        # Filter eligible stories
         eligible = [s for s in wave_stories if AllocationService._is_eligible(s)]
         metrics.stories_processed += len(eligible)
 
-        # T017: FR-005 - Log wave start
-        logger.info(
-            "Onda %d: iniciando alocacao de %d historias",
-            wave,
-            len(eligible),
+        logger.info("Onda %d: iniciando alocacao de %d historias", wave, len(eligible))
+
+        iteration = AllocationService._run_allocation_loop(
+            eligible,
+            allocated_in_wave,
+            developers,
+            dev_count,
+            dev_stories,
+            dependency_graph,
+            story_map,
+            holidays,
+            config,
+            metrics,
+            rng,
         )
 
-        iteration = 0
-        while eligible and iteration < config.max_iterations:
-            iteration += 1
-            progress_made = False
+        AllocationService._handle_remaining_eligible(
+            eligible,
+            iteration,
+            wave,
+            config,
+            metrics,
+            warnings,
+        )
 
-            for story in eligible[:]:  # Copy list for safe iteration
-                # Ensure dependencies are finished before allocating
-                dep_adjusted = AllocationService._ensure_dependencies_finished(
-                    story,
-                    dependency_graph,
-                    story_map,
-                    holidays,
-                    config,
-                    metrics,
-                )
-                if dep_adjusted:
-                    progress_made = True
-
-                # Filter developers available for this story's period
-                available_devs: list[Developer] = []
-                for candidate in developers:
-                    if candidate.id is None:
-                        continue
-                    has_conflict = False
-                    for dev_story in dev_stories.get(candidate.id, []):
-                        if AllocationService._has_period_overlap(story, dev_story):
-                            has_conflict = True
-                            break
-                    if not has_conflict:
-                        available_devs.append(candidate)
-
-                # Try to allocate with available developers
-                if available_devs:
-                    dev = AllocationService._select_developer(
-                        available_devs,
-                        story,
-                        dev_count,
-                        dependency_graph,
-                        story_map,
-                        config,
-                        rng,
-                    )
-
-                    if dev is not None and dev.id is not None:
-                        # Allocate
-                        object.__setattr__(story, "developer_id", dev.id)
-                        dev_count[dev.id] = dev_count.get(dev.id, 0) + 1
-
-                        # Update dev_stories
-                        if dev.id not in dev_stories:
-                            dev_stories[dev.id] = []
-                        dev_stories[dev.id].append(story)
-
-                        allocated_in_wave.append(story)
-                        eligible.remove(story)
-                        metrics.stories_allocated += 1
-
-                        # Determine allocation reason for logging
-                        allocation_reason = "LOAD_BALANCING"
-                        if (
-                            config.allocation_criteria
-                            == AllocationCriteria.DEPENDENCY_OWNER
-                        ):
-                            # Check if was actually by owner
-                            owner = AllocationService._get_dependency_owner(
-                                story, dependency_graph, story_map, developers
-                            )
-                            if owner and owner.id == dev.id:
-                                metrics.allocations_by_dependency_owner += 1
-                                allocation_reason = "DEPENDENCY_OWNER"
-                            else:
-                                metrics.allocations_by_load_balancing += 1
-                                allocation_reason = "FALLBACK_LOAD_BALANCING"
-                        else:
-                            metrics.allocations_by_load_balancing += 1
-
-                        # T014: FR-002 - Log developer selection with reason
-                        if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(
-                                "Historia %s: alocada para dev %d (%s)",
-                                story.id,
-                                dev.id,
-                                allocation_reason,
-                            )
-
-                        progress_made = True
-                else:
-                    # No developer available - try adjusting date
-                    adjusted = AllocationService._adjust_date_for_availability(
-                        story,
-                        developers,
-                        dev_count,
-                        dev_stories,
-                        holidays,
-                        config,
-                        metrics,
-                    )
-                    if adjusted:
-                        progress_made = True
-
-            if not progress_made:
-                # Deadlock detected
-                metrics.deadlocks_detected += 1
-                blocked_ids = [s.id for s in eligible]
-                warnings.append(DeadlockWarning(wave=wave, blocked_stories=blocked_ids))
-                # T015: FR-003 - Log deadlock warning
-                logger.warning(
-                    "Onda %d: deadlock detectado - %d historias bloqueadas: %s",
-                    wave,
-                    len(blocked_ids),
-                    ", ".join(blocked_ids[:5])
-                    + ("..." if len(blocked_ids) > 5 else ""),
-                    extra={
-                        "deadlock": {
-                            "wave": wave,
-                            "blocked_count": len(blocked_ids),
-                            "blocked_stories": blocked_ids,
-                            "max_iterations_reached": False,
-                        }
-                    },
-                )
-                break
-
-        # Check if max iterations exhausted with stories still pending
-        if eligible and iteration >= config.max_iterations:
-            metrics.deadlocks_detected += 1
-            blocked_ids = [s.id for s in eligible]
-            warnings.append(
-                DeadlockWarning(
-                    wave=wave,
-                    blocked_stories=blocked_ids,
-                    max_iterations_reached=True,
-                )
-            )
-            # T015: FR-003 - Log deadlock warning (max iterations)
-            logger.warning(
-                "Onda %d: deadlock detectado - %d historias bloqueadas: %s",
-                wave,
-                len(blocked_ids),
-                ", ".join(blocked_ids[:5]) + ("..." if len(blocked_ids) > 5 else ""),
-                extra={
-                    "deadlock": {
-                        "wave": wave,
-                        "blocked_count": len(blocked_ids),
-                        "blocked_stories": blocked_ids,
-                        "max_iterations_reached": True,
-                    }
-                },
-            )
-
-        # Calculate wave time
         wave_time = time.perf_counter() - wave_start_time
-
-        # T017: FR-005 - Log wave complete
         logger.info(
             "Onda %d: completa - %d/%d historias em %.2fs (%d iteracoes)",
             wave,
@@ -1146,6 +977,214 @@ class AllocationService:
         metrics.iterations_per_wave[wave] = iteration
 
         return allocated_in_wave
+
+    @staticmethod
+    def _find_available_developers(
+        story: Story,
+        developers: Sequence[Developer],
+        dev_stories: dict[int, list[Story]],
+    ) -> list[Developer]:
+        """Filtra desenvolvedores sem conflito de periodo com a historia."""
+        available: list[Developer] = []
+        for candidate in developers:
+            if candidate.id is None:
+                continue
+            has_conflict = any(
+                AllocationService._has_period_overlap(story, ds)
+                for ds in dev_stories.get(candidate.id, [])
+            )
+            if not has_conflict:
+                available.append(candidate)
+        return available
+
+    @staticmethod
+    def _perform_allocation(
+        story: Story,
+        dev: Developer,
+        dev_count: dict[int, int],
+        dev_stories: dict[int, list[Story]],
+        allocated_in_wave: list[Story],
+        eligible: list[Story],
+        dependency_graph: dict[str, list[str]],
+        story_map: dict[str, Story],
+        developers: Sequence[Developer],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+    ) -> None:
+        """Executa a alocacao de uma historia para um desenvolvedor."""
+        assert dev.id is not None
+        object.__setattr__(story, "developer_id", dev.id)
+        dev_count[dev.id] = dev_count.get(dev.id, 0) + 1
+
+        if dev.id not in dev_stories:
+            dev_stories[dev.id] = []
+        dev_stories[dev.id].append(story)
+
+        allocated_in_wave.append(story)
+        eligible.remove(story)
+        metrics.stories_allocated += 1
+
+        AllocationService._log_allocation_reason(
+            story,
+            dev,
+            dependency_graph,
+            story_map,
+            developers,
+            config,
+            metrics,
+        )
+
+    @staticmethod
+    def _log_allocation_reason(
+        story: Story,
+        dev: Developer,
+        dependency_graph: dict[str, list[str]],
+        story_map: dict[str, Story],
+        developers: Sequence[Developer],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+    ) -> None:
+        """Determina e loga o motivo da alocacao."""
+        allocation_reason = "LOAD_BALANCING"
+        if config.allocation_criteria == AllocationCriteria.DEPENDENCY_OWNER:
+            owner = AllocationService._get_dependency_owner(
+                story, dependency_graph, story_map, developers
+            )
+            if owner and owner.id == dev.id:
+                metrics.allocations_by_dependency_owner += 1
+                allocation_reason = "DEPENDENCY_OWNER"
+            else:
+                metrics.allocations_by_load_balancing += 1
+                allocation_reason = "FALLBACK_LOAD_BALANCING"
+        else:
+            metrics.allocations_by_load_balancing += 1
+
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Historia %s: alocada para dev %d (%s)",
+                story.id,
+                dev.id,
+                allocation_reason,
+            )
+
+    @staticmethod
+    def _run_allocation_loop(
+        eligible: list[Story],
+        allocated_in_wave: list[Story],
+        developers: Sequence[Developer],
+        dev_count: dict[int, int],
+        dev_stories: dict[int, list[Story]],
+        dependency_graph: dict[str, list[str]],
+        story_map: dict[str, Story],
+        holidays: frozenset[date],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+        rng: random.Random,
+    ) -> int:
+        """Loop principal de alocacao. Retorna numero de iteracoes."""
+        iteration = 0
+        while eligible and iteration < config.max_iterations:
+            iteration += 1
+            progress_made = False
+
+            for story in eligible[:]:
+                dep_adjusted = AllocationService._ensure_dependencies_finished(
+                    story,
+                    dependency_graph,
+                    story_map,
+                    holidays,
+                    config,
+                    metrics,
+                )
+                if dep_adjusted:
+                    progress_made = True
+
+                available_devs = AllocationService._find_available_developers(
+                    story,
+                    developers,
+                    dev_stories,
+                )
+
+                if available_devs:
+                    dev = AllocationService._select_developer(
+                        available_devs,
+                        story,
+                        dev_count,
+                        dependency_graph,
+                        story_map,
+                        config,
+                        rng,
+                    )
+                    if dev is not None and dev.id is not None:
+                        AllocationService._perform_allocation(
+                            story,
+                            dev,
+                            dev_count,
+                            dev_stories,
+                            allocated_in_wave,
+                            eligible,
+                            dependency_graph,
+                            story_map,
+                            developers,
+                            config,
+                            metrics,
+                        )
+                        progress_made = True
+                else:
+                    adjusted = AllocationService._adjust_date_for_availability(
+                        story,
+                        developers,
+                        dev_count,
+                        dev_stories,
+                        holidays,
+                        config,
+                        metrics,
+                    )
+                    if adjusted:
+                        progress_made = True
+
+            if not progress_made:
+                break
+
+        return iteration
+
+    @staticmethod
+    def _handle_remaining_eligible(
+        eligible: list[Story],
+        iteration: int,
+        wave: int,
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+        warnings: list[BacklogWarning],
+    ) -> None:
+        """Registra deadlock se ainda ha historias nao alocadas."""
+        if not eligible:
+            return
+
+        max_iterations_reached = iteration >= config.max_iterations
+        metrics.deadlocks_detected += 1
+        blocked_ids = [s.id for s in eligible]
+        warnings.append(
+            DeadlockWarning(
+                wave=wave,
+                blocked_stories=blocked_ids,
+                max_iterations_reached=max_iterations_reached,
+            )
+        )
+        logger.warning(
+            "Onda %d: deadlock detectado - %d historias bloqueadas: %s",
+            wave,
+            len(blocked_ids),
+            ", ".join(blocked_ids[:5]) + ("..." if len(blocked_ids) > 5 else ""),
+            extra={
+                "deadlock": {
+                    "wave": wave,
+                    "blocked_count": len(blocked_ids),
+                    "blocked_stories": blocked_ids,
+                    "max_iterations_reached": max_iterations_reached,
+                }
+            },
+        )
 
     @staticmethod
     def _stabilization_loop(

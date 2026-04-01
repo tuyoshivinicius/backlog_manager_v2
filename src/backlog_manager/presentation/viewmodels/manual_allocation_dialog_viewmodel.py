@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Coroutine
 from datetime import date
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QObject, Signal
 
@@ -46,6 +47,7 @@ class ManualAllocationDialogViewModel(QObject):
         """
         super().__init__(parent)
         self._container = container
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
         self._story_id: str = ""
         self._selected_developer_id: int | None = None
@@ -92,9 +94,7 @@ class ManualAllocationDialogViewModel(QObject):
         if self._original_start_date is None:
             self._original_start_date = candidate_start_date
 
-        asyncio.ensure_future(
-            self._load_developers_async(story_id, candidate_start_date)
-        )
+        self._create_task(self._load_developers_async(story_id, candidate_start_date))
 
     async def _load_developers_async(
         self, story_id: str, candidate_start_date: date
@@ -142,7 +142,7 @@ class ManualAllocationDialogViewModel(QObject):
         if self._selected_developer_id is None:
             return
 
-        asyncio.ensure_future(self._confirm_allocation_async())
+        self._create_task(self._confirm_allocation_async())
 
     async def _confirm_allocation_async(self) -> None:
         """Persiste alocacao de forma assincrona."""
@@ -180,6 +180,13 @@ class ManualAllocationDialogViewModel(QObject):
         except Exception as e:
             logger.exception("Erro ao confirmar alocacao manual")
             self.error_occurred.emit(str(e))
+
+    def _create_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Cria e rastreia uma task assincrona com limpeza automatica."""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     def reset(self) -> None:
         """Reseta estado do viewmodel para reutilizacao."""

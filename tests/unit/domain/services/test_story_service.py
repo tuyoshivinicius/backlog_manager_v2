@@ -127,7 +127,7 @@ class TestCreateStory:
 class TestSwapPriorities:
     """Tests for swap_priorities method."""
 
-    async def test_swaps_priorities_between_stories(self, story_service):
+    def test_swaps_priorities_between_stories(self, story_service):
         """Should swap priority values."""
         story1 = Story(
             id="AUTH-001",
@@ -144,7 +144,7 @@ class TestSwapPriorities:
             priority=5,
         )
 
-        await story_service.swap_priorities(story1, story2)
+        story_service.swap_priorities(story1, story2)
 
         assert story1.priority == 5
         assert story2.priority == 1
@@ -153,7 +153,7 @@ class TestSwapPriorities:
 class TestValidateCanMoveUp:
     """Tests for validate_can_move_up method."""
 
-    async def test_returns_false_at_top(self, story_service, mock_story_repo):
+    def test_returns_false_at_top(self, story_service, mock_story_repo):
         """Should return False when already at top (priority 0)."""
         story = Story(
             id="AUTH-001",
@@ -163,11 +163,11 @@ class TestValidateCanMoveUp:
             priority=0,
         )
 
-        result = await story_service.validate_can_move_up(story)
+        result = story_service.validate_can_move_up(story)
 
         assert result is False
 
-    async def test_returns_true_when_priority_above_zero(
+    def test_returns_true_when_priority_above_zero(
         self, story_service, mock_story_repo
     ):
         """Should return True when priority is above zero."""
@@ -179,7 +179,7 @@ class TestValidateCanMoveUp:
             priority=2,
         )
 
-        result = await story_service.validate_can_move_up(story)
+        result = story_service.validate_can_move_up(story)
 
         assert result is True
 

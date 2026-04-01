@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from tests.headless_mocks import MockQSettings, create_pyside6_mocks
 
 _mock_qt_core, _pyside6_mocks = create_pyside6_mocks(with_qsettings=True)
@@ -73,7 +75,7 @@ class TestConfigQSettingsPersistence:
         vm = _create_vm()
         assert vm.sp_per_sprint == 25
         assert vm.workdays_per_sprint == 5
-        assert vm.velocity_per_day == 5.0
+        assert vm.velocity_per_day == pytest.approx(5.0)
         assert vm.start_date == date(2026, 6, 1)
         assert vm.max_idle_days == 10
 
@@ -126,7 +128,7 @@ class TestConfigQSettingsMigration:
         vm = _create_vm()
         assert vm.sp_per_sprint == 20
         assert vm.workdays_per_sprint == 10
-        assert vm.velocity_per_day == 2.0
+        assert vm.velocity_per_day == pytest.approx(2.0)
         assert vm.start_date == date.today()
         assert vm.max_idle_days == 3
 
@@ -137,7 +139,7 @@ class TestConfigQSettingsMigration:
         # Should use defaults, NOT try to convert legacy velocity
         assert vm.sp_per_sprint == 20
         assert vm.workdays_per_sprint == 10
-        assert vm.velocity_per_day == 2.0
+        assert vm.velocity_per_day == pytest.approx(2.0)
 
     def test_current_format_loads_values(self) -> None:
         """Current format with sp_per_sprint and workdays loads correctly."""
@@ -146,7 +148,7 @@ class TestConfigQSettingsMigration:
         vm = _create_vm()
         assert vm.sp_per_sprint == 40
         assert vm.workdays_per_sprint == 20
-        assert vm.velocity_per_day == 2.0
+        assert vm.velocity_per_day == pytest.approx(2.0)
 
     def test_mixed_legacy_and_current_ignores_legacy(self) -> None:
         """When both legacy velocity and new fields exist, use new fields."""
@@ -156,4 +158,4 @@ class TestConfigQSettingsMigration:
         vm = _create_vm()
         assert vm.sp_per_sprint == 30
         assert vm.workdays_per_sprint == 10
-        assert vm.velocity_per_day == 3.0
+        assert vm.velocity_per_day == pytest.approx(3.0)

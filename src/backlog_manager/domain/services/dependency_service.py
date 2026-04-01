@@ -128,8 +128,8 @@ class DependencyService:
             Ex: ["A", "B", "C", "A"]
         """
         # Initialize colors and parent tracking
-        color: dict[str, int] = {node: WHITE for node in graph}
-        parent: dict[str, str | None] = {node: None for node in graph}
+        color: dict[str, int] = dict.fromkeys(graph, WHITE)
+        parent: dict[str, str | None] = dict.fromkeys(graph, None)
 
         # Stack for iterative DFS: (node, iterator_index)
         # We track index to resume iteration after returning from children

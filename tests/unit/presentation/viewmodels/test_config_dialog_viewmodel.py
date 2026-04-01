@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from tests.headless_mocks import create_pyside6_mocks
 
 _mock_qt_core, _pyside6_mocks = create_pyside6_mocks(with_qsettings=True)
@@ -56,7 +58,7 @@ class TestConfigDialogViewModelValidate:
     def test_validate_sp_per_sprint_too_high(self) -> None:
         vm = _make_vm()
         vm.sp_per_sprint = 101
-        is_valid, msg = vm.validate()
+        is_valid, _ = vm.validate()
         assert not is_valid
 
     def test_validate_sp_per_sprint_at_min(self) -> None:
@@ -81,7 +83,7 @@ class TestConfigDialogViewModelValidate:
     def test_validate_max_idle_too_high(self) -> None:
         vm = _make_vm()
         vm.max_idle_days = 31
-        is_valid, msg = vm.validate()
+        is_valid, _ = vm.validate()
         assert not is_valid
 
     def test_validate_max_idle_at_min(self) -> None:
@@ -131,10 +133,10 @@ class TestConfigDialogViewModelProperties:
 
     def test_velocity_property_derived(self) -> None:
         vm = _make_vm()
-        assert vm.velocity == 2.0  # 20/10
+        assert vm.velocity == pytest.approx(2.0)  # 20/10
         vm.sp_per_sprint = 50
         vm.workdays_per_sprint = 10
-        assert vm.velocity == 5.0
+        assert vm.velocity == pytest.approx(5.0)
 
     def test_start_date_property(self) -> None:
         vm = _make_vm()
@@ -178,13 +180,13 @@ class TestSpPerSprintAndWorkdays:
 
     def test_velocity_per_day_derived(self) -> None:
         vm = _make_vm()
-        assert vm.velocity_per_day == 2.0
+        assert vm.velocity_per_day == pytest.approx(2.0)
 
     def test_velocity_per_day_after_change(self) -> None:
         vm = _make_vm()
         vm.sp_per_sprint = 15
         vm.workdays_per_sprint = 5
-        assert vm.velocity_per_day == 3.0
+        assert vm.velocity_per_day == pytest.approx(3.0)
 
     def test_velocity_per_day_fractional(self) -> None:
         vm = _make_vm()
@@ -197,7 +199,7 @@ class TestSpPerSprintAndWorkdays:
         vm = _make_vm()
         vm.sp_per_sprint = 30
         vm.workdays_per_sprint = 10
-        assert vm.velocity == 3.0
+        assert vm.velocity == pytest.approx(3.0)
 
 
 # ===========================================================================
@@ -218,7 +220,7 @@ class TestSpPerSprintValidation:
     def test_sp_per_sprint_above_max_invalid(self) -> None:
         vm = _make_vm()
         vm.sp_per_sprint = 101
-        is_valid, msg = vm.validate()
+        is_valid, _ = vm.validate()
         assert not is_valid
 
     def test_sp_per_sprint_at_min_valid(self) -> None:
@@ -243,7 +245,7 @@ class TestSpPerSprintValidation:
     def test_workdays_above_max_invalid(self) -> None:
         vm = _make_vm()
         vm.workdays_per_sprint = 31
-        is_valid, msg = vm.validate()
+        is_valid, _ = vm.validate()
         assert not is_valid
 
     def test_workdays_at_min_valid(self) -> None:

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import aiosqlite
 
 if TYPE_CHECKING:
-    pass
+    pass  # Required for conditional imports used by type checkers only
 
 _SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 

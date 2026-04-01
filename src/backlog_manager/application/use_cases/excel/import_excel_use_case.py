@@ -79,7 +79,6 @@ class ImportExcelUseCase:
         logger.info("Iniciando import de arquivo: %s", input_dto.file_path)
         self._report_progress(0)
 
-        # Read Excel file
         read_result = await self._excel_service.read_stories_from_file(
             input_dto.file_path
         )
@@ -94,121 +93,24 @@ class ImportExcelUseCase:
                 warnings=["Arquivo vazio, nenhuma historia importada"],
             )
 
-        # Warn for large files per RNF-PERF-001
         if len(rows) > 500:
             warnings.append(
                 f"Arquivo contem {len(rows)} linhas. "
                 "Arquivos com mais de 500 historias podem afetar performance."
             )
 
-        stories_imported = 0
-        features_created = 0
-        story_service = StoryService(self._uow.stories)
+        (
+            stories_imported,
+            features_created,
+            pending_dependencies,
+            created_story_ids,
+        ) = await self._execute_pass_one(rows, warnings)
 
-        # Cache for features by name
-        feature_cache: dict[str, int] = {}
+        await self._validate_cycles(pending_dependencies)
 
-        # Collect dependency info for pass 2
-        pending_dependencies: list[tuple[str, list[str]]] = []
-
-        # Track created story IDs for dependency validation
-        created_story_ids: set[str] = set()
-
-        total_rows = len(rows)
-
-        # Pass 1: Create stories and features
-        for idx, row in enumerate(rows, start=1):
-            try:
-                story, feature_was_created = await self._process_row_pass_one(
-                    row=row,
-                    row_number=idx + 1,  # Excel row (header is row 1)
-                    story_service=story_service,
-                    feature_cache=feature_cache,
-                    warnings=warnings,
-                )
-
-                if story is not None:
-                    created_story_ids.add(story.id)
-                    stories_imported += 1
-                    if feature_was_created:
-                        features_created += 1
-
-                    # Collect dependencies for pass 2
-                    deps_str = row.get("Dependencias")
-                    if deps_str and str(deps_str).strip():
-                        dep_ids = self._parse_dependencies(str(deps_str))
-                        if dep_ids:
-                            pending_dependencies.append((story.id, dep_ids))
-
-            except Exception as e:
-                logger.warning("Linha %d ignorada: %s", idx + 1, str(e))
-                warnings.append(f"Linha {idx + 1}: {e}")
-
-            # Report progress (50% for pass 1)
-            self._report_progress(int((idx / total_rows) * 50))
-
-        # Build dependency graph including existing and new dependencies
-        existing_deps = await self._uow.dependencies.get_all_dependencies()
-        all_deps = list(existing_deps)
-
-        # Add pending dependencies to check for cycles
-        for story_id, dep_ids in pending_dependencies:
-            for dep_id in dep_ids:
-                all_deps.append((story_id, dep_id))
-
-        # Validate cycles
-        if pending_dependencies:
-            graph = DependencyService.build_graph(all_deps)
-            cycle = self._detect_any_cycle(graph)
-            if cycle:
-                cycle_path = " -> ".join(cycle)
-                logger.error("Ciclo de dependencia detectado: %s", cycle_path)
-                raise ExcelCycleDetectedException(
-                    f"Ciclo de dependencia detectado: {cycle_path}. "
-                    "Nenhum dado foi importado."
-                )
-
-        # Pass 2: Create dependencies
-        deps_created = 0
-        for story_id, dep_ids in pending_dependencies:
-            for dep_id in dep_ids:
-                try:
-                    # Check if dependency target exists
-                    dep_exists = (
-                        dep_id in created_story_ids
-                        or await self._uow.stories.exists(dep_id)
-                    )
-                    if not dep_exists:
-                        warnings.append(
-                            f"Dependencia {story_id} -> {dep_id}: "
-                            f"historia {dep_id} nao encontrada, ignorada"
-                        )
-                        continue
-
-                    # Check if dependency already exists
-                    already_exists = await self._uow.dependencies.exists(
-                        story_id, dep_id
-                    )
-                    if not already_exists:
-                        await self._uow.dependencies.add(story_id, dep_id)
-                        deps_created += 1
-
-                except Exception as e:
-                    warnings.append(
-                        f"Erro ao criar dependencia {story_id} -> {dep_id}: {e}"
-                    )
-
-            # Report progress (pass 2 is remaining 50%)
-            self._report_progress(
-                50
-                + int(
-                    (pending_dependencies.index((story_id, dep_ids)) + 1)
-                    / len(pending_dependencies)
-                    * 50
-                )
-                if pending_dependencies
-                else 100
-            )
+        deps_created = await self._execute_pass_two(
+            pending_dependencies, created_story_ids, warnings
+        )
 
         self._report_progress(100)
 
@@ -226,6 +128,183 @@ class ImportExcelUseCase:
             features_created=features_created,
             warnings=warnings,
         )
+
+    async def _execute_pass_one(
+        self,
+        rows: list[dict[str, Any]],
+        warnings: list[str],
+    ) -> tuple[int, int, list[tuple[str, list[str]]], set[str]]:
+        """Pass 1: Create stories and features from rows.
+
+        Args:
+            rows: List of row dicts from Excel.
+            warnings: List to accumulate warnings.
+
+        Returns:
+            Tuple of (stories_imported, features_created,
+            pending_dependencies, created_story_ids).
+        """
+        stories_imported = 0
+        features_created = 0
+        story_service = StoryService(self._uow.stories)
+        feature_cache: dict[str, int] = {}
+        pending_dependencies: list[tuple[str, list[str]]] = []
+        created_story_ids: set[str] = set()
+        total_rows = len(rows)
+
+        for idx, row in enumerate(rows, start=1):
+            try:
+                story, feature_was_created = await self._process_row_pass_one(
+                    row=row,
+                    row_number=idx + 1,
+                    story_service=story_service,
+                    feature_cache=feature_cache,
+                    warnings=warnings,
+                )
+
+                if story is not None:
+                    created_story_ids.add(story.id)
+                    stories_imported += 1
+                    if feature_was_created:
+                        features_created += 1
+
+                    self._collect_row_dependencies(row, story.id, pending_dependencies)
+
+            except Exception as e:
+                logger.warning("Linha %d ignorada: %s", idx + 1, str(e))
+                warnings.append(f"Linha {idx + 1}: {e}")
+
+            self._report_progress(int((idx / total_rows) * 50))
+
+        return (
+            stories_imported,
+            features_created,
+            pending_dependencies,
+            created_story_ids,
+        )
+
+    def _collect_row_dependencies(
+        self,
+        row: dict[str, Any],
+        story_id: str,
+        pending_dependencies: list[tuple[str, list[str]]],
+    ) -> None:
+        """Collect dependencies from a row for pass 2.
+
+        Args:
+            row: Row dict from Excel.
+            story_id: ID of the created story.
+            pending_dependencies: List to append dependencies to.
+        """
+        deps_str = row.get("Dependencias")
+        if not deps_str or not str(deps_str).strip():
+            return
+        dep_ids = self._parse_dependencies(str(deps_str))
+        if dep_ids:
+            pending_dependencies.append((story_id, dep_ids))
+
+    async def _validate_cycles(
+        self,
+        pending_dependencies: list[tuple[str, list[str]]],
+    ) -> None:
+        """Validate that pending dependencies do not create cycles.
+
+        Args:
+            pending_dependencies: List of (story_id, dep_ids) tuples.
+
+        Raises:
+            ExcelCycleDetectedException: If a cycle is detected.
+        """
+        if not pending_dependencies:
+            return
+
+        existing_deps = await self._uow.dependencies.get_all_dependencies()
+        all_deps = list(existing_deps)
+
+        for story_id, dep_ids in pending_dependencies:
+            for dep_id in dep_ids:
+                all_deps.append((story_id, dep_id))
+
+        graph = DependencyService.build_graph(all_deps)
+        cycle = self._detect_any_cycle(graph)
+        if cycle:
+            cycle_path = " -> ".join(cycle)
+            logger.error("Ciclo de dependencia detectado: %s", cycle_path)
+            raise ExcelCycleDetectedException(
+                f"Ciclo de dependencia detectado: {cycle_path}. "
+                "Nenhum dado foi importado."
+            )
+
+    async def _execute_pass_two(
+        self,
+        pending_dependencies: list[tuple[str, list[str]]],
+        created_story_ids: set[str],
+        warnings: list[str],
+    ) -> int:
+        """Pass 2: Create dependencies between stories.
+
+        Args:
+            pending_dependencies: List of (story_id, dep_ids) tuples.
+            created_story_ids: Set of story IDs created in pass 1.
+            warnings: List to accumulate warnings.
+
+        Returns:
+            Number of dependencies created.
+        """
+        deps_created = 0
+        total = len(pending_dependencies)
+
+        for dep_idx, (story_id, dep_ids) in enumerate(pending_dependencies):
+            deps_created += await self._create_dependencies_for_story(
+                story_id, dep_ids, created_story_ids, warnings
+            )
+
+            self._report_progress(50 + int((dep_idx + 1) / total * 50))
+
+        return deps_created
+
+    async def _create_dependencies_for_story(
+        self,
+        story_id: str,
+        dep_ids: list[str],
+        created_story_ids: set[str],
+        warnings: list[str],
+    ) -> int:
+        """Create dependencies for a single story.
+
+        Args:
+            story_id: Story that depends on others.
+            dep_ids: IDs of stories it depends on.
+            created_story_ids: Set of story IDs created in pass 1.
+            warnings: List to accumulate warnings.
+
+        Returns:
+            Number of dependencies created.
+        """
+        deps_created = 0
+        for dep_id in dep_ids:
+            try:
+                dep_exists = (
+                    dep_id in created_story_ids
+                    or await self._uow.stories.exists(dep_id)
+                )
+                if not dep_exists:
+                    warnings.append(
+                        f"Dependencia {story_id} -> {dep_id}: "
+                        f"historia {dep_id} nao encontrada, ignorada"
+                    )
+                    continue
+
+                already_exists = await self._uow.dependencies.exists(story_id, dep_id)
+                if not already_exists:
+                    await self._uow.dependencies.add(story_id, dep_id)
+                    deps_created += 1
+
+            except Exception as e:
+                warnings.append(
+                    f"Erro ao criar dependencia {story_id} -> {dep_id}: {e}"
+                )
+        return deps_created
 
     async def _process_row_pass_one(
         self,

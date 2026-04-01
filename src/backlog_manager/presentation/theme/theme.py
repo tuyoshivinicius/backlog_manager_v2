@@ -382,7 +382,7 @@ def get_icon_manager() -> IconManager:
 
 
 # For backwards compatibility and convenience
-icon_manager: IconManager = None  # type: ignore[assignment]
+icon_manager: IconManager | None = None
 
 
 def _initialize_icon_manager() -> None:

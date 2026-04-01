@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
@@ -69,14 +70,22 @@ class FeatureDialog(QDialog):
 
         self._container = container
         self._editing_feature_id: int | None = None
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
         self._setup_ui()
         self._connect_signals()
 
         # Load initial data
-        QTimer.singleShot(0, lambda: asyncio.create_task(self._load_features()))
+        QTimer.singleShot(0, lambda: self._create_task(self._load_features()))
 
         logger.debug("FeatureDialog initialized")
+
+    def _create_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Cria e rastreia uma task assincrona com limpeza automatica."""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     def _setup_ui(self) -> None:
         """Create and configure the dialog UI."""
@@ -208,7 +217,7 @@ class FeatureDialog(QDialog):
             QMessageBox.warning(self, "Erro", "Nome da feature e obrigatorio.")
             return
 
-        asyncio.create_task(self._create_feature(name, wave))
+        self._create_task(self._create_feature(name, wave))
 
     async def _create_feature(self, name: str, wave: int) -> None:
         """Create a new feature.
@@ -275,7 +284,7 @@ class FeatureDialog(QDialog):
             QMessageBox.warning(self, "Erro", "Nome da feature e obrigatorio.")
             return
 
-        asyncio.create_task(self._update_feature(self._editing_feature_id, name, wave))
+        self._create_task(self._update_feature(self._editing_feature_id, name, wave))
 
     async def _update_feature(self, feature_id: int, name: str, wave: int) -> None:
         """Update an existing feature.
@@ -342,7 +351,7 @@ class FeatureDialog(QDialog):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            asyncio.create_task(self._delete_feature(feature_id))
+            self._create_task(self._delete_feature(feature_id))
 
     async def _delete_feature(self, feature_id: int) -> None:
         """Delete a feature.

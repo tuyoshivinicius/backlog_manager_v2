@@ -76,55 +76,92 @@ class ListStoriesUseCase:
         if not dtos:
             return []
 
-        # Agrupar por onda
-        by_wave: dict[int, list[StoryOutputDTO]] = defaultdict(list)
-        for dto in dtos:
-            by_wave[dto.wave].append(dto)
+        by_wave = ListStoriesUseCase._group_by_wave(dtos)
 
         sorted_result: list[StoryOutputDTO] = []
-
         for wave in sorted(by_wave.keys()):
-            group = by_wave[wave]
-            group_ids = {d.id for d in group}
-            dto_map = {d.id: d for d in group}
-
-            # Calcular in-degree considerando apenas dependencias dentro do grupo
-            in_degree: dict[str, int] = {d.id: 0 for d in group}
-            # Mapa reverso: dependency_id -> lista de dependentes
-            dependents: dict[str, list[str]] = defaultdict(list)
-
-            for d in group:
-                for dep_id in d.dependency_ids:
-                    if dep_id in group_ids:
-                        in_degree[d.id] += 1
-                        dependents[dep_id].append(d.id)
-
-            # Min-heap com (prioridade, id) para desempate
-            heap: list[tuple[int, str]] = [
-                (dto_map[sid].priority, sid) for sid in in_degree if in_degree[sid] == 0
-            ]
-            heapq.heapify(heap)
-
-            wave_sorted: list[StoryOutputDTO] = []
-
-            while heap:
-                _, sid = heapq.heappop(heap)
-                wave_sorted.append(dto_map[sid])
-
-                for dependent_id in dependents.get(sid, []):
-                    in_degree[dependent_id] -= 1
-                    if in_degree[dependent_id] == 0:
-                        heapq.heappush(
-                            heap, (dto_map[dependent_id].priority, dependent_id)
-                        )
-
-            if len(wave_sorted) != len(group):
-                # Ciclo detectado — fallback para ordenacao por prioridade
-                wave_sorted = sorted(group, key=lambda d: (d.priority, d.id))
-
+            wave_sorted = ListStoriesUseCase._sort_wave_group(by_wave[wave])
             sorted_result.extend(wave_sorted)
 
         return sorted_result
+
+    @staticmethod
+    def _group_by_wave(
+        dtos: list[StoryOutputDTO],
+    ) -> dict[int, list[StoryOutputDTO]]:
+        """Agrupa DTOs por onda.
+
+        Args:
+            dtos: Lista de DTOs enriquecidos.
+
+        Returns:
+            Dicionario mapeando wave -> lista de DTOs.
+        """
+        by_wave: dict[int, list[StoryOutputDTO]] = defaultdict(list)
+        for dto in dtos:
+            by_wave[dto.wave].append(dto)
+        return by_wave
+
+    @staticmethod
+    def _build_wave_dependency_graph(
+        group: list[StoryOutputDTO],
+    ) -> tuple[dict[str, int], dict[str, list[str]], dict[str, StoryOutputDTO]]:
+        """Constroi grafo de dependencias para um grupo de onda.
+
+        Args:
+            group: Lista de DTOs de uma mesma onda.
+
+        Returns:
+            Tupla com (in_degree, dependents, dto_map).
+        """
+        group_ids = {d.id for d in group}
+        dto_map = {d.id: d for d in group}
+
+        in_degree: dict[str, int] = {d.id: 0 for d in group}
+        dependents: dict[str, list[str]] = defaultdict(list)
+
+        for d in group:
+            for dep_id in d.dependency_ids:
+                if dep_id in group_ids:
+                    in_degree[d.id] += 1
+                    dependents[dep_id].append(d.id)
+
+        return in_degree, dependents, dto_map
+
+    @staticmethod
+    def _sort_wave_group(group: list[StoryOutputDTO]) -> list[StoryOutputDTO]:
+        """Ordena um grupo de onda topologicamente com fallback para prioridade.
+
+        Args:
+            group: Lista de DTOs de uma mesma onda.
+
+        Returns:
+            Lista de DTOs ordenados.
+        """
+        in_degree, dependents, dto_map = (
+            ListStoriesUseCase._build_wave_dependency_graph(group)
+        )
+
+        heap: list[tuple[int, str]] = [
+            (dto_map[sid].priority, sid) for sid in in_degree if in_degree[sid] == 0
+        ]
+        heapq.heapify(heap)
+
+        wave_sorted: list[StoryOutputDTO] = []
+
+        while heap:
+            _, sid = heapq.heappop(heap)
+            wave_sorted.append(dto_map[sid])
+
+            for dependent_id in dependents.get(sid, []):
+                in_degree[dependent_id] -= 1
+                if in_degree[dependent_id] == 0:
+                    heapq.heappush(heap, (dto_map[dependent_id].priority, dependent_id))
+
+        if len(wave_sorted) != len(group):
+            return sorted(group, key=lambda d: (d.priority, d.id))
+
+        return wave_sorted
 
     async def execute(self) -> Sequence[StoryOutputDTO]:
         """Lista todas as historias ordenadas por onda, dependencias e prioridade.

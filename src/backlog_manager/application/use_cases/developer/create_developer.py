@@ -41,6 +41,6 @@ class CreateDeveloperUseCase:
             ValueError: Se nome invalido.
         """
         service = DeveloperService(self._uow.developers, self._uow.stories)
-        developer = await service.create_developer(input_dto.name)
+        developer = service.create_developer(input_dto.name)
         developer.id = await self._uow.developers.add(developer)
         return DeveloperOutputDTO.from_entity(developer)
