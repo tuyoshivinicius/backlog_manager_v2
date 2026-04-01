@@ -54,7 +54,7 @@ version_variables = ["src/backlog_manager/__init__.py:__version__"]
 branch = "main"
 commit_message = "chore(release): v{version}"
 tag_format = "v{version}"
-commit_parser = "angular"
+commit_parser = "conventional"
 
 [tool.semantic_release.commit_parser_options]
 allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
