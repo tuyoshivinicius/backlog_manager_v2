@@ -83,6 +83,6 @@ class TestSchema:
             try:
                 async with conn.execute("PRAGMA foreign_keys") as cursor:
                     row = await cursor.fetchone()
-                    assert row[0] == 1  # 1 = ON
+                    assert row[0] == 1  # enabled
             finally:
                 await conn.close()

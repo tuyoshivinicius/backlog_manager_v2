@@ -7,6 +7,7 @@ stories in a table view, following the MVVM pattern.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 from enum import StrEnum
 from typing import Any, ClassVar
 
@@ -227,6 +228,16 @@ class StoryTableModel(QAbstractTableModel):
         self.status_change_requested.emit(story.id, new_status)
         return True  # Signal emitted successfully; actual update via async reload
 
+    @staticmethod
+    def _fmt_optional(value: str | None) -> str:
+        """Format an optional string, returning em-dash if falsy."""
+        return value if value else "\u2014"
+
+    @staticmethod
+    def _fmt_date(value: date | None) -> str:
+        """Format an optional date as dd/mm/yyyy or em-dash."""
+        return value.strftime("%d/%m/%Y") if value else "\u2014"
+
     def _get_display_value(self, story: StoryOutputDTO, column: int) -> str:
         """Get the display value for a story at a given column.
 
@@ -241,19 +252,19 @@ class StoryTableModel(QAbstractTableModel):
             case 0:  # Prioridade
                 return str(story.priority)
             case 1:  # Feature
-                return story.feature_name if story.feature_name else "\u2014"
+                return self._fmt_optional(story.feature_name)
             case 2:  # Onda
                 return str(story.wave) if story.wave > 0 else "\u2014"
             case 3:  # ID
                 return story.id
             case 4:  # Componente
-                return story.component if story.component else "\u2014"
+                return self._fmt_optional(story.component)
             case 5:  # Nome
                 return story.name
             case 6:  # Status
                 return story.status
             case 7:  # Desenvolvedor
-                return story.developer_name if story.developer_name else "\u2014"
+                return self._fmt_optional(story.developer_name)
             case 8:  # Dependencias
                 return (
                     ", ".join(story.dependency_ids)
@@ -263,15 +274,9 @@ class StoryTableModel(QAbstractTableModel):
             case 9:  # SP
                 return str(story.story_points)
             case 10:  # Inicio
-                return (
-                    story.start_date.strftime("%d/%m/%Y")
-                    if story.start_date
-                    else "\u2014"
-                )
+                return self._fmt_date(story.start_date)
             case 11:  # Fim
-                return (
-                    story.end_date.strftime("%d/%m/%Y") if story.end_date else "\u2014"
-                )
+                return self._fmt_date(story.end_date)
             case 12:  # Duracao
                 return str(story.duration) if story.duration is not None else "\u2014"
             case _:

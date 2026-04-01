@@ -35,9 +35,7 @@ with patch.dict("sys.modules", _pyside6_mocks):
         EditStoryInputDTO,
         StoryOutputDTO,
     )
-    from backlog_manager.domain.exceptions import (
-        BacklogManagerException,
-    )
+    from backlog_manager.domain.exceptions import BacklogManagerException
     from backlog_manager.presentation.viewmodels.main_window_viewmodel import (
         MainWindowViewModel,
     )

@@ -1068,6 +1068,77 @@ class AllocationService:
             )
 
     @staticmethod
+    def _try_allocate_story(
+        story: Story,
+        allocated_in_wave: list[Story],
+        developers: Sequence[Developer],
+        dev_count: dict[int, int],
+        dev_stories: dict[int, list[Story]],
+        dependency_graph: dict[str, list[str]],
+        story_map: dict[str, Story],
+        holidays: frozenset[date],
+        config: AllocationConfig,
+        metrics: AllocationMetrics,
+        rng: random.Random,
+        eligible: list[Story],
+    ) -> bool:
+        """Tenta alocar uma unica story. Retorna True se houve progresso."""
+        progress = AllocationService._ensure_dependencies_finished(
+            story,
+            dependency_graph,
+            story_map,
+            holidays,
+            config,
+            metrics,
+        )
+
+        available_devs = AllocationService._find_available_developers(
+            story,
+            developers,
+            dev_stories,
+        )
+
+        if available_devs:
+            dev = AllocationService._select_developer(
+                available_devs,
+                story,
+                dev_count,
+                dependency_graph,
+                story_map,
+                config,
+                rng,
+            )
+            if dev is not None and dev.id is not None:
+                AllocationService._perform_allocation(
+                    story,
+                    dev,
+                    dev_count,
+                    dev_stories,
+                    allocated_in_wave,
+                    eligible,
+                    dependency_graph,
+                    story_map,
+                    developers,
+                    config,
+                    metrics,
+                )
+                return True
+        else:
+            adjusted = AllocationService._adjust_date_for_availability(
+                story,
+                developers,
+                dev_count,
+                dev_stories,
+                holidays,
+                config,
+                metrics,
+            )
+            if adjusted:
+                return True
+
+        return progress
+
+    @staticmethod
     def _run_allocation_loop(
         eligible: list[Story],
         allocated_in_wave: list[Story],
@@ -1088,60 +1159,21 @@ class AllocationService:
             progress_made = False
 
             for story in eligible[:]:
-                dep_adjusted = AllocationService._ensure_dependencies_finished(
+                if AllocationService._try_allocate_story(
                     story,
+                    allocated_in_wave,
+                    developers,
+                    dev_count,
+                    dev_stories,
                     dependency_graph,
                     story_map,
                     holidays,
                     config,
                     metrics,
-                )
-                if dep_adjusted:
+                    rng,
+                    eligible,
+                ):
                     progress_made = True
-
-                available_devs = AllocationService._find_available_developers(
-                    story,
-                    developers,
-                    dev_stories,
-                )
-
-                if available_devs:
-                    dev = AllocationService._select_developer(
-                        available_devs,
-                        story,
-                        dev_count,
-                        dependency_graph,
-                        story_map,
-                        config,
-                        rng,
-                    )
-                    if dev is not None and dev.id is not None:
-                        AllocationService._perform_allocation(
-                            story,
-                            dev,
-                            dev_count,
-                            dev_stories,
-                            allocated_in_wave,
-                            eligible,
-                            dependency_graph,
-                            story_map,
-                            developers,
-                            config,
-                            metrics,
-                        )
-                        progress_made = True
-                else:
-                    adjusted = AllocationService._adjust_date_for_availability(
-                        story,
-                        developers,
-                        dev_count,
-                        dev_stories,
-                        holidays,
-                        config,
-                        metrics,
-                    )
-                    if adjusted:
-                        progress_made = True
 
             if not progress_made:
                 break
