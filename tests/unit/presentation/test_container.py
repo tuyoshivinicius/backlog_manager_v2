@@ -271,6 +271,21 @@ class TestViewModelProperties:
     We mock the ViewModel imports so we don't pull in PySide6 widgets.
     """
 
+    @pytest.fixture(autouse=True)
+    def _mock_pyside6_modules(self):
+        """Keep PySide6 mocks active so lazy imports succeed headlessly."""
+        vm_prefix = "backlog_manager.presentation.viewmodels"
+        stale_keys = [k for k in sys.modules if k.startswith(vm_prefix)]
+        for k in stale_keys:
+            sys.modules.pop(k)
+
+        with patch.dict(sys.modules, _pyside6_mocks):
+            yield
+
+        for k in list(sys.modules):
+            if k.startswith(vm_prefix):
+                del sys.modules[k]
+
     def test_main_window_viewmodel_lazy_load(self, container):
         mock_vm = MagicMock()
         with patch(
