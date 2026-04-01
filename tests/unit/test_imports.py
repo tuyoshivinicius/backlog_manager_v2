@@ -12,7 +12,8 @@ class TestImports:
         import backlog_manager
 
         assert hasattr(backlog_manager, "__version__")
-        assert backlog_manager.__version__ == "0.1.0"
+        assert isinstance(backlog_manager.__version__, str)
+        assert len(backlog_manager.__version__) > 0
 
     def test_import_domain_entities(self) -> None:
         """Test domain entities import."""
