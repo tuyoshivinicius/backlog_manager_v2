@@ -11,4 +11,4 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/zion-backlog-manager)](https://pypi.org/project/zion-backlog-manager/)
 [![License](https://img.shields.io/github/license/tuyoshivinicius/zion-backlog-manager)](https://github.com/tuyoshivinicius/zion-backlog-manager/blob/main/LICENSE)
 
----
+----
