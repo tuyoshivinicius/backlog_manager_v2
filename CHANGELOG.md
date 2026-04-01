@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.2 (2026-04-01)
+
+### Bug Fixes
+
+- Update pypi publish action to version 1.12.4 and add attestations permission
+  ([`7a64a0f`](https://github.com/tuyoshivinicius/zion-backlog-manager/commit/7a64a0f82ef969bc07abcd34cbfc597a8877d6ce))
+
+
 ## v1.0.1 (2026-04-01)
 
 ### Bug Fixes
