@@ -25,6 +25,8 @@
 - N/A (sem alteracoes de banco — escopo puramente de testes) (032-test-refactor-headless)
 - Python 3.11+ + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite, aiofiles, openpyxl (033-sonarqube-issues-fix)
 - SQLite (sem alteracoes de schema) (033-sonarqube-issues-fix)
+- Python 3.11+ (runtime), Python 3.13 (SonarQube analysis) + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite, aiofiles, openpyxl (034-sonarqube-quality-gate)
+- N/A — sem alterações de schema SQLite (034-sonarqube-quality-gate)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

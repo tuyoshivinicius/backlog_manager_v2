@@ -1404,8 +1404,6 @@ class MainWindow(QMainWindow):
 
         try:
             await task
-        except asyncio.CancelledError:
-            raise
         finally:
             progress.close()
 
