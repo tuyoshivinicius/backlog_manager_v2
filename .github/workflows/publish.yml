@@ -14,9 +14,7 @@ on:
 jobs:
   ci:
     uses: ./.github/workflows/ci.yml
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    secrets: inherit
 
   build:
     name: Build
