@@ -618,6 +618,19 @@ def _collect_earlier_wave_stories(
     return earlier
 
 
+def _try_create_inter_wave_dep(
+    story_id: str,
+    earlier_waves: list[tuple[str, int]],
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> bool:
+    """Attempt to create one inter-wave dependency for a story."""
+    if not earlier_waves or random.random() >= 0.3:
+        return False
+    depends_on = random.choice(earlier_waves)
+    return _try_add_dependency(story_id, depends_on[0], dependencies, story_dep_count)
+
+
 def _generate_inter_wave_deps(
     story_by_wave: dict[int, list[tuple[str, int]]],
     target: int,
@@ -642,12 +655,10 @@ def _generate_inter_wave_deps(
         for story_id, _story_idx in wave_stories:
             if count >= target:
                 return count
-            if earlier_waves and random.random() < 0.3:
-                depends_on = random.choice(earlier_waves)
-                if _try_add_dependency(
-                    story_id, depends_on[0], dependencies, story_dep_count
-                ):
-                    count += 1
+            if _try_create_inter_wave_dep(
+                story_id, earlier_waves, dependencies, story_dep_count
+            ):
+                count += 1
         if count >= target:
             break
     return count
