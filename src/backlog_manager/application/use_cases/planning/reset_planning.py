@@ -31,7 +31,9 @@ class ResetPlanningUseCase:
         """
         self._uow = uow
 
-    async def execute(self, input_dto: ResetPlanningInputDTO) -> ResetPlanningOutputDTO:
+    async def execute(
+        self, _input_dto: ResetPlanningInputDTO
+    ) -> ResetPlanningOutputDTO:
         """Execute the reset planning operation.
 
         Args:

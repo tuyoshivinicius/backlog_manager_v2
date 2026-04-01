@@ -66,6 +66,289 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _build_lookup_maps(
+    original_stories: list,
+    allocated_stories: list,
+    features: list,
+    dependencies: list,
+) -> tuple[set[str], dict[str, Any], dict[str, int], dict[str, list[str]]]:
+    """Build lookup maps for diagnostic analysis.
+
+    Returns:
+        Tuple of (allocated_ids, original_map, story_wave, dep_map).
+    """
+    allocated_ids = {s.id for s in allocated_stories}
+    original_map = {s.id: s for s in original_stories}
+    feature_wave = {f.id: f.wave for f in features}
+    story_wave = {s.id: feature_wave.get(s.feature_id, 0) for s in original_stories}
+
+    dep_map: dict[str, list[str]] = {}
+    for story_id, depends_on_id in dependencies:
+        if story_id not in dep_map:
+            dep_map[story_id] = []
+        dep_map[story_id].append(depends_on_id)
+
+    return allocated_ids, original_map, story_wave, dep_map
+
+
+def _resolve_blocked_ids(
+    blocked_story_ids: list[str],
+    original_stories: list,
+    allocated_ids: set[str],
+) -> list[str]:
+    """Resolve blocked story IDs from warnings or allocation result.
+
+    Args:
+        blocked_story_ids: IDs from warnings (may be empty).
+        original_stories: All original stories.
+        allocated_ids: Set of allocated story IDs.
+
+    Returns:
+        List of blocked story IDs.
+    """
+    if blocked_story_ids:
+        return blocked_story_ids
+    return [
+        s.id
+        for s in original_stories
+        if s.id not in allocated_ids
+        and s.start_date is not None
+        and s.end_date is not None
+    ]
+
+
+def _collect_story_period(story: Any) -> dict[str, Any]:
+    """Collect period info for a blocked story.
+
+    Returns:
+        Dict with period and optionally missing_dates fields.
+    """
+    if story.start_date and story.end_date:
+        return {"period": f"{story.start_date} - {story.end_date}"}
+    return {"period": None, "missing_dates": True}
+
+
+def _collect_story_deps_info(
+    story_id: str,
+    dep_map: dict[str, list[str]],
+    allocated_ids: set[str],
+    story_wave: dict[str, int],
+) -> dict[str, Any]:
+    """Collect dependency info for a blocked story.
+
+    Returns:
+        Dict with dependencies and all_dependencies_allocated fields.
+    """
+    story_deps = dep_map.get(story_id, [])
+    if not story_deps:
+        return {"dependencies": [], "all_dependencies_allocated": True}
+
+    deps_info = [
+        {
+            "dependency_id": dep_id,
+            "allocated": dep_id in allocated_ids,
+            "wave": story_wave.get(dep_id, 0),
+        }
+        for dep_id in story_deps
+    ]
+    return {
+        "dependencies": deps_info,
+        "all_dependencies_allocated": all(d["allocated"] for d in deps_info),
+    }
+
+
+def _collect_dev_availability(
+    story: Any,
+    developers: list,
+    allocated_stories: list,
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect developer availability info for a blocked story with dates.
+
+    Returns:
+        Dict with devs_available_in_period and devs_busy_in_period.
+    """
+    available_devs: list[dict[str, Any]] = []
+    busy_devs: list[dict[str, Any]] = []
+
+    for dev in developers:
+        if dev.id is None:
+            continue
+
+        dev_stories = [s for s in allocated_stories if s.developer_id == dev.id]
+        conflicting_story_id = _find_conflicting_story(dev_stories, story)
+
+        if conflicting_story_id is not None:
+            busy_devs.append(
+                {
+                    "dev_id": dev.id,
+                    "dev_name": dev.name,
+                    "conflicting_story": conflicting_story_id,
+                }
+            )
+        else:
+            available_devs.append({"dev_id": dev.id, "dev_name": dev.name})
+
+    return {
+        "devs_available_in_period": available_devs,
+        "devs_busy_in_period": busy_devs,
+    }
+
+
+def _find_conflicting_story(dev_stories: list, story: Any) -> str | None:
+    """Find the first dev story that conflicts with the given story's period.
+
+    Returns:
+        The conflicting story ID, or None if no conflict.
+    """
+    for dev_story in dev_stories:
+        if (
+            dev_story.start_date
+            and dev_story.end_date
+            and dev_story.start_date <= story.end_date
+            and dev_story.end_date >= story.start_date
+        ):
+            return dev_story.id
+    return None
+
+
+def _collect_blocked_stories_data(
+    blocked_story_ids: list[str],
+    original_map: dict[str, Any],
+    story_wave: dict[str, int],
+    dep_map: dict[str, list[str]],
+    allocated_ids: set[str],
+    allocated_stories: list,
+    developers: list,
+) -> list[dict[str, Any]]:
+    """Collect raw data for each blocked story.
+
+    Returns:
+        List of dicts with diagnostic data per blocked story.
+    """
+    blocked_stories_data = []
+    for story_id in blocked_story_ids:
+        story = original_map.get(story_id)
+        if not story:
+            continue
+
+        story_data: dict[str, Any] = {
+            "story_id": story_id,
+            "wave": story_wave.get(story_id, 0),
+        }
+
+        story_data.update(_collect_story_period(story))
+        story_data.update(
+            _collect_story_deps_info(story_id, dep_map, allocated_ids, story_wave)
+        )
+
+        if story.start_date and story.end_date:
+            story_data.update(
+                _collect_dev_availability(story, developers, allocated_stories)
+            )
+
+        blocked_stories_data.append(story_data)
+
+    return blocked_stories_data
+
+
+def _find_circular_dependencies(dep_map: dict[str, list[str]]) -> list[str]:
+    """Detect circular dependencies in the dependency graph.
+
+    Returns:
+        List of cycle descriptions as strings.
+    """
+
+    def find_cycle(start: str, gray: set, black: set, path: list) -> list | None:
+        if start in black:
+            return None
+        if start in gray:
+            cycle_start = path.index(start)
+            return path[cycle_start:]
+        gray.add(start)
+        path.append(start)
+        for dep_id in dep_map.get(start, []):
+            cycle = find_cycle(dep_id, gray, black, path)
+            if cycle:
+                return cycle
+        path.pop()
+        gray.remove(start)
+        black.add(start)
+        return None
+
+    cycles_found: list[str] = []
+    checked: set[tuple[str, ...]] = set()
+    black_global: set[str] = set()
+    for story_id in dep_map:
+        if story_id not in black_global:
+            cycle = find_cycle(story_id, set(), black_global, [])
+            if cycle:
+                cycle_key = tuple(sorted(cycle))
+                if cycle_key not in checked:
+                    cycles_found.append(" -> ".join(cycle + [cycle[0]]))
+                    checked.add(cycle_key)
+    return cycles_found
+
+
+def _build_diagnosis_summary(
+    blocked_story_ids: list[str],
+    blocked_stories_data: list[dict[str, Any]],
+    cycles_found: list[str],
+) -> dict[str, int]:
+    """Build summary counts (facts, not interpretations).
+
+    Returns:
+        Dict with summary statistics.
+    """
+    return {
+        "total_blocked": len(blocked_story_ids),
+        "with_missing_dates": sum(
+            1 for s in blocked_stories_data if s.get("missing_dates")
+        ),
+        "with_unallocated_dependencies": sum(
+            1 for s in blocked_stories_data if not s.get("all_dependencies_allocated")
+        ),
+        "with_available_devs": sum(
+            1
+            for s in blocked_stories_data
+            if s.get("devs_available_in_period")
+            and len(s["devs_available_in_period"]) > 0
+        ),
+        "with_all_devs_busy": sum(
+            1
+            for s in blocked_stories_data
+            if s.get("devs_busy_in_period")
+            and len(s.get("devs_available_in_period", [])) == 0
+        ),
+        "circular_dependencies_detected": len(cycles_found),
+    }
+
+
+def _detect_contradictions(
+    blocked_stories_data: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Detect contradictions that indicate algorithm bugs.
+
+    Returns:
+        List of contradiction dicts.
+    """
+    contradictions = []
+    for story_data in blocked_stories_data:
+        available_devs = story_data.get("devs_available_in_period", [])
+        deps_ok = story_data.get("all_dependencies_allocated", False)
+        has_dates = story_data.get("period") is not None
+
+        if len(available_devs) > 0 and deps_ok and has_dates:
+            contradictions.append(
+                {
+                    "story_id": story_data["story_id"],
+                    "type": "DEVS_AVAILABLE_BUT_NOT_ALLOCATED",
+                    "available_devs": len(available_devs),
+                    "message": "Ha desenvolvedores disponiveis mas story nao foi alocada - provavel BUG no algoritmo",
+                }
+            )
+    return contradictions
+
+
 def diagnose_deadlock(
     original_stories: list,
     allocated_stories: list,
@@ -93,186 +376,29 @@ def diagnose_deadlock(
     Returns:
         dict with raw diagnostic data.
     """
-    # Build lookup maps
-    allocated_ids = {s.id for s in allocated_stories}
-    original_map = {s.id: s for s in original_stories}
-    feature_wave = {f.id: f.wave for f in features}
-    story_wave = {s.id: feature_wave.get(s.feature_id, 0) for s in original_stories}
+    allocated_ids, original_map, story_wave, dep_map = _build_lookup_maps(
+        original_stories, allocated_stories, features, dependencies
+    )
 
-    # Build dependency graph
-    dep_map: dict[str, list[str]] = {}
-    for story_id, depends_on_id in dependencies:
-        if story_id not in dep_map:
-            dep_map[story_id] = []
-        dep_map[story_id].append(depends_on_id)
+    blocked_story_ids = _resolve_blocked_ids(
+        blocked_story_ids, original_stories, allocated_ids
+    )
 
-    # Get blocked stories (from warnings or by checking allocation result)
-    if not blocked_story_ids:
-        blocked_story_ids = [
-            s.id
-            for s in original_stories
-            if s.id not in allocated_ids
-            and s.start_date is not None
-            and s.end_date is not None
-        ]
+    blocked_stories_data = _collect_blocked_stories_data(
+        blocked_story_ids,
+        original_map,
+        story_wave,
+        dep_map,
+        allocated_ids,
+        allocated_stories,
+        developers,
+    )
 
-    # Collect raw data for each blocked story
-    blocked_stories_data = []
-    for story_id in blocked_story_ids:
-        story = original_map.get(story_id)
-        if not story:
-            continue
-
-        story_data: dict[str, Any] = {
-            "story_id": story_id,
-            "wave": story_wave.get(story_id, 0),
-        }
-
-        # Period info
-        if story.start_date and story.end_date:
-            story_data["period"] = f"{story.start_date} - {story.end_date}"
-        else:
-            story_data["period"] = None
-            story_data["missing_dates"] = True
-
-        # Dependencies info
-        story_deps = dep_map.get(story_id, [])
-        if story_deps:
-            deps_info = []
-            for dep_id in story_deps:
-                dep_allocated = dep_id in allocated_ids
-                deps_info.append(
-                    {
-                        "dependency_id": dep_id,
-                        "allocated": dep_allocated,
-                        "wave": story_wave.get(dep_id, 0),
-                    }
-                )
-            story_data["dependencies"] = deps_info
-            story_data["all_dependencies_allocated"] = all(
-                d["allocated"] for d in deps_info
-            )
-        else:
-            story_data["dependencies"] = []
-            story_data["all_dependencies_allocated"] = True
-
-        # Developer availability info (only if story has dates)
-        if story.start_date and story.end_date:
-            available_devs = []
-            busy_devs = []
-
-            for dev in developers:
-                if dev.id is None:
-                    continue
-
-                dev_stories = [s for s in allocated_stories if s.developer_id == dev.id]
-                has_conflict = False
-                conflicting_story_id = None
-
-                for dev_story in dev_stories:
-                    if (
-                        dev_story.start_date
-                        and dev_story.end_date
-                        and dev_story.start_date <= story.end_date
-                        and dev_story.end_date >= story.start_date
-                    ):
-                        has_conflict = True
-                        conflicting_story_id = dev_story.id
-                        break
-
-                if has_conflict:
-                    busy_devs.append(
-                        {
-                            "dev_id": dev.id,
-                            "dev_name": dev.name,
-                            "conflicting_story": conflicting_story_id,
-                        }
-                    )
-                else:
-                    available_devs.append(
-                        {
-                            "dev_id": dev.id,
-                            "dev_name": dev.name,
-                        }
-                    )
-
-            story_data["devs_available_in_period"] = available_devs
-            story_data["devs_busy_in_period"] = busy_devs
-
-        blocked_stories_data.append(story_data)
-
-    # Check for circular dependencies
-    def find_cycle(start: str, gray: set, black: set, path: list) -> list | None:
-        if start in black:
-            return None
-        if start in gray:
-            cycle_start = path.index(start)
-            return path[cycle_start:]
-        gray.add(start)
-        path.append(start)
-        for dep_id in dep_map.get(start, []):
-            cycle = find_cycle(dep_id, gray, black, path)
-            if cycle:
-                return cycle
-        path.pop()
-        gray.remove(start)
-        black.add(start)
-        return None
-
-    cycles_found = []
-    checked = set()
-    black_global = set()
-    for story_id in dep_map:
-        if story_id not in checked and story_id not in black_global:
-            cycle = find_cycle(story_id, set(), black_global, [])
-            if cycle:
-                cycle_key = tuple(sorted(cycle))
-                if cycle_key not in checked:
-                    cycles_found.append(" -> ".join(cycle + [cycle[0]]))
-                    checked.add(cycle_key)
-
-    # Build summary counts (facts, not interpretations)
-    summary = {
-        "total_blocked": len(blocked_story_ids),
-        "with_missing_dates": sum(
-            1 for s in blocked_stories_data if s.get("missing_dates")
-        ),
-        "with_unallocated_dependencies": sum(
-            1 for s in blocked_stories_data if not s.get("all_dependencies_allocated")
-        ),
-        "with_available_devs": sum(
-            1
-            for s in blocked_stories_data
-            if s.get("devs_available_in_period")
-            and len(s["devs_available_in_period"]) > 0
-        ),
-        "with_all_devs_busy": sum(
-            1
-            for s in blocked_stories_data
-            if s.get("devs_busy_in_period")
-            and len(s.get("devs_available_in_period", [])) == 0
-        ),
-        "circular_dependencies_detected": len(cycles_found),
-    }
-
-    # Detect contradictions (scenarios that indicate algorithm bugs)
-    contradictions = []
-    for story_data in blocked_stories_data:
-        available_devs = story_data.get("devs_available_in_period", [])
-        deps_ok = story_data.get("all_dependencies_allocated", False)
-        has_dates = story_data.get("period") is not None
-
-        # If devs are available, dependencies are OK, and story has dates,
-        # but story wasn't allocated - this is a contradiction (algorithm bug)
-        if len(available_devs) > 0 and deps_ok and has_dates:
-            contradictions.append(
-                {
-                    "story_id": story_data["story_id"],
-                    "type": "DEVS_AVAILABLE_BUT_NOT_ALLOCATED",
-                    "available_devs": len(available_devs),
-                    "message": "Ha desenvolvedores disponiveis mas story nao foi alocada - provavel BUG no algoritmo",
-                }
-            )
+    cycles_found = _find_circular_dependencies(dep_map)
+    summary = _build_diagnosis_summary(
+        blocked_story_ids, blocked_stories_data, cycles_found
+    )
+    contradictions = _detect_contradictions(blocked_stories_data)
 
     result: dict[str, Any] = {
         "blocked_stories": blocked_stories_data,
@@ -280,7 +406,6 @@ def diagnose_deadlock(
         "summary": summary,
     }
 
-    # Add contradictions if any found
     if contradictions:
         result["contradictions"] = contradictions
         result["has_algorithm_bug"] = True
@@ -294,6 +419,243 @@ def diagnose_deadlock(
         }
 
     return result
+
+
+def _build_metrics_dict(metrics: Any) -> dict[str, Any]:
+    """Build metrics dictionary from allocation metrics object.
+
+    Args:
+        metrics: Allocation metrics object.
+
+    Returns:
+        Dict with all metrics including derived skill_match_ratio.
+    """
+    total_alloc = (
+        metrics.allocations_by_dependency_owner + metrics.allocations_by_load_balancing
+    )
+    skill_match_ratio = (
+        metrics.allocations_by_dependency_owner / total_alloc if total_alloc > 0 else 0
+    )
+
+    return {
+        "total_time_seconds": round(metrics.total_time_seconds, 4),
+        "stories_processed": metrics.stories_processed,
+        "stories_allocated": metrics.stories_allocated,
+        "waves_processed": metrics.waves_processed,
+        "total_iterations": metrics.total_iterations,
+        "iterations_per_wave": dict(metrics.iterations_per_wave),
+        "allocations_by_dependency_owner": metrics.allocations_by_dependency_owner,
+        "allocations_by_load_balancing": metrics.allocations_by_load_balancing,
+        "deadlocks_detected": metrics.deadlocks_detected,
+        "date_adjustments": metrics.date_adjustments,
+        "validation_reallocations": metrics.validation_reallocations,
+        "validation_dependency_fixes": metrics.validation_dependency_fixes,
+        "validation_conflict_fixes": metrics.validation_conflict_fixes,
+        "max_idle_violations_detected": metrics.max_idle_violations_detected,
+        "max_idle_violations_fixed": metrics.max_idle_violations_fixed,
+        "failed_reallocations": metrics.failed_reallocations,
+        "skill_match_ratio": round(skill_match_ratio, 4),
+    }
+
+
+def _extract_blocked_ids(warnings: list) -> list[str]:
+    """Extract blocked story IDs from allocation warnings.
+
+    Args:
+        warnings: List of allocation warning objects.
+
+    Returns:
+        List of blocked story IDs.
+    """
+    blocked_story_ids: list[str] = []
+    for warning in warnings:
+        if hasattr(warning, "blocked_stories"):
+            blocked_story_ids.extend(warning.blocked_stories)
+    return blocked_story_ids
+
+
+def _output_json_report(
+    allocation_criteria: str,
+    metrics_dict: dict[str, Any],
+    db_path: Path,
+    persist: bool,
+    allocated_count: int,
+    blocked_story_ids: list[str],
+    diagnosis_result: dict[str, Any] | None,
+) -> None:
+    """Output allocation report in JSON format.
+
+    Args:
+        allocation_criteria: The criteria used for allocation.
+        metrics_dict: Dict of metrics.
+        db_path: Database path.
+        persist: Whether stories were persisted.
+        allocated_count: Number of allocated stories.
+        blocked_story_ids: List of blocked story IDs.
+        diagnosis_result: Diagnosis data or None.
+    """
+    output: dict[str, Any] = {
+        "allocation_criteria": allocation_criteria,
+        "metrics": metrics_dict,
+        "database": str(db_path),
+        "persisted": persist,
+    }
+    if persist:
+        output["persisted_count"] = allocated_count
+    if blocked_story_ids:
+        output["blocked_story_ids"] = blocked_story_ids
+    if diagnosis_result:
+        output["diagnosis"] = diagnosis_result
+    print(json.dumps(output, indent=2))
+
+
+def _print_metrics_section(
+    allocation_criteria: str,
+    metrics_dict: dict[str, Any],
+) -> None:
+    """Print the metrics section of the text report."""
+    print()
+    print("=" * 60)
+    print("METRICAS DE ALOCACAO")
+    print("=" * 60)
+    print(f"allocation_criteria: {allocation_criteria}")
+    for key, value in metrics_dict.items():
+        print(f"{key}: {value}")
+    print("=" * 60)
+
+
+def _print_blocked_stories_section(blocked_story_ids: list[str]) -> None:
+    """Print the blocked stories section of the text report."""
+    if not blocked_story_ids:
+        return
+    print()
+    print("=" * 60)
+    print("BLOCKED STORIES")
+    print("=" * 60)
+    print(f"Count: {len(blocked_story_ids)}")
+    print(f"IDs: {', '.join(blocked_story_ids[:10])}")
+    if len(blocked_story_ids) > 10:
+        print(f"  ... and {len(blocked_story_ids) - 10} more")
+    print("=" * 60)
+
+
+def _print_diagnosis_summary(summary: dict[str, Any]) -> None:
+    """Print the diagnosis summary subsection."""
+    print("Summary:")
+    print(f"  Total blocked: {summary.get('total_blocked', 0)}")
+    print(f"  With missing dates: {summary.get('with_missing_dates', 0)}")
+    print(
+        f"  With unallocated dependencies: {summary.get('with_unallocated_dependencies', 0)}"
+    )
+    print(f"  With available devs: {summary.get('with_available_devs', 0)}")
+    print(f"  With all devs busy: {summary.get('with_all_devs_busy', 0)}")
+    print(
+        f"  Circular dependencies: {summary.get('circular_dependencies_detected', 0)}"
+    )
+
+
+def _print_blocked_story_detail(story_data: dict[str, Any]) -> None:
+    """Print details for a single blocked story."""
+    print(f"  [{story_data['story_id']}] wave={story_data.get('wave', '?')}")
+    print(f"    Period: {story_data.get('period', 'N/A')}")
+
+    deps = story_data.get("dependencies", [])
+    if deps:
+        all_allocated = story_data.get("all_dependencies_allocated", False)
+        print(f"    Dependencies: {len(deps)} (all allocated: {all_allocated})")
+        for dep in deps[:3]:
+            status = "allocated" if dep["allocated"] else "NOT allocated"
+            print(f"      - {dep['dependency_id']}: {status}")
+        if len(deps) > 3:
+            print(f"      ... and {len(deps) - 3} more")
+
+    available = story_data.get("devs_available_in_period", [])
+    busy = story_data.get("devs_busy_in_period", [])
+    if available or busy:
+        print(f"    Devs available: {len(available)}, Devs busy: {len(busy)}")
+        if available:
+            names = [d["dev_name"] for d in available[:5]]
+            print(f"      Available: {', '.join(names)}")
+        if busy:
+            for b in busy[:3]:
+                print(
+                    f"      Busy: {b['dev_name']} (conflict: {b['conflicting_story']})"
+                )
+
+    print()
+
+
+def _print_diagnosis_section(
+    diagnosis_result: dict[str, Any],
+    verbose: bool,
+) -> None:
+    """Print the full diagnosis section of the text report."""
+    print()
+    print("=" * 60)
+    print("DIAGNOSTIC DATA")
+    print("=" * 60)
+
+    _print_diagnosis_summary(diagnosis_result.get("summary", {}))
+
+    if diagnosis_result.get("circular_dependencies"):
+        print()
+        print("Circular Dependencies:")
+        for cycle in diagnosis_result["circular_dependencies"]:
+            print(f"  - {cycle}")
+
+    print()
+    print("Blocked Stories Details:")
+    for story_data in diagnosis_result.get("blocked_stories", []):
+        _print_blocked_story_detail(story_data)
+
+    print("=" * 60)
+
+    if diagnosis_result.get("contradictions"):
+        _print_contradictions_section(diagnosis_result["contradictions"])
+
+    if verbose and "context" in diagnosis_result:
+        print()
+        print("CONTEXT:")
+        for key, value in diagnosis_result["context"].items():
+            print(f"  {key}: {value}")
+
+
+def _print_contradictions_section(contradictions: list[dict[str, Any]]) -> None:
+    """Print the contradictions section of the text report."""
+    print()
+    print("!" * 60)
+    print("CONTRADICOES DETECTADAS (provavel BUG no algoritmo)")
+    print("!" * 60)
+    for contradiction in contradictions:
+        print(f"  Story: {contradiction['story_id']}")
+        print(f"  Tipo: {contradiction['type']}")
+        print(f"  Devs disponiveis: {contradiction['available_devs']}")
+        print(f"  {contradiction['message']}")
+        print()
+    print("!" * 60)
+
+
+def _output_text_report(
+    allocation_criteria: str,
+    metrics_dict: dict[str, Any],
+    blocked_story_ids: list[str],
+    diagnosis_result: dict[str, Any] | None,
+    verbose: bool,
+) -> None:
+    """Output allocation report in text format.
+
+    Args:
+        allocation_criteria: The criteria used for allocation.
+        metrics_dict: Dict of metrics.
+        blocked_story_ids: List of blocked story IDs.
+        diagnosis_result: Diagnosis data or None.
+        verbose: Whether to include verbose context.
+    """
+    _print_metrics_section(allocation_criteria, metrics_dict)
+    _print_blocked_stories_section(blocked_story_ids)
+
+    if diagnosis_result:
+        _print_diagnosis_section(diagnosis_result, verbose)
 
 
 async def run_allocation(
@@ -376,49 +738,12 @@ async def run_allocation(
             if not output_json:
                 print(f"Persisted {len(result.allocated_stories)} allocated stories")
 
-        metrics = result.metrics
-
-        # Calculate derived metric
-        total_alloc = (
-            metrics.allocations_by_dependency_owner
-            + metrics.allocations_by_load_balancing
-        )
-        skill_match_ratio = (
-            metrics.allocations_by_dependency_owner / total_alloc
-            if total_alloc > 0
-            else 0
-        )
-
-        # Build metrics dict for JSON output
-        metrics_dict = {
-            "total_time_seconds": round(metrics.total_time_seconds, 4),
-            "stories_processed": metrics.stories_processed,
-            "stories_allocated": metrics.stories_allocated,
-            "waves_processed": metrics.waves_processed,
-            "total_iterations": metrics.total_iterations,
-            "iterations_per_wave": dict(metrics.iterations_per_wave),
-            "allocations_by_dependency_owner": metrics.allocations_by_dependency_owner,
-            "allocations_by_load_balancing": metrics.allocations_by_load_balancing,
-            "deadlocks_detected": metrics.deadlocks_detected,
-            "date_adjustments": metrics.date_adjustments,
-            "validation_reallocations": metrics.validation_reallocations,
-            "validation_dependency_fixes": metrics.validation_dependency_fixes,
-            "validation_conflict_fixes": metrics.validation_conflict_fixes,
-            "max_idle_violations_detected": metrics.max_idle_violations_detected,
-            "max_idle_violations_fixed": metrics.max_idle_violations_fixed,
-            "failed_reallocations": metrics.failed_reallocations,
-            "skill_match_ratio": round(skill_match_ratio, 4),
-        }
-
-        # Extract blocked story IDs from warnings
-        blocked_story_ids: list[str] = []
-        for warning in result.warnings:
-            if hasattr(warning, "blocked_stories"):
-                blocked_story_ids.extend(warning.blocked_stories)
+        metrics_dict = _build_metrics_dict(result.metrics)
+        blocked_story_ids = _extract_blocked_ids(result.warnings)
 
         # Run deadlock diagnosis if requested and deadlocks were detected
         diagnosis_result = None
-        if diagnose and metrics.deadlocks_detected > 0:
+        if diagnose and result.metrics.deadlocks_detected > 0:
             diagnosis_result = diagnose_deadlock(
                 original_stories=list(stories),
                 allocated_stories=result.allocated_stories,
@@ -430,134 +755,25 @@ async def run_allocation(
             )
 
         if output_json:
-            output = {
-                "allocation_criteria": allocation_criteria,
-                "metrics": metrics_dict,
-                "database": str(db_path),
-                "persisted": persist,
-            }
-            if persist:
-                output["persisted_count"] = len(result.allocated_stories)
-            if blocked_story_ids:
-                output["blocked_story_ids"] = blocked_story_ids
-            if diagnosis_result:
-                output["diagnosis"] = diagnosis_result
-            print(json.dumps(output, indent=2))
+            _output_json_report(
+                allocation_criteria,
+                metrics_dict,
+                db_path,
+                persist,
+                len(result.allocated_stories),
+                blocked_story_ids,
+                diagnosis_result,
+            )
         else:
-            print()
-            print("=" * 60)
-            print("METRICAS DE ALOCACAO")
-            print("=" * 60)
-            print(f"allocation_criteria: {allocation_criteria}")
-            for key, value in metrics_dict.items():
-                print(f"{key}: {value}")
-            print("=" * 60)
+            _output_text_report(
+                allocation_criteria,
+                metrics_dict,
+                blocked_story_ids,
+                diagnosis_result,
+                verbose,
+            )
 
-            if blocked_story_ids:
-                print()
-                print("=" * 60)
-                print("BLOCKED STORIES")
-                print("=" * 60)
-                print(f"Count: {len(blocked_story_ids)}")
-                print(f"IDs: {', '.join(blocked_story_ids[:10])}")
-                if len(blocked_story_ids) > 10:
-                    print(f"  ... and {len(blocked_story_ids) - 10} more")
-                print("=" * 60)
-
-            if diagnosis_result:
-                print()
-                print("=" * 60)
-                print("DIAGNOSTIC DATA")
-                print("=" * 60)
-
-                # Summary
-                summary = diagnosis_result.get("summary", {})
-                print("Summary:")
-                print(f"  Total blocked: {summary.get('total_blocked', 0)}")
-                print(f"  With missing dates: {summary.get('with_missing_dates', 0)}")
-                print(
-                    f"  With unallocated dependencies: {summary.get('with_unallocated_dependencies', 0)}"
-                )
-                print(f"  With available devs: {summary.get('with_available_devs', 0)}")
-                print(f"  With all devs busy: {summary.get('with_all_devs_busy', 0)}")
-                print(
-                    f"  Circular dependencies: {summary.get('circular_dependencies_detected', 0)}"
-                )
-
-                # Circular dependencies if any
-                if diagnosis_result.get("circular_dependencies"):
-                    print()
-                    print("Circular Dependencies:")
-                    for cycle in diagnosis_result["circular_dependencies"]:
-                        print(f"  - {cycle}")
-
-                # Blocked stories details
-                print()
-                print("Blocked Stories Details:")
-                for story_data in diagnosis_result.get("blocked_stories", []):
-                    print(
-                        f"  [{story_data['story_id']}] wave={story_data.get('wave', '?')}"
-                    )
-                    print(f"    Period: {story_data.get('period', 'N/A')}")
-
-                    # Dependencies
-                    deps = story_data.get("dependencies", [])
-                    if deps:
-                        all_allocated = story_data.get(
-                            "all_dependencies_allocated", False
-                        )
-                        print(
-                            f"    Dependencies: {len(deps)} (all allocated: {all_allocated})"
-                        )
-                        for dep in deps[:3]:
-                            status = (
-                                "allocated" if dep["allocated"] else "NOT allocated"
-                            )
-                            print(f"      - {dep['dependency_id']}: {status}")
-                        if len(deps) > 3:
-                            print(f"      ... and {len(deps) - 3} more")
-
-                    # Dev availability
-                    available = story_data.get("devs_available_in_period", [])
-                    busy = story_data.get("devs_busy_in_period", [])
-                    if available or busy:
-                        print(
-                            f"    Devs available: {len(available)}, Devs busy: {len(busy)}"
-                        )
-                        if available:
-                            names = [d["dev_name"] for d in available[:5]]
-                            print(f"      Available: {', '.join(names)}")
-                        if busy:
-                            for b in busy[:3]:
-                                print(
-                                    f"      Busy: {b['dev_name']} (conflict: {b['conflicting_story']})"
-                                )
-
-                    print()
-
-                print("=" * 60)
-
-                # Show contradictions if found (indicates algorithm bug)
-                if diagnosis_result.get("contradictions"):
-                    print()
-                    print("!" * 60)
-                    print("CONTRADICOES DETECTADAS (provavel BUG no algoritmo)")
-                    print("!" * 60)
-                    for contradiction in diagnosis_result["contradictions"]:
-                        print(f"  Story: {contradiction['story_id']}")
-                        print(f"  Tipo: {contradiction['type']}")
-                        print(f"  Devs disponiveis: {contradiction['available_devs']}")
-                        print(f"  {contradiction['message']}")
-                        print()
-                    print("!" * 60)
-
-                if verbose and "context" in diagnosis_result:
-                    print()
-                    print("CONTEXT:")
-                    for key, value in diagnosis_result["context"].items():
-                        print(f"  {key}: {value}")
-
-        return metrics
+        return result.metrics
     finally:
         await conn.close()
 

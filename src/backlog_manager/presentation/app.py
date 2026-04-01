@@ -31,7 +31,7 @@ from backlog_manager.presentation.theme import (
 )
 
 if TYPE_CHECKING:
-    pass
+    pass  # Required for conditional imports used by type checkers only
 
 # Configure logging to use %APPDATA%/BacklogManager/logs
 setup_logging()

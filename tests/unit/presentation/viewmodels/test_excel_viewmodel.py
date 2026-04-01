@@ -243,8 +243,8 @@ class TestImportFromFile:  # noqa: D101
         mock_uc = AsyncMock()
         mock_uc.execute.side_effect = asyncio.CancelledError()
         mock_container.create_import_excel_use_case.return_value = mock_uc
-        result = await viewmodel.import_from_file(Path("/tmp/test.xlsx"))
-        assert result is None
+        with pytest.raises(asyncio.CancelledError):
+            await viewmodel.import_from_file(Path("/tmp/test.xlsx"))
         assert viewmodel.is_importing is False
         assert len(viewmodel.import_cancelled.emissions) == 1
 
@@ -262,7 +262,7 @@ class TestImportFromFile:  # noqa: D101
     ) -> None:
         captured = {}
 
-        async def capture(*args, **kwargs):
+        def capture(*args, **kwargs):
             captured["v"] = viewmodel.is_importing
             return _make_import_result()
 
@@ -337,8 +337,8 @@ class TestExportToFile:  # noqa: D101
         mock_container.create_export_excel_use_case.return_value = mock_uc
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
-        result = await viewmodel.export_to_file(mock_path)
-        assert result is None
+        with pytest.raises(asyncio.CancelledError):
+            await viewmodel.export_to_file(mock_path)
         assert viewmodel.is_exporting is False
         assert len(viewmodel.export_cancelled.emissions) == 1
         mock_path.unlink.assert_called_once()
@@ -350,8 +350,8 @@ class TestExportToFile:  # noqa: D101
         mock_container.create_export_excel_use_case.return_value = mock_uc
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = False
-        result = await viewmodel.export_to_file(mock_path)
-        assert result is None
+        with pytest.raises(asyncio.CancelledError):
+            await viewmodel.export_to_file(mock_path)
         assert len(viewmodel.export_cancelled.emissions) == 1
         mock_path.unlink.assert_not_called()
 
@@ -365,8 +365,8 @@ class TestExportToFile:  # noqa: D101
         mock_path = MagicMock(spec=Path)
         mock_path.exists.return_value = True
         mock_path.unlink.side_effect = OSError("locked")
-        result = await viewmodel.export_to_file(mock_path)
-        assert result is None
+        with pytest.raises(asyncio.CancelledError):
+            await viewmodel.export_to_file(mock_path)
         assert len(viewmodel.export_cancelled.emissions) == 1
 
     @pytest.mark.asyncio
@@ -383,7 +383,7 @@ class TestExportToFile:  # noqa: D101
     ) -> None:
         captured = {}
 
-        async def capture(*args, **kwargs):
+        def capture(*args, **kwargs):
             captured["v"] = viewmodel.is_exporting
             return _make_export_result()
 

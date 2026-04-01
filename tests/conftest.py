@@ -235,7 +235,7 @@ class MockQBase:
     """
 
     def __init__(self, *args, **kwargs):
-        pass
+        """Stub intencional: simula interface para testes headless."""
 
 
 class MockSignal:
@@ -248,10 +248,10 @@ class MockSignal:
         self.emissions.append(args)
 
     def connect(self, slot):
-        pass
+        """Stub intencional: simula interface para testes headless."""
 
     def disconnect(self, slot=None):
-        pass
+        """Stub intencional: simula interface para testes headless."""
 
 
 @pytest.fixture

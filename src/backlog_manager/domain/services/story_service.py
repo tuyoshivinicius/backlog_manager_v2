@@ -84,7 +84,7 @@ class StoryService:
             feature_id=feature_id,
         )
 
-    async def swap_priorities(self, story1: Story, story2: Story) -> None:
+    def swap_priorities(self, story1: Story, story2: Story) -> None:
         """Troca prioridades entre duas historias.
 
         Args:
@@ -93,7 +93,7 @@ class StoryService:
         """
         story1.priority, story2.priority = story2.priority, story1.priority
 
-    async def validate_can_move_up(self, story: Story) -> bool:
+    def validate_can_move_up(self, story: Story) -> bool:
         """Valida se historia pode mover para cima (menor prioridade).
 
         Args:

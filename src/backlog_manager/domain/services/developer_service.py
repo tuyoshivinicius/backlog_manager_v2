@@ -34,7 +34,7 @@ class DeveloperService:
         self._developer_repo = developer_repo
         self._story_repo = story_repo
 
-    async def create_developer(self, name: str) -> Developer:
+    def create_developer(self, name: str) -> Developer:
         """Cria uma nova entidade Developer validada.
 
         Args:

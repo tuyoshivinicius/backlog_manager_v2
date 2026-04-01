@@ -43,24 +43,32 @@ class Story:
 
     def __post_init__(self) -> None:
         """Valida invariantes da entidade Story."""
+        self._validate_id()
+        self._validate_component()
+        self._validate_name()
+        self._validate_story_points()
+        self._validate_numeric_fields()
+        self._validate_date_range()
+
+    def _validate_id(self) -> None:
         if not self.id or not self.id.strip():
             raise ValueError("ID da historia nao pode ser vazio")
-
         if not self._ID_PATTERN.match(self.id):
             raise ValueError(f"ID deve seguir padrao COMPONENTE-NNN: {self.id}")
 
+    def _validate_component(self) -> None:
         if not self.component or not self.component.strip():
             raise ValueError("Componente nao pode ser vazio")
-
         if len(self.component) > 50:
             raise ValueError("Componente nao pode exceder 50 caracteres")
 
+    def _validate_name(self) -> None:
         if not self.name or not self.name.strip():
             raise ValueError("Nome da historia nao pode ser vazio")
-
         if len(self.name) > 200:
             raise ValueError("Nome da historia nao pode exceder 200 caracteres")
 
+    def _validate_story_points(self) -> None:
         if not isinstance(self.story_points, StoryPoint):
             if self.story_points in (3, 5, 8, 13):
                 object.__setattr__(self, "story_points", StoryPoint(self.story_points))
@@ -69,11 +77,13 @@ class Story:
                     f"Story points deve ser 3, 5, 8 ou 13: {self.story_points}"
                 )
 
+    def _validate_numeric_fields(self) -> None:
         if self.priority < 0:
             raise ValueError(f"Prioridade deve ser >= 0: {self.priority}")
         if self.duration is not None and self.duration < 0:
             raise ValueError(f"Duracao deve ser >= 0: {self.duration}")
 
+    def _validate_date_range(self) -> None:
         if (
             self.start_date is not None
             and self.end_date is not None

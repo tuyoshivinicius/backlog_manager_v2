@@ -21,7 +21,7 @@ from backlog_manager.domain.services import (
 from backlog_manager.domain.value_objects import BRAZILIAN_HOLIDAYS_2026_2028
 
 if TYPE_CHECKING:
-    pass
+    pass  # Required for conditional imports used by type checkers only
 
 
 @pytest.fixture

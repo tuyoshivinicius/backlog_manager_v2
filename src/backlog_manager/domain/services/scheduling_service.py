@@ -212,29 +212,82 @@ class SchedulingService:
         story_map: dict[str, Story] = {s.id: s for s in stories}
         story_ids = set(story_map.keys())
 
-        # Build in-degree map (only consider dependencies that are in our story set)
-        in_degree: dict[str, int] = {s.id: 0 for s in stories}
+        in_degree = SchedulingService._build_in_degree(stories, story_ids, dependencies)
+        heap = SchedulingService._init_topo_heap(stories, in_degree)
+        result = SchedulingService._process_topo_heap(
+            heap, story_map, story_ids, in_degree, dependencies
+        )
+        SchedulingService._check_cycle(result, stories)
 
+        return result
+
+    @staticmethod
+    def _build_in_degree(
+        stories: Sequence[Story],
+        story_ids: set[str],
+        dependencies: dict[str, list[str]],
+    ) -> dict[str, int]:
+        """Build in-degree map considering only dependencies within the story set.
+
+        Args:
+            stories: Sequence of stories.
+            story_ids: Set of story IDs in scope.
+            dependencies: Dependency graph.
+
+        Returns:
+            Dictionary mapping story_id to its in-degree count.
+        """
+        in_degree: dict[str, int] = {s.id: 0 for s in stories}
         for story_id in story_ids:
-            deps = dependencies.get(story_id, [])
-            for dep_id in deps:
+            for dep_id in dependencies.get(story_id, []):
                 if dep_id in story_ids:
                     in_degree[story_id] += 1
+        return in_degree
 
-        # Initialize min-heap with stories that have no dependencies
-        # Heap entries are (priority, story_id) - lower priority value comes first
+    @staticmethod
+    def _init_topo_heap(
+        stories: Sequence[Story], in_degree: dict[str, int]
+    ) -> list[tuple[int, str]]:
+        """Initialize min-heap with stories that have no dependencies.
+
+        Args:
+            stories: Sequence of stories.
+            in_degree: In-degree map.
+
+        Returns:
+            Heapified list of (priority, story_id) tuples.
+        """
         heap: list[tuple[int, str]] = [
             (s.priority, s.id) for s in stories if in_degree[s.id] == 0
         ]
         heapq.heapify(heap)
+        return heap
 
+    @staticmethod
+    def _process_topo_heap(
+        heap: list[tuple[int, str]],
+        story_map: dict[str, Story],
+        story_ids: set[str],
+        in_degree: dict[str, int],
+        dependencies: dict[str, list[str]],
+    ) -> list[Story]:
+        """Process the topological sort heap, producing sorted results.
+
+        Args:
+            heap: Min-heap of (priority, story_id).
+            story_map: Mapping of story_id to Story.
+            story_ids: Set of story IDs in scope.
+            in_degree: In-degree map (mutated during processing).
+            dependencies: Dependency graph.
+
+        Returns:
+            List of stories in topological order.
+        """
         result: list[Story] = []
-
         while heap:
             _, story_id = heapq.heappop(heap)
             result.append(story_map[story_id])
 
-            # Decrement in_degree for all dependents
             for dependent_id in story_ids:
                 deps = dependencies.get(dependent_id, [])
                 if story_id in deps:
@@ -243,15 +296,23 @@ class SchedulingService:
                         heapq.heappush(
                             heap, (story_map[dependent_id].priority, dependent_id)
                         )
+        return result
 
+    @staticmethod
+    def _check_cycle(result: list[Story], stories: Sequence[Story]) -> None:
+        """Raise CyclicDependencyException if not all stories were processed.
+
+        Args:
+            result: Stories processed so far.
+            stories: Original list of stories.
+
+        Raises:
+            CyclicDependencyException: If a cycle is detected.
+        """
         if len(result) != len(stories):
-            # Cycle detected - find the cycle path
             remaining = [s.id for s in stories if s not in result]
-            # Build simple cycle path for error message
             cycle_path = remaining + [remaining[0]] if remaining else []
             raise CyclicDependencyException(cycle_path)
-
-        return result
 
     @staticmethod
     def calculate_story_dates(

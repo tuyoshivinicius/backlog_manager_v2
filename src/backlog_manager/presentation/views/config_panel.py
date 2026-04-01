@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 from backlog_manager.presentation.views.date_picker import DatePicker
 
 if TYPE_CHECKING:
-    pass
+    pass  # Required for conditional imports used by type checkers only
 
 logger = logging.getLogger(__name__)
 

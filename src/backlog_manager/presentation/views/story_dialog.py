@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Literal
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any, Literal
 
 from PySide6.QtCore import QEvent, QObject, QTimer, Slot
 from PySide6.QtWidgets import (
@@ -66,6 +67,7 @@ class StoryDialog(QDialog):
         self._container = container
         self._viewmodel = StoryDialogViewModel(container)
         self._result_story: StoryOutputDTO | None = None
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
         self._setup_ui()
         self._connect_signals()
@@ -84,11 +86,11 @@ class StoryDialog(QDialog):
             self._status_container.hide()
 
         # Load features for dropdown
-        QTimer.singleShot(0, lambda: asyncio.create_task(self._load_features()))
+        QTimer.singleShot(0, lambda: self._create_task(self._load_features()))
 
         # Load developers for dropdown (edit mode only)
         if mode == "edit":
-            QTimer.singleShot(0, lambda: asyncio.create_task(self._load_developers()))
+            QTimer.singleShot(0, lambda: self._create_task(self._load_developers()))
 
         logger.debug("StoryDialog initialized in %s mode", mode)
 
@@ -100,6 +102,13 @@ class StoryDialog(QDialog):
             The story DTO, or None if dialog was cancelled.
         """
         return self._result_story
+
+    def _create_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Cria e rastreia uma task assincrona com limpeza automatica."""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     def _setup_ui(self) -> None:
         """Create and configure the dialog UI."""
@@ -415,7 +424,7 @@ class StoryDialog(QDialog):
             return
 
         self._error_label.hide()
-        asyncio.create_task(self._save_story())
+        self._create_task(self._save_story())
 
     async def _save_story(self) -> None:
         """Save the story asynchronously."""

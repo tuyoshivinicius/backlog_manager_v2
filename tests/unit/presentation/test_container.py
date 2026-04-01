@@ -282,9 +282,9 @@ class TestViewModelProperties:
         with patch.dict(sys.modules, _pyside6_mocks):
             yield
 
-        for k in list(sys.modules):
-            if k.startswith(vm_prefix):
-                del sys.modules[k]
+        stale = [k for k in sys.modules if k.startswith(vm_prefix)]
+        for k in stale:
+            del sys.modules[k]
 
     def test_main_window_viewmodel_lazy_load(self, container):
         mock_vm = MagicMock()

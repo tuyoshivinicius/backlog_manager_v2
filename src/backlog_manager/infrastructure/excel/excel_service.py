@@ -63,7 +63,33 @@ class ExcelService:
             ExcelPermissionException: Sem permissao de leitura.
         """
         logger.info("Lendo arquivo Excel: %s", file_path)
+        self._validate_file_path(file_path)
+        wb = self._open_workbook(file_path)
 
+        try:
+            ws = self._get_active_worksheet(wb, file_path)
+            headers = self._read_and_validate_headers(ws, file_path)
+            rows = self._read_data_rows(ws, headers)
+
+            logger.info(
+                "Leitura concluida: %d linhas lidas de %s", len(rows), file_path
+            )
+            return ExcelReadResult(rows=rows, warnings=[])
+
+        finally:
+            wb.close()
+
+    @staticmethod
+    def _validate_file_path(file_path: Path) -> None:
+        """Valida existencia e extensao do arquivo.
+
+        Args:
+            file_path: Caminho do arquivo.
+
+        Raises:
+            ExcelFileNotFoundException: Arquivo nao encontrado.
+            ExcelFileCorruptedException: Extensao invalida.
+        """
         if not file_path.exists():
             logger.error("Arquivo nao encontrado: %s", file_path)
             raise ExcelFileNotFoundException(f"Arquivo nao encontrado: {file_path}")
@@ -74,8 +100,22 @@ class ExcelService:
                 "Formato de arquivo nao suportado. Use .xlsx"
             )
 
+    @staticmethod
+    def _open_workbook(file_path: Path) -> Workbook:
+        """Abre workbook com tratamento de erros.
+
+        Args:
+            file_path: Caminho do arquivo.
+
+        Returns:
+            Workbook aberto.
+
+        Raises:
+            ExcelPermissionException: Sem permissao de leitura.
+            ExcelFileCorruptedException: Arquivo invalido ou corrompido.
+        """
         try:
-            wb = load_workbook(file_path, read_only=True, data_only=True)
+            return load_workbook(file_path, read_only=True, data_only=True)
         except PermissionError as e:
             logger.error("Sem permissao para ler arquivo: %s", file_path)
             raise ExcelPermissionException(
@@ -92,65 +132,91 @@ class ExcelService:
                 "Arquivo invalido ou corrompido. Verifique o formato"
             ) from e
 
-        try:
-            ws = wb.active
-            if ws is None:
-                logger.error("Arquivo nao contem planilha ativa: %s", file_path)
-                raise ExcelFileCorruptedException(
-                    "Arquivo Excel nao contem planilha ativa"
-                )
+    @staticmethod
+    def _get_active_worksheet(wb: Workbook, file_path: Path) -> Any:
+        """Obtem a worksheet ativa do workbook.
 
-            # Read headers from row 1
-            first_row = list(ws.iter_rows(min_row=1, max_row=1, values_only=True))
-            if not first_row or not first_row[0]:
-                logger.error("Arquivo vazio ou sem headers: %s", file_path)
-                raise ExcelMissingHeaderException(
-                    "Arquivo Excel vazio ou sem linha de cabecalho"
-                )
+        Args:
+            wb: Workbook aberto.
+            file_path: Caminho do arquivo (para mensagens de erro).
 
-            headers = [str(cell) if cell is not None else "" for cell in first_row[0]]
+        Returns:
+            Worksheet ativa.
 
-            # Validate required headers
-            for required in REQUIRED_HEADERS:
-                if required not in headers:
-                    logger.error(
-                        "Coluna obrigatoria ausente: %s no arquivo %s",
-                        required,
-                        file_path,
-                    )
-                    raise ExcelMissingHeaderException(
-                        f"Coluna obrigatoria '{required}' nao encontrada na linha 1"
-                    )
+        Raises:
+            ExcelFileCorruptedException: Nenhuma planilha ativa.
+        """
+        ws = wb.active
+        if ws is None:
+            logger.error("Arquivo nao contem planilha ativa: %s", file_path)
+            raise ExcelFileCorruptedException("Arquivo Excel nao contem planilha ativa")
+        return ws
 
-            # Read data rows
-            rows: list[dict[str, Any]] = []
-            warnings: list[str] = []
+    @staticmethod
+    def _read_and_validate_headers(ws: Any, file_path: Path) -> list[str]:
+        """Le e valida headers da primeira linha.
 
-            for _row_idx, row_values in enumerate(
-                ws.iter_rows(min_row=2, values_only=True), start=2
-            ):
-                # Skip completely empty rows
-                if not any(
-                    cell is not None and str(cell).strip() for cell in row_values
-                ):
-                    continue
+        Args:
+            ws: Worksheet ativa.
+            file_path: Caminho do arquivo (para mensagens de erro).
 
-                row_dict: dict[str, Any] = {}
-                for col_idx, header in enumerate(headers):
-                    if col_idx < len(row_values):
-                        row_dict[header] = row_values[col_idx]
-                    else:
-                        row_dict[header] = None
+        Returns:
+            Lista de nomes dos headers.
 
-                rows.append(row_dict)
-
-            logger.info(
-                "Leitura concluida: %d linhas lidas de %s", len(rows), file_path
+        Raises:
+            ExcelMissingHeaderException: Header ausente ou arquivo vazio.
+        """
+        first_row = list(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+        if not first_row or not first_row[0]:
+            logger.error("Arquivo vazio ou sem headers: %s", file_path)
+            raise ExcelMissingHeaderException(
+                "Arquivo Excel vazio ou sem linha de cabecalho"
             )
-            return ExcelReadResult(rows=rows, warnings=warnings)
 
-        finally:
-            wb.close()
+        headers = [str(cell) if cell is not None else "" for cell in first_row[0]]
+
+        for required in REQUIRED_HEADERS:
+            if required not in headers:
+                logger.error(
+                    "Coluna obrigatoria ausente: %s no arquivo %s",
+                    required,
+                    file_path,
+                )
+                raise ExcelMissingHeaderException(
+                    f"Coluna obrigatoria '{required}' nao encontrada na linha 1"
+                )
+
+        return headers
+
+    @staticmethod
+    def _read_data_rows(ws: Any, headers: list[str]) -> list[dict[str, Any]]:
+        """Le linhas de dados da worksheet.
+
+        Args:
+            ws: Worksheet ativa.
+            headers: Lista de nomes dos headers.
+
+        Returns:
+            Lista de dicionarios representando cada linha.
+        """
+        rows: list[dict[str, Any]] = []
+
+        for _row_idx, row_values in enumerate(
+            ws.iter_rows(min_row=2, values_only=True), start=2
+        ):
+            if not any(cell is not None and str(cell).strip() for cell in row_values):
+                continue
+
+            row_dict: dict[str, Any] = {}
+            for col_idx, header in enumerate(headers):
+                if col_idx < len(row_values):
+                    row_dict[header] = row_values[col_idx]
+                else:
+                    row_dict[header] = None
+
+            rows.append(row_dict)
+
+        return rows
 
     async def write_workbook(self, file_path: Path, data: ExcelExportData) -> None:
         """Escreve arquivo Excel de forma assincrona.

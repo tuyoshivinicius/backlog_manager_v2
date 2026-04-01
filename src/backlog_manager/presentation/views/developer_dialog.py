@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
@@ -64,14 +65,22 @@ class DeveloperDialog(QDialog):
         super().__init__(parent)
 
         self._container = container
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
         self._setup_ui()
         self._connect_signals()
 
         # Load initial data
-        QTimer.singleShot(0, lambda: asyncio.create_task(self._load_developers()))
+        QTimer.singleShot(0, lambda: self._create_task(self._load_developers()))
 
         logger.debug("DeveloperDialog initialized")
+
+    def _create_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
+        """Cria e rastreia uma task assincrona com limpeza automatica."""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     def _setup_ui(self) -> None:
         """Create and configure the dialog UI."""
@@ -198,7 +207,7 @@ class DeveloperDialog(QDialog):
         )
 
         if ok and name.strip():
-            asyncio.create_task(self._create_developer(name.strip()))
+            self._create_task(self._create_developer(name.strip()))
 
     async def _create_developer(self, name: str) -> None:
         """Create a new developer.
@@ -242,7 +251,7 @@ class DeveloperDialog(QDialog):
         )
 
         if ok and name.strip() and name.strip() != current_name:
-            asyncio.create_task(self._update_developer(dev_id, name.strip()))
+            self._create_task(self._update_developer(dev_id, name.strip()))
 
     async def _update_developer(self, dev_id: int, name: str) -> None:
         """Update an existing developer.
@@ -285,7 +294,7 @@ class DeveloperDialog(QDialog):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            asyncio.create_task(self._delete_developer(dev_id))
+            self._create_task(self._delete_developer(dev_id))
 
     async def _delete_developer(self, dev_id: int) -> None:
         """Delete a developer.

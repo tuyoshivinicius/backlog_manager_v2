@@ -176,7 +176,6 @@ class TestExcelServiceWrite:
         assert file_path.exists()
 
         # Verify sheets by reading back
-        wb = Workbook()
         from openpyxl import load_workbook as load_wb
 
         wb = load_wb(file_path)

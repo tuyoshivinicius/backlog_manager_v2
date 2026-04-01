@@ -29,6 +29,8 @@ class SQLiteUnitOfWork:
             await uow.commit()
     """
 
+    _CONTEXT_MANAGER_ERROR_MSG = "UnitOfWork must be used as context manager"
+
     def __init__(self, db_path: str | Path | None = None) -> None:
         """Initialize Unit of Work.
 
@@ -53,7 +55,7 @@ class SQLiteUnitOfWork:
             RuntimeError: If not in context.
         """
         if self._stories is None:
-            raise RuntimeError("UnitOfWork must be used as context manager")
+            raise RuntimeError(self._CONTEXT_MANAGER_ERROR_MSG)
         return self._stories
 
     @property
@@ -67,7 +69,7 @@ class SQLiteUnitOfWork:
             RuntimeError: If not in context.
         """
         if self._developers is None:
-            raise RuntimeError("UnitOfWork must be used as context manager")
+            raise RuntimeError(self._CONTEXT_MANAGER_ERROR_MSG)
         return self._developers
 
     @property
@@ -81,7 +83,7 @@ class SQLiteUnitOfWork:
             RuntimeError: If not in context.
         """
         if self._features is None:
-            raise RuntimeError("UnitOfWork must be used as context manager")
+            raise RuntimeError(self._CONTEXT_MANAGER_ERROR_MSG)
         return self._features
 
     @property
@@ -95,7 +97,7 @@ class SQLiteUnitOfWork:
             RuntimeError: If not in context.
         """
         if self._dependencies is None:
-            raise RuntimeError("UnitOfWork must be used as context manager")
+            raise RuntimeError(self._CONTEXT_MANAGER_ERROR_MSG)
         return self._dependencies
 
     async def __aenter__(self) -> SQLiteUnitOfWork:
