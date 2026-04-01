@@ -225,34 +225,42 @@ def create_feature_input() -> CreateFeatureInputDTO:
 
 # ============================================================================
 # Qt/PySide6 Fixtures (for pytest-qt)
+# Only registered when pytest-qt plugin is active (skipped in headless CI).
 # ============================================================================
 
+try:
+    import pytest_qt  # noqa: F401
 
-@pytest.fixture(scope="session")
-def qapp_args() -> list[str]:
-    """Arguments for QApplication.
+    _HAS_PYTEST_QT = True
+except ImportError:
+    _HAS_PYTEST_QT = False
 
-    Returns:
-        Empty list (no special arguments needed).
-    """
-    return []
+if _HAS_PYTEST_QT:
 
+    @pytest.fixture(scope="session")
+    def qapp_args() -> list[str]:
+        """Arguments for QApplication.
 
-@pytest.fixture
-def qasync_loop(qapp) -> asyncio.AbstractEventLoop:  # type: ignore[no-untyped-def]
-    """Create an asyncio event loop integrated with Qt.
+        Returns:
+            Empty list (no special arguments needed).
+        """
+        return []
 
-    Args:
-        qapp: pytest-qt's QApplication fixture.
+    @pytest.fixture
+    def qasync_loop(qapp) -> asyncio.AbstractEventLoop:  # type: ignore[no-untyped-def]
+        """Create an asyncio event loop integrated with Qt.
 
-    Returns:
-        Event loop for async tests.
-    """
-    from qasync import QEventLoop
+        Args:
+            qapp: pytest-qt's QApplication fixture.
 
-    loop = QEventLoop(qapp)
-    asyncio.set_event_loop(loop)
-    return loop
+        Returns:
+            Event loop for async tests.
+        """
+        from qasync import QEventLoop
+
+        loop = QEventLoop(qapp)
+        asyncio.set_event_loop(loop)
+        return loop
 
 
 # ============================================================================

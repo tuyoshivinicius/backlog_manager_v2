@@ -11,8 +11,6 @@ jobs:
   ci:
     name: Lint & Test
     runs-on: ubuntu-latest
-    env:
-      QT_QPA_PLATFORM: offscreen
 
     steps:
       - uses: actions/checkout@v4
@@ -61,10 +59,14 @@ jobs:
       - name: Test with coverage
         run: |
           poetry run pytest tests/unit tests/integration \
+            -p no:pytest-qt \
+            --ignore=tests/unit/presentation \
+            --ignore=tests/integration/presentation \
             -m "not slow" \
             --cov=src/backlog_manager \
             --cov-report=xml \
-            --cov-report=term-missing
+            --cov-report=term-missing \
+            --override-ini="qt_api="
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
