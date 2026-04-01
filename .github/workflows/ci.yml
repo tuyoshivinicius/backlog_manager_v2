@@ -74,6 +74,10 @@ jobs:
   quality:
     name: Quality
     needs: ci
+    if: >-
+      github.event_name == 'workflow_call' ||
+      (github.event_name == 'push' &&
+       (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
 
     steps:
@@ -93,6 +97,7 @@ jobs:
           fail_ci_if_error: true
 
       - name: SonarCloud Scan
+        if: github.ref == 'refs/heads/main'
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
