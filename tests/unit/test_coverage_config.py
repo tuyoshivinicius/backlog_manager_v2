@@ -29,12 +29,12 @@ class TestCoverageConfig:
 
         assert 'source = ["src/backlog_manager"]' in content
 
-    def test_coverage_fail_under_80(self, project_root: Path) -> None:
-        """Test coverage fail_under is set to 80%."""
+    def test_coverage_fail_under_90(self, project_root: Path) -> None:
+        """Test coverage fail_under is set to 90%."""
         pyproject = project_root / "pyproject.toml"
         content = pyproject.read_text(encoding="utf-8")
 
-        assert "fail_under = 80" in content
+        assert "fail_under = 90" in content
 
     def test_coverage_branch_enabled(self, project_root: Path) -> None:
         """Test branch coverage is enabled."""

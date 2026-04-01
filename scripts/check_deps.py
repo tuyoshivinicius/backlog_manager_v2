@@ -88,13 +88,13 @@ async def check_deps(db_path: Path):
             else:
                 same_wave += 1
 
-        print(f"\n=== DEPENDENCY STATS ===")
+        print("\n=== DEPENDENCY STATS ===")
         print(f"Total deps: {len(deps)}")
         print(f"Same-wave deps: {same_wave}")
         print(f"Cross-wave deps: {cross_wave}")
 
         # Check wave 1 stories - do they all have dependencies?
-        print(f"\n=== WAVE 1 ANALYSIS ===")
+        print("\n=== WAVE 1 ANALYSIS ===")
         wave1_stories = [s for s in stories if story_wave.get(s.id) == 1]
         print(f"Total wave 1 stories: {len(wave1_stories)}")
 

@@ -1,11 +1,23 @@
-"""Unit tests for StatusBarViewModel.update_sp_breakdown()."""
+"""Headless tests for StatusBarViewModel.update_sp_breakdown()."""
 
 from __future__ import annotations
 
-from backlog_manager.application.dto.story import StoryOutputDTO
-from backlog_manager.presentation.viewmodels.status_bar_viewmodel import (
-    StatusBarViewModel,
-)
+from unittest.mock import patch
+
+from tests.headless_mocks import create_pyside6_mocks
+
+_mock_qt_core, _pyside6_mocks = create_pyside6_mocks()
+
+with patch.dict("sys.modules", _pyside6_mocks):
+    from backlog_manager.presentation.viewmodels.status_bar_viewmodel import (
+        StatusBarViewModel,
+    )
+
+from backlog_manager.application.dto.story import StoryOutputDTO  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def _make_story(
@@ -27,6 +39,11 @@ def _make_story(
         developer_id=None,
         feature_id=None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
 
 class TestSpBreakdownComputation:
@@ -103,13 +120,14 @@ class TestSpBreakdownComputation:
 
         assert vm.sp_percentages == {}
 
-    def test_signal_emitted(self, qtbot) -> None:
+    def test_signal_emitted(self) -> None:
         """sp_breakdown_changed signal emitted on update."""
         vm = StatusBarViewModel()
         stories = [_make_story("US-001", "BACKLOG", 5)]
 
-        with qtbot.waitSignal(vm.sp_breakdown_changed, timeout=1000):
-            vm.update_sp_breakdown(stories)
+        vm.update_sp_breakdown(stories)
+
+        assert len(vm.sp_breakdown_changed.emissions) == 1
 
     def test_zero_sp_statuses_excluded(self) -> None:
         """Statuses with 0 SP are not in breakdown."""
