@@ -1,0 +1,45 @@
+# Contract: ci.yml (Modificações)
+# Alterações necessárias no workflow CI existente
+#
+# Objetivo: Remover triggers de push em develop/main para evitar duplicação
+# com os novos workflows que chamam ci.yml via workflow_call
+
+name: CI (Modified)
+
+triggers:
+  before:
+    - event: push
+      branches: [develop, main, "release/*", "hotfix/*"]
+    - event: pull_request
+      branches: [develop, main]
+    - event: workflow_call
+
+  after:
+    - event: pull_request
+      branches: [develop, main]
+    - event: workflow_call
+
+changes:
+  - type: remove
+    description: "Remover bloco 'push' inteiro do trigger 'on'"
+    reason: |
+      Os novos workflows (feature-ci, develop-merge, main-release)
+      orquestram CI via workflow_call. Manter push triggers causaria
+      execuções duplicadas em develop e main.
+
+  - type: keep
+    description: "Manter pull_request trigger"
+    reason: "PRs continuam trigando CI diretamente"
+
+  - type: keep
+    description: "Manter workflow_call trigger"
+    reason: "Novos workflows chamam ci.yml como reusable workflow"
+
+  - type: keep
+    description: "Manter version sync check"
+    reason: "Validação de sincronia pyproject.toml/init.py continua útil para PRs"
+
+impact:
+  - "PRs para develop/main: CI continua funcionando via pull_request trigger"
+  - "Push direto em develop/main: CI roda via workflow_call dos novos workflows"
+  - "Push em release/*/hotfix/*: Perde trigger direto (coberto por PRs)"

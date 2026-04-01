@@ -1,0 +1,60 @@
+# Contract: develop-merge.yml
+# Workflow que calcula versão e cria PR de release para main
+#
+# Trigger: push em develop (após merge de PR)
+# Resultado: PR criada de develop→main com versão no título (se há commits convencionais)
+
+name: Develop Merge
+
+triggers:
+  - event: push
+    branches: [develop]
+
+concurrency:
+  group: "develop-merge-${{ github.ref }}"
+  cancel_in_progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    description: "Reusar ci.yml via workflow_call"
+    uses: "./.github/workflows/ci.yml"
+    secrets: inherit
+
+  calculate-version:
+    description: "Calcular próxima versão via python-semantic-release"
+    needs: ci
+    steps:
+      - name: "Instalar python-semantic-release"
+        input: "pip install python-semantic-release"
+
+      - name: "Calcular versão (dry-run)"
+        input: "semantic-release --noop version --print"
+        output: "NEXT_VERSION (ex: 0.2.0) ou vazio se sem bump"
+        logic: "Se sem commits convencionais relevantes, output vazio"
+
+    outputs:
+      next_version: "Próxima versão calculada (ou vazio)"
+      has_bump: "true/false"
+
+  auto-pr-to-main:
+    description: "Criar PR de release para main"
+    needs: calculate-version
+    conditions:
+      - "needs.calculate-version.outputs.has_bump == 'true'"
+    steps:
+      - name: "Gerar changelog"
+        input: "Commits desde última tag"
+        output: "Lista de mudanças para body da PR"
+
+      - name: "Verificar PR existente"
+        input: "gh pr list --head develop --base main"
+        output: "PR number ou vazio"
+
+      - name: "Criar PR de release"
+        condition: "Nenhuma PR existente E versão calculada"
+        input: "Versão calculada, changelog"
+        output: "PR com título 'release: vX.Y.Z' e body com changelog"

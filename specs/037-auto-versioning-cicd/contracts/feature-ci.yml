@@ -1,0 +1,51 @@
+# Contract: feature-ci.yml
+# Workflow que executa CI em feature branches e cria PR automática para develop
+#
+# Trigger: push em qualquer branch exceto main/develop
+# Resultado: PR criada de feature→develop (se CI passa e PR não existe)
+
+name: Feature CI
+
+triggers:
+  - event: push
+    branches_ignore: [main, develop]
+
+concurrency:
+  group: "feature-ci-${{ github.ref }}"
+  cancel_in_progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    description: "Reusar ci.yml via workflow_call"
+    uses: "./.github/workflows/ci.yml"
+    secrets: inherit
+
+  auto-pr:
+    description: "Criar PR automática para develop"
+    needs: ci
+    conditions:
+      - "github.event_name == 'push'"
+    steps:
+      - name: "Extrair descrição da branch"
+        input: "github.ref_name (ex: 037-auto-versioning-cicd)"
+        output: "PR_TITLE no formato 'feat: auto versioning cicd'"
+        logic: "Remove prefixo numérico, substitui hifens por espaços"
+
+      - name: "Verificar PR existente"
+        input: "gh pr list --head <branch> --base develop"
+        output: "PR number ou vazio"
+        logic: "Se PR já existe, pular criação"
+
+      - name: "Criar PR"
+        condition: "Nenhuma PR existente"
+        input: "branch name, PR title"
+        output: "PR criada de feature→develop"
+
+      - name: "Habilitar auto-merge"
+        condition: "PR criada ou existente"
+        input: "PR number"
+        output: "Auto-merge habilitado (squash)"
