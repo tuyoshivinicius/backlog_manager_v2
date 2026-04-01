@@ -560,6 +560,21 @@ def _try_add_dependency(
     return True
 
 
+def _try_add_intra_wave_dep(
+    story_id: str,
+    story_idx: int,
+    wave_stories: list[tuple[str, int]],
+    dependencies: list[tuple[str, str]],
+    story_dep_count: dict[str, int],
+) -> bool:
+    """Try to add an intra-wave dependency for a story. Returns True if added."""
+    earlier_in_wave = [(sid, idx) for sid, idx in wave_stories if idx < story_idx]
+    if not earlier_in_wave or random.random() >= 0.4:
+        return False
+    depends_on = random.choice(earlier_in_wave)
+    return _try_add_dependency(story_id, depends_on[0], dependencies, story_dep_count)
+
+
 def _generate_intra_wave_deps(
     story_by_wave: dict[int, list[tuple[str, int]]],
     target: int,
@@ -583,18 +598,24 @@ def _generate_intra_wave_deps(
         for story_id, story_idx in wave_stories:
             if count >= target:
                 return count
-            earlier_in_wave = [
-                (sid, idx) for sid, idx in wave_stories if idx < story_idx
-            ]
-            if earlier_in_wave and random.random() < 0.4:
-                depends_on = random.choice(earlier_in_wave)
-                if _try_add_dependency(
-                    story_id, depends_on[0], dependencies, story_dep_count
-                ):
-                    count += 1
+            if _try_add_intra_wave_dep(
+                story_id, story_idx, wave_stories, dependencies, story_dep_count
+            ):
+                count += 1
         if count >= target:
             break
     return count
+
+
+def _collect_earlier_wave_stories(
+    story_by_wave: dict[int, list[tuple[str, int]]],
+    wave: int,
+) -> list[tuple[str, int]]:
+    """Collect all stories from waves earlier than the given wave."""
+    earlier: list[tuple[str, int]] = []
+    for earlier_wave in range(1, wave):
+        earlier.extend(story_by_wave.get(earlier_wave, []))
+    return earlier
 
 
 def _generate_inter_wave_deps(
@@ -617,12 +638,10 @@ def _generate_inter_wave_deps(
     count = 0
     for wave in range(2, 8):
         wave_stories = story_by_wave.get(wave, [])
+        earlier_waves = _collect_earlier_wave_stories(story_by_wave, wave)
         for story_id, _story_idx in wave_stories:
             if count >= target:
                 return count
-            earlier_waves = []
-            for earlier_wave in range(1, wave):
-                earlier_waves.extend(story_by_wave.get(earlier_wave, []))
             if earlier_waves and random.random() < 0.3:
                 depends_on = random.choice(earlier_waves)
                 if _try_add_dependency(

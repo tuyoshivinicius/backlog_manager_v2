@@ -251,6 +251,18 @@ def _collect_blocked_stories_data(
     return blocked_stories_data
 
 
+def _register_cycle(
+    cycle: list[str],
+    checked: set[tuple[str, ...]],
+    cycles_found: list[str],
+) -> None:
+    """Register a cycle if not already seen (deduplicate)."""
+    cycle_key = tuple(sorted(cycle))
+    if cycle_key not in checked:
+        cycles_found.append(" -> ".join(cycle + [cycle[0]]))
+        checked.add(cycle_key)
+
+
 def _find_circular_dependencies(dep_map: dict[str, list[str]]) -> list[str]:
     """Detect circular dependencies in the dependency graph.
 
@@ -282,10 +294,7 @@ def _find_circular_dependencies(dep_map: dict[str, list[str]]) -> list[str]:
         if story_id not in black_global:
             cycle = find_cycle(story_id, set(), black_global, [])
             if cycle:
-                cycle_key = tuple(sorted(cycle))
-                if cycle_key not in checked:
-                    cycles_found.append(" -> ".join(cycle + [cycle[0]]))
-                    checked.add(cycle_key)
+                _register_cycle(cycle, checked, cycles_found)
     return cycles_found
 
 
@@ -554,34 +563,41 @@ def _print_diagnosis_summary(summary: dict[str, Any]) -> None:
     )
 
 
+def _print_dependencies_section(story_data: dict[str, Any]) -> None:
+    """Print dependency details for a blocked story."""
+    deps = story_data.get("dependencies", [])
+    if not deps:
+        return
+    all_allocated = story_data.get("all_dependencies_allocated", False)
+    print(f"    Dependencies: {len(deps)} (all allocated: {all_allocated})")
+    for dep in deps[:3]:
+        status = "allocated" if dep["allocated"] else "NOT allocated"
+        print(f"      - {dep['dependency_id']}: {status}")
+    if len(deps) > 3:
+        print(f"      ... and {len(deps) - 3} more")
+
+
+def _print_devs_section(story_data: dict[str, Any]) -> None:
+    """Print developer availability details for a blocked story."""
+    available = story_data.get("devs_available_in_period", [])
+    busy = story_data.get("devs_busy_in_period", [])
+    if not available and not busy:
+        return
+    print(f"    Devs available: {len(available)}, Devs busy: {len(busy)}")
+    if available:
+        names = [d["dev_name"] for d in available[:5]]
+        print(f"      Available: {', '.join(names)}")
+    if busy:
+        for b in busy[:3]:
+            print(f"      Busy: {b['dev_name']} (conflict: {b['conflicting_story']})")
+
+
 def _print_blocked_story_detail(story_data: dict[str, Any]) -> None:
     """Print details for a single blocked story."""
     print(f"  [{story_data['story_id']}] wave={story_data.get('wave', '?')}")
     print(f"    Period: {story_data.get('period', 'N/A')}")
-
-    deps = story_data.get("dependencies", [])
-    if deps:
-        all_allocated = story_data.get("all_dependencies_allocated", False)
-        print(f"    Dependencies: {len(deps)} (all allocated: {all_allocated})")
-        for dep in deps[:3]:
-            status = "allocated" if dep["allocated"] else "NOT allocated"
-            print(f"      - {dep['dependency_id']}: {status}")
-        if len(deps) > 3:
-            print(f"      ... and {len(deps) - 3} more")
-
-    available = story_data.get("devs_available_in_period", [])
-    busy = story_data.get("devs_busy_in_period", [])
-    if available or busy:
-        print(f"    Devs available: {len(available)}, Devs busy: {len(busy)}")
-        if available:
-            names = [d["dev_name"] for d in available[:5]]
-            print(f"      Available: {', '.join(names)}")
-        if busy:
-            for b in busy[:3]:
-                print(
-                    f"      Busy: {b['dev_name']} (conflict: {b['conflicting_story']})"
-                )
-
+    _print_dependencies_section(story_data)
+    _print_devs_section(story_data)
     print()
 
 

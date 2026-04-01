@@ -27,11 +27,10 @@ from backlog_manager.infrastructure.database import SQLiteUnitOfWork, init_datab
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestCalculateDurationUseCaseIntegration:
     """Integration tests for CalculateDurationUseCase."""
 
-    async def test_calculate_duration_use_case(self) -> None:
+    def test_calculate_duration_use_case(self) -> None:
         """T055a: Test duration calculation via use case."""
         use_case = CalculateDurationUseCase()
         result = use_case.execute(
