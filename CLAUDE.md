@@ -21,6 +21,8 @@
 - N/A — no database changes (030-pypi-publish-setup)
 - Python 3.11/3.12/3.13 (matriz de testes); workflows em YAML (GitHub Actions) + GitHub Actions (actions/checkout@v4, actions/setup-python@v5, snok/install-poetry@v1, actions/cache@v4, codecov/codecov-action@v4, SonarSource/sonarqube-scan-action), Poetry (build/publish) (031-cicd-gitflow-pipeline)
 - N/A — sem alteracoes de banco de dados (031-cicd-gitflow-pipeline)
+- Python 3.11+ + pytest ^8.0, pytest-cov ^4.0, pytest-asyncio ^0.23, unittest.mock (stdlib) (032-test-refactor-headless)
+- N/A (sem alteracoes de banco — escopo puramente de testes) (032-test-refactor-headless)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

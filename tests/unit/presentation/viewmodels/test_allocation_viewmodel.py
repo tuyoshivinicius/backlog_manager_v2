@@ -1,236 +1,180 @@
-"""Tests for AllocationViewModel.
-
-This module contains unit tests for the AllocationViewModel class,
-verifying allocation execution, signal emissions, and state management.
-"""
+"""Headless tests for AllocationViewModel."""
 
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from backlog_manager.application.dto.allocation import (
+
+from tests.headless_mocks import create_pyside6_mocks
+
+_mock_qt_core, _pyside6_mocks = create_pyside6_mocks()
+
+with patch.dict("sys.modules", _pyside6_mocks):
+    from backlog_manager.presentation.viewmodels.allocation_viewmodel import (
+        AllocationViewModel,
+    )
+
+from backlog_manager.application.dto.allocation import (  # noqa: E402
     AllocationMetricsDTO,
     ExecuteAllocationOutputDTO,
 )
-from backlog_manager.domain.exceptions import BacklogManagerException
-from backlog_manager.presentation.container import DIContainer
-from backlog_manager.presentation.viewmodels.allocation_viewmodel import (
-    AllocationViewModel,
-)
+from backlog_manager.domain.exceptions import BacklogManagerException  # noqa: E402
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_container():
+    """Create a mock DIContainer with UoW context manager."""
+    container = MagicMock()
+    mock_uow = MagicMock()
+    mock_uow.__aenter__ = AsyncMock(return_value=mock_uow)
+    mock_uow.__aexit__ = AsyncMock(return_value=False)
+    container.create_unit_of_work.return_value = mock_uow
+    return container
+
+
+@pytest.fixture
+def viewmodel(mock_container):
+    """Create an AllocationViewModel with mock container."""
+    return AllocationViewModel(mock_container)
+
+
+def _make_success_result(
+    stories: int = 10,
+    waves: int = 2,
+    deadlocks: int = 0,
+    warnings: list[str] | None = None,
+) -> tuple[MagicMock, ExecuteAllocationOutputDTO]:
+    """Build a mock use-case that returns a successful allocation result."""
+    mock_metrics = AllocationMetricsDTO(
+        stories_processed=stories,
+        stories_allocated=stories,
+        waves_processed=waves,
+        deadlocks_detected=deadlocks,
+    )
+    mock_result = ExecuteAllocationOutputDTO(
+        success=True,
+        stories_allocated=stories,
+        total_time_seconds=1.5,
+        metrics=mock_metrics,
+        warnings=warnings or [],
+    )
+    mock_uc = AsyncMock()
+    mock_uc.execute.return_value = mock_result
+    return mock_uc, mock_result
+
+
+# ---------------------------------------------------------------------------
+# Tests — Initialization
+# ---------------------------------------------------------------------------
 
 
 class TestAllocationViewModelInitialization:
     """Tests for AllocationViewModel initialization."""
 
-    def test_initial_state(self, container: DIContainer, qapp) -> None:  # type: ignore[no-untyped-def]
+    def test_initial_state(self, viewmodel) -> None:
         """Test that ViewModel initializes with correct state."""
-        viewmodel = AllocationViewModel(container)
-
         assert viewmodel.is_running is False
         assert viewmodel.last_metrics is None
         assert viewmodel.last_warnings == []
 
-    def test_has_required_signals(self, container: DIContainer, qapp) -> None:  # type: ignore[no-untyped-def]
+    def test_has_required_signals(self, viewmodel) -> None:
         """Test that ViewModel has required signals."""
-        viewmodel = AllocationViewModel(container)
-
         assert hasattr(viewmodel, "allocation_started")
         assert hasattr(viewmodel, "allocation_completed")
         assert hasattr(viewmodel, "allocation_error")
         assert hasattr(viewmodel, "warnings_updated")
 
 
+# ---------------------------------------------------------------------------
+# Tests — Properties
+# ---------------------------------------------------------------------------
+
+
 class TestAllocationViewModelProperties:
     """Tests for AllocationViewModel properties."""
 
-    def test_is_running_property(self, container: DIContainer, qapp) -> None:  # type: ignore[no-untyped-def]
+    def test_is_running_property(self, viewmodel) -> None:
         """Test is_running property."""
-        viewmodel = AllocationViewModel(container)
-
         assert viewmodel.is_running is False
-
-        # Set internal state
         viewmodel._is_running = True
         assert viewmodel.is_running is True
 
-    def test_last_warnings_returns_copy(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    def test_last_warnings_returns_copy(self, viewmodel) -> None:
         """Test that last_warnings property returns a copy."""
-        viewmodel = AllocationViewModel(container)
         viewmodel._last_warnings = ["Warning 1", "Warning 2"]
-
         warnings1 = viewmodel.last_warnings
         warnings2 = viewmodel.last_warnings
-
         assert warnings1 is not warnings2
         assert warnings1 == warnings2
 
-    def test_can_execute_when_not_running(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    def test_can_execute_when_not_running(self, viewmodel) -> None:
         """Test can_execute returns True when not running."""
-        viewmodel = AllocationViewModel(container)
-
         assert viewmodel.can_execute() is True
 
-    def test_can_execute_when_running(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    def test_can_execute_when_running(self, viewmodel) -> None:
         """Test can_execute returns False when running."""
-        viewmodel = AllocationViewModel(container)
         viewmodel._is_running = True
-
         assert viewmodel.can_execute() is False
+
+
+# ---------------------------------------------------------------------------
+# Tests — Execution
+# ---------------------------------------------------------------------------
 
 
 class TestAllocationViewModelExecution:
     """Tests for allocation execution."""
 
     @pytest.mark.asyncio
-    async def test_execute_returns_none_if_already_running(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    async def test_execute_returns_none_if_already_running(self, viewmodel) -> None:
         """Test that execute returns None if allocation is already running."""
-        viewmodel = AllocationViewModel(container)
         viewmodel._is_running = True
-
-        result = await viewmodel.execute(
-            velocity=2.0,
-            start_date=date(2026, 1, 1),
-        )
-
+        result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
         assert result is None
 
     @pytest.mark.asyncio
     async def test_execute_emits_started_signal(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test that execute emits allocation_started signal."""
-        viewmodel = AllocationViewModel(container)
+        mock_uc, _ = _make_success_result()
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        started_emitted = []
+        await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
-        def on_started() -> None:
-            started_emitted.append(True)
-
-        viewmodel.allocation_started.connect(on_started)
-
-        # Mock the execute allocation use case
-        mock_metrics = AllocationMetricsDTO(
-            stories_processed=10,
-            stories_allocated=10,
-            waves_processed=2,
-            deadlocks_detected=0,
-        )
-        mock_result = ExecuteAllocationOutputDTO(
-            success=True,
-            stories_allocated=10,
-            total_time_seconds=1.5,
-            metrics=mock_metrics,
-            warnings=[],
-        )
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.return_value = mock_result
-
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
-
-        assert len(started_emitted) == 1
+        assert len(viewmodel.allocation_started.emissions) == 1
 
     @pytest.mark.asyncio
     async def test_execute_success_emits_completed_signal(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test successful execution emits allocation_completed signal."""
-        viewmodel = AllocationViewModel(container)
+        mock_uc, _ = _make_success_result()
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        completed_metrics = []
-
-        def on_completed(metrics: AllocationMetricsDTO) -> None:
-            completed_metrics.append(metrics)
-
-        viewmodel.allocation_completed.connect(on_completed)
-
-        # Mock the execute allocation use case
-        mock_metrics = AllocationMetricsDTO(
-            stories_processed=10,
-            stories_allocated=10,
-            waves_processed=2,
-            deadlocks_detected=0,
-        )
-        mock_result = ExecuteAllocationOutputDTO(
-            success=True,
-            stories_allocated=10,
-            total_time_seconds=1.5,
-            metrics=mock_metrics,
-            warnings=[],
-        )
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.return_value = mock_result
-
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
+        result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
         assert result is not None
         assert result.stories_allocated == 10
-        assert len(completed_metrics) == 1
-        assert completed_metrics[0].stories_processed == 10
+        assert len(viewmodel.allocation_completed.emissions) == 1
+        emitted_metrics = viewmodel.allocation_completed.emissions[0][0]
+        assert emitted_metrics.stories_processed == 10
 
     @pytest.mark.asyncio
     async def test_execute_success_updates_state(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test successful execution updates internal state."""
-        viewmodel = AllocationViewModel(container)
+        mock_uc, _ = _make_success_result(deadlocks=1, warnings=["Deadlock na onda 1"])
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        # Mock the execute allocation use case
-        mock_metrics = AllocationMetricsDTO(
-            stories_processed=10,
-            stories_allocated=10,
-            waves_processed=2,
-            deadlocks_detected=1,
-        )
-        mock_result = ExecuteAllocationOutputDTO(
-            success=True,
-            stories_allocated=10,
-            total_time_seconds=1.5,
-            metrics=mock_metrics,
-            warnings=["Deadlock na onda 1"],
-        )
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.return_value = mock_result
-
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
+        await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
         assert viewmodel.last_metrics is not None
         assert viewmodel.last_metrics.stories_processed == 10
@@ -239,187 +183,98 @@ class TestAllocationViewModelExecution:
 
     @pytest.mark.asyncio
     async def test_execute_emits_warnings_updated_signal(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test that execute emits warnings_updated signal."""
-        viewmodel = AllocationViewModel(container)
-
-        warnings_received = []
-
-        def on_warnings(warnings: list) -> None:
-            warnings_received.extend(warnings)
-
-        viewmodel.warnings_updated.connect(on_warnings)
-
-        # Mock the execute allocation use case with warnings
-        mock_metrics = AllocationMetricsDTO(
-            stories_processed=10,
-            stories_allocated=8,
-            waves_processed=2,
-            deadlocks_detected=1,
+        mock_uc, _ = _make_success_result(
+            stories=8, deadlocks=1, warnings=["Deadlock detectado"]
         )
-        mock_result = ExecuteAllocationOutputDTO(
-            success=True,
-            stories_allocated=8,
-            total_time_seconds=1.5,
-            metrics=mock_metrics,
-            warnings=["Deadlock detectado"],
-        )
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.return_value = mock_result
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
+        await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
-        assert len(warnings_received) == 1
+        assert len(viewmodel.warnings_updated.emissions) == 1
+        emitted_warnings = viewmodel.warnings_updated.emissions[0][0]
+        assert len(emitted_warnings) == 1
 
     @pytest.mark.asyncio
     async def test_execute_backlog_manager_exception_emits_error(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test that BacklogManagerException emits error signal."""
-        viewmodel = AllocationViewModel(container)
-
-        errors_received = []
-
-        def on_error(message: str) -> None:
-            errors_received.append(message)
-
-        viewmodel.allocation_error.connect(on_error)
-
-        # Mock to raise BacklogManagerException
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.side_effect = BacklogManagerException(
+        mock_uc = AsyncMock()
+        mock_uc.execute.side_effect = BacklogManagerException(
             "Nenhum desenvolvedor disponivel"
         )
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
+        result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
         assert result is None
-        assert len(errors_received) == 1
-        assert "desenvolvedor" in errors_received[0]
+        assert len(viewmodel.allocation_error.emissions) == 1
+        assert "desenvolvedor" in viewmodel.allocation_error.emissions[0][0]
         assert viewmodel.is_running is False
 
     @pytest.mark.asyncio
     async def test_execute_unexpected_exception_emits_error(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test that unexpected exceptions emit error signal."""
-        viewmodel = AllocationViewModel(container)
+        mock_uc = AsyncMock()
+        mock_uc.execute.side_effect = RuntimeError("Unexpected error")
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        errors_received = []
-
-        def on_error(message: str) -> None:
-            errors_received.append(message)
-
-        viewmodel.allocation_error.connect(on_error)
-
-        # Mock to raise generic exception
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.side_effect = RuntimeError("Unexpected error")
-
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
+        result = await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
         assert result is None
-        assert len(errors_received) == 1
-        assert "Erro inesperado" in errors_received[0]
+        assert len(viewmodel.allocation_error.emissions) == 1
+        assert "Erro inesperado" in viewmodel.allocation_error.emissions[0][0]
         assert viewmodel.is_running is False
 
     @pytest.mark.asyncio
     async def test_execute_resets_running_state_after_exception(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
+        self, viewmodel, mock_container
     ) -> None:
         """Test that is_running is reset even after exception."""
-        viewmodel = AllocationViewModel(container)
+        mock_uc = AsyncMock()
+        mock_uc.execute.side_effect = Exception("Test error")
+        mock_container.create_execute_allocation_use_case.return_value = mock_uc
 
-        # Mock to raise exception
-        mock_use_case = AsyncMock()
-        mock_use_case.execute.side_effect = Exception("Test error")
+        await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
 
-        with patch.object(
-            container,
-            "create_execute_allocation_use_case",
-            return_value=mock_use_case,
-        ):
-            await viewmodel.execute(velocity=2.0, start_date=date(2026, 1, 1))
-
-        # Should be False even after error (reset in finally block)
         assert viewmodel.is_running is False
+
+
+# ---------------------------------------------------------------------------
+# Tests — Clear Results
+# ---------------------------------------------------------------------------
 
 
 class TestAllocationViewModelClearResults:
     """Tests for clearing allocation results."""
 
-    def test_clear_results_clears_metrics(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    def test_clear_results_clears_metrics(self, viewmodel) -> None:
         """Test that clear_results clears the metrics."""
-        viewmodel = AllocationViewModel(container)
         viewmodel._last_metrics = AllocationMetricsDTO(
             stories_processed=10,
             stories_allocated=10,
             waves_processed=2,
             deadlocks_detected=0,
         )
-
         viewmodel.clear_results()
-
         assert viewmodel.last_metrics is None
 
-    def test_clear_results_clears_warnings(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    def test_clear_results_clears_warnings(self, viewmodel) -> None:
         """Test that clear_results clears the warnings."""
-        viewmodel = AllocationViewModel(container)
         viewmodel._last_warnings = ["Warning 1", "Warning 2"]
-
         viewmodel.clear_results()
-
         assert viewmodel.last_warnings == []
 
-    def test_clear_results_emits_warnings_updated(
-        self,
-        container: DIContainer,
-        qapp,  # type: ignore[no-untyped-def]
-    ) -> None:
+    def test_clear_results_emits_warnings_updated(self, viewmodel) -> None:
         """Test that clear_results emits warnings_updated signal."""
-        viewmodel = AllocationViewModel(container)
         viewmodel._last_warnings = ["Warning 1"]
-
-        warnings_received = []
-
-        def on_warnings(warnings: list) -> None:
-            warnings_received.append(warnings)
-
-        viewmodel.warnings_updated.connect(on_warnings)
-
         viewmodel.clear_results()
 
-        assert len(warnings_received) == 1
-        assert warnings_received[0] == []
+        assert len(viewmodel.warnings_updated.emissions) >= 1
+        last_emission = viewmodel.warnings_updated.emissions[-1][0]
+        assert last_emission == []

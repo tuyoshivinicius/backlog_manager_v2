@@ -83,7 +83,7 @@
 ### Implementation for User Story 3
 
 - [x] T010 [P] [US3] Criar `codecov.yml` na raiz com targets 80% (projeto e patch), exclusoes (tests/, specs/, .specify/), comentarios em PRs (layout: reach, diff, flags, files) (FR-013)
-- [x] T011 [P] [US3] Criar `sonar-project.properties` na raiz com organization (tuyoshivinicius), projectKey (tuyoshivinicius_backlog-manager-v2), sources (src/), tests (tests/), python.version (3.11), coverage.reportPaths (coverage.xml), exclusoes e sourceEncoding UTF-8 (FR-015)
+- [x] T011 [P] [US3] Criar `sonar-project.properties` na raiz com organization (tuyoshivinicius), projectKey (tuyoshivinicius_backlog_manager_v2), sources (src/), tests (tests/), python.version (3.11), coverage.reportPaths (coverage.xml), exclusoes e sourceEncoding UTF-8 (FR-015)
 
 **Checkpoint**: Quality gates configurados — PRs recebem feedback automatico de cobertura e qualidade
 

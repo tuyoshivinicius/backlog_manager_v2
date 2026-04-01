@@ -224,35 +224,72 @@ def create_feature_input() -> CreateFeatureInputDTO:
 
 
 # ============================================================================
-# Qt/PySide6 Fixtures (for pytest-qt)
+# Headless Mock Infrastructure
 # ============================================================================
 
 
-@pytest.fixture(scope="session")
-def qapp_args() -> list[str]:
-    """Arguments for QApplication.
+class MockQBase:
+    """Mock base class for QObject, QAbstractTableModel, QSortFilterProxyModel.
 
-    Returns:
-        Empty list (no special arguments needed).
+    Accepts any arguments in __init__ to mimic Qt base classes.
     """
-    return []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+class MockSignal:
+    """Mock for PySide6 Signal that records emissions."""
+
+    def __init__(self, *args):
+        self.emissions = []
+
+    def emit(self, *args):
+        self.emissions.append(args)
+
+    def connect(self, slot):
+        pass
+
+    def disconnect(self, slot=None):
+        pass
 
 
 @pytest.fixture
-def qasync_loop(qapp) -> asyncio.AbstractEventLoop:  # type: ignore[no-untyped-def]
-    """Create an asyncio event loop integrated with Qt.
+def mock_signal():
+    """Provide a MockSignal instance for headless ViewModel tests."""
+    return MockSignal
 
-    Args:
-        qapp: pytest-qt's QApplication fixture.
+
+def _create_pyside6_mock_modules():
+    """Create a dictionary of mock PySide6 modules for sys.modules patching.
 
     Returns:
-        Event loop for async tests.
+        dict suitable for use with patch.dict("sys.modules", ...).
     """
-    from qasync import QEventLoop
+    from unittest.mock import MagicMock
 
-    loop = QEventLoop(qapp)
-    asyncio.set_event_loop(loop)
-    return loop
+    mock_qt_core = MagicMock()
+    mock_qt_core.Signal = MockSignal
+    mock_qt_core.QObject = object
+
+    return {
+        "PySide6": MagicMock(),
+        "PySide6.QtCore": mock_qt_core,
+        "PySide6.QtWidgets": MagicMock(),
+        "PySide6.QtGui": MagicMock(),
+    }
+
+
+@pytest.fixture
+def pyside6_mock():
+    """Provide mock PySide6 modules dict for headless tests.
+
+    Usage in tests:
+        def test_something(pyside6_mock):
+            with patch.dict("sys.modules", pyside6_mock):
+                from backlog_manager.presentation.viewmodels.xxx import XxxViewModel
+    """
+    return _create_pyside6_mock_modules()
 
 
 # ============================================================================

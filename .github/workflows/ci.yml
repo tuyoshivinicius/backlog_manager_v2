@@ -8,17 +8,18 @@ on:
   workflow_call:
 
 jobs:
-  lint:
-    name: Lint
+  ci:
+    name: Lint & Test
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -33,14 +34,14 @@ jobs:
           path: |
             ~/.cache/pypoetry
             .venv
-          key: ${{ runner.os }}-poetry-${{ hashFiles('poetry.lock') }}
+          key: ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-poetry-${{ hashFiles('poetry.lock') }}
           restore-keys: |
-            ${{ runner.os }}-poetry-
+            ${{ runner.os }}-py${{ steps.setup-python.outputs.python-version }}-poetry-
 
       - name: Install dependencies
         run: poetry install --with dev
 
-      - name: Check version sync (pyproject.toml vs __init__.py)
+      - name: Check version sync
         run: |
           PYPROJECT_VERSION=$(poetry version -s)
           INIT_VERSION=$(python -c "import re; print(re.search(r'__version__\s*=\s*\"(.+?)\"', open('src/backlog_manager/__init__.py').read()).group(1))")
@@ -48,95 +49,22 @@ jobs:
             echo "::error::Version mismatch: pyproject.toml=$PYPROJECT_VERSION vs __init__.py=$INIT_VERSION"
             exit 1
           fi
-          echo "Version sync OK: $PYPROJECT_VERSION"
 
-      - name: Run ruff check
-        run: poetry run ruff check src
-
-      - name: Run ruff format check
-        run: poetry run ruff format --check src tests
-
-      - name: Run mypy
-        run: poetry run mypy src
-
-  test:
-    name: Test (Python ${{ matrix.python-version }})
-    needs: lint
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venv
-          key: ${{ runner.os }}-poetry-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-py${{ matrix.python-version }}-
-
-      - name: Install dependencies
-        run: poetry install --with dev
-
-      - name: Install xvfb and Qt dependencies
+      - name: Lint
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            xvfb \
-            libxkbcommon-x11-0 \
-            libxcb-icccm4 \
-            libxcb-image0 \
-            libxcb-keysyms1 \
-            libxcb-randr0 \
-            libxcb-render-util0 \
-            libxcb-xinerama0 \
-            libxcb-xfixes0 \
-            libxcb-cursor0 \
-            libegl1 \
-            libgl1 \
-            libopengl0 \
-            libxcb-shape0
+          poetry run ruff check src
+          poetry run ruff format --check src tests
+          poetry run mypy src
 
-      - name: Run unit tests
-        run: xvfb-run -a poetry run pytest tests/unit/ -v --tb=short
-
-      - name: Run integration tests
-        run: xvfb-run -a poetry run pytest tests/integration/ -v --tb=short -m "not slow"
-
-      - name: Run tests with coverage
-        if: matrix.python-version == '3.13'
+      - name: Test with coverage
         run: |
-          xvfb-run -a poetry run pytest \
-            --ignore=tests/e2e \
+          poetry run pytest tests/unit tests/integration \
+            -m "not slow" \
             --cov=src/backlog_manager \
             --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=70 \
-            -v \
-            --tb=short \
-            -m "not slow"
+            --cov-report=term-missing
 
       - name: Upload coverage artifact
-        if: matrix.python-version == '3.13'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
@@ -145,7 +73,7 @@ jobs:
 
   quality:
     name: Quality
-    needs: test
+    needs: ci
     runs-on: ubuntu-latest
 
     steps:

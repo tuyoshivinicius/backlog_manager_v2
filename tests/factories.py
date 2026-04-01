@@ -1,4 +1,4 @@
-"""Factory functions for E2E test data generation.
+"""Factory functions for test data generation.
 
 This module provides factory functions for creating test data with
 customizable parameters, enabling flexible test scenarios without

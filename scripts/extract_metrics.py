@@ -170,14 +170,15 @@ def diagnose_deadlock(
                 conflicting_story_id = None
 
                 for dev_story in dev_stories:
-                    if dev_story.start_date and dev_story.end_date:
-                        if (
-                            dev_story.start_date <= story.end_date
-                            and dev_story.end_date >= story.start_date
-                        ):
-                            has_conflict = True
-                            conflicting_story_id = dev_story.id
-                            break
+                    if (
+                        dev_story.start_date
+                        and dev_story.end_date
+                        and dev_story.start_date <= story.end_date
+                        and dev_story.end_date >= story.start_date
+                    ):
+                        has_conflict = True
+                        conflicting_story_id = dev_story.id
+                        break
 
                 if has_conflict:
                     busy_devs.append(

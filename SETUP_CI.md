@@ -102,7 +102,7 @@ O SonarCloud e configurado como check **informacional** — nao bloqueia merge.
 1. Acesse [sonarcloud.io](https://sonarcloud.io) > **+** > **Analyze new project**
 2. Selecione o repositorio `backlog-manager-v2`
 3. Organization: `tuyoshivinicius`
-4. Project Key sera: `tuyoshivinicius_backlog-manager-v2`
+4. Project Key sera: `tuyoshivinicius_backlog_manager_v2`
 5. Selecione **Previous version** como New Code definition
 
 ### Por que Informacional?

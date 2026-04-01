@@ -111,7 +111,7 @@
 | Campo | Valor |
 |-------|-------|
 | sonar.organization | tuyoshivinicius |
-| sonar.projectKey | tuyoshivinicius_backlog-manager-v2 |
+| sonar.projectKey | tuyoshivinicius_backlog_manager_v2 |
 | sonar.projectName | Backlog Manager |
 | sonar.host.url | https://sonarcloud.io |
 | sonar.sources | src/ |
