@@ -21,18 +21,18 @@ import aiosqlite
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.common.db_path import (
-    add_db_path_argument,
-    get_analysis_db_path,
-    log_database_info,
-    validate_db_path,
-)
-
 from backlog_manager.domain.services import SchedulingService
 from backlog_manager.domain.value_objects import BRAZILIAN_HOLIDAYS_2026_2028
 from backlog_manager.infrastructure.database.sqlite_connection import (
     create_connection,
     init_database,
+)
+
+from scripts.common.db_path import (
+    add_db_path_argument,
+    get_analysis_db_path,
+    log_database_info,
+    validate_db_path,
 )
 
 if TYPE_CHECKING:
@@ -183,7 +183,7 @@ def get_weighted_sp() -> int:
     Returns:
         Story point value (3, 5, 8, or 13).
     """
-    values, weights = zip(*SP_WEIGHTS)
+    values, weights = zip(*SP_WEIGHTS, strict=False)
     result: int = random.choices(list(values), weights=list(weights), k=1)[0]
     return result
 
@@ -221,7 +221,7 @@ async def generate_features(conn: aiosqlite.Connection) -> dict[int, int]:
     wave_to_feature: dict[int, int] = {}
     feature_count = 0
 
-    for wave_num, (domain_name, _, feature_names) in WAVES.items():
+    for wave_num, (domain_name, _, _feature_names) in WAVES.items():
         # Create one feature per wave with the domain name
         feature_name = f"{domain_name} - Wave {wave_num}"
         cursor = await conn.execute(
@@ -534,7 +534,7 @@ async def generate_dependencies(
     """
     # Build index for efficient lookup
     story_by_wave: dict[int, list[tuple[str, int]]] = {}
-    for idx, (story_id, wave, priority) in enumerate(stories):
+    for idx, (story_id, wave, _priority) in enumerate(stories):
         if wave not in story_by_wave:
             story_by_wave[wave] = []
         story_by_wave[wave].append((story_id, idx))
@@ -580,7 +580,7 @@ async def generate_dependencies(
     inter_count = 0
     for wave in range(2, 8):  # Skip wave 1
         wave_stories = story_by_wave.get(wave, [])
-        for story_id, story_idx in wave_stories:
+        for story_id, _story_idx in wave_stories:
             if inter_count >= inter_wave_target:
                 break
             # Can depend on stories from earlier waves
@@ -667,7 +667,7 @@ async def calculate_story_dates(
 
     current_date = project_start
 
-    for story_id, wave, priority in sorted_stories:
+    for story_id, _wave, _priority in sorted_stories:
         # Get story points from database
         cursor = await conn.execute(
             "SELECT story_points FROM Story WHERE id = ?", (story_id,)

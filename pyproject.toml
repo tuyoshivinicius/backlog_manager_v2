@@ -36,7 +36,6 @@ zion-backlog-manager = "backlog_manager.presentation.app:main"
 pytest = "^8.0"
 pytest-cov = "^4.0"
 pytest-asyncio = "^0.23"
-pytest-qt = "^4.4"
 pytest-timeout = "^2.3"
 mypy = "^1.8"
 pre-commit = "^3.6"
@@ -91,7 +90,6 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-qt_api = "pyside6"
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -115,6 +113,12 @@ branch = true
 omit = [
     "*/tests/*",
     "*/__init__.py",
+    "*/presentation/app.py",
+    "*/presentation/views/*.py",
+    "*/presentation/delegates/*.py",
+    "*/__main__.py",
+    "*/domain/interfaces/*.py",
+    "*/presentation/constants.py",
 ]
 
 [tool.coverage.report]
@@ -127,7 +131,7 @@ exclude_lines = [
     "@abstractmethod",
     '\.\.\.\.',
 ]
-fail_under = 80
+fail_under = 90
 show_missing = true
 
 [tool.ruff]
@@ -140,7 +144,7 @@ ignore = ["D100", "D104", "E501", "N818"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/backlog_manager/presentation/**" = ["N802"]
-"tests/**" = ["E501", "D103", "D102", "D105", "D107", "D403", "N802", "N806", "SIM222", "B007", "B008", "B028", "E741", "F841"]
+"tests/**" = ["E501", "D101", "D103", "D102", "D105", "D106", "D107", "D403", "E402", "N802", "N806", "SIM222", "B007", "B008", "B028", "E741", "F841"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

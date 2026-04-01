@@ -1,16 +1,43 @@
-"""Tests for FilterProxyModel.
+"""Headless tests for FilterProxyModel.
 
-This module contains unit tests for the FilterProxyModel class,
-verifying text, status, and feature filtering with AND logic.
+Tests text, status, and feature filtering with AND logic without any
+PySide6 dependency.  Since the real FilterProxyModel relies heavily on
+QSortFilterProxyModel plumbing (setSourceModel, rowCount via proxy, etc.)
+we test the *business logic* directly by calling filterAcceptsRow and the
+filter state properties.
 """
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from backlog_manager.application.dto.story import StoryOutputDTO
-from backlog_manager.presentation.viewmodels.filter_proxy_model import FilterProxyModel
-from backlog_manager.presentation.viewmodels.story_table_model import StoryTableModel
-from PySide6.QtCore import Qt
+
+# ---------------------------------------------------------------------------
+# PySide6 mock setup
+# ---------------------------------------------------------------------------
+from tests.headless_mocks import create_pyside6_mocks
+
+_mock_qt_core, _pyside6_mocks = create_pyside6_mocks(with_table_model=True)
+
+# Additional table-model-specific flags not in shared helper
+_mock_qt_core.Qt.ItemFlag.ItemIsEditable = 2
+
+with patch.dict("sys.modules", _pyside6_mocks):
+    from backlog_manager.application.dto.story import StoryOutputDTO
+    from backlog_manager.presentation.viewmodels.filter_proxy_model import (
+        FilterProxyModel,
+    )
+    from backlog_manager.presentation.viewmodels.story_table_model import (
+        StoryTableModel,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+DisplayRole = _mock_qt_core.Qt.ItemDataRole.DisplayRole
 
 
 def _make_story(
@@ -23,7 +50,6 @@ def _make_story(
     wave: int = 0,
     priority: int = 0,
 ) -> StoryOutputDTO:
-    """Create a StoryOutputDTO for testing."""
     return StoryOutputDTO(
         id=id,
         component=component,
@@ -45,7 +71,6 @@ def _make_story(
 
 @pytest.fixture()
 def stories() -> list[StoryOutputDTO]:
-    """Sample stories for filter tests."""
     return [
         _make_story(
             id="AUTH-001",
@@ -100,273 +125,320 @@ def stories() -> list[StoryOutputDTO]:
     ]
 
 
+def _make_index(row: int, col: int):
+    """Create a lightweight fake QModelIndex."""
+    idx = MagicMock()
+    idx.isValid.return_value = True
+    idx.row.return_value = row
+    idx.column.return_value = col
+    return idx
+
+
+def _build_source_model(stories: list[StoryOutputDTO]) -> StoryTableModel:
+    """Build a StoryTableModel without calling super().__init__."""
+    model = StoryTableModel.__new__(StoryTableModel)
+    model._stories = list(stories)
+    model._story_status_map = {s.id: s.status for s in stories}
+
+    class _Sig:
+        def __init__(self, *a):
+            pass
+
+        def emit(self, *a):
+            pass
+
+        def connect(self, *a):
+            pass
+
+        def disconnect(self, *a):
+            pass
+
+    model.status_change_requested = _Sig()
+    # Provide index() since QAbstractTableModel.index is not available
+    model.index = lambda row, col: _make_index(row, col)
+    return model
+
+
+def _build_proxy(source: StoryTableModel) -> FilterProxyModel:
+    """Build a FilterProxyModel wired to a source model, no Qt init."""
+    proxy = FilterProxyModel.__new__(FilterProxyModel)
+    proxy._text_filter = ""
+    proxy._status_filter = None
+    proxy._feature_filter = None
+    proxy._col_id = StoryTableModel.COLUMNS.index("ID")
+    proxy._col_component = StoryTableModel.COLUMNS.index("Componente")
+    proxy._col_name = StoryTableModel.COLUMNS.index("Nome")
+    proxy._col_status = StoryTableModel.COLUMNS.index("Status")
+    # Wire sourceModel() to return our source
+    proxy.sourceModel = lambda: source
+    # invalidateFilter is a no-op in headless mode
+    proxy.invalidateFilter = lambda: None
+    return proxy
+
+
+def _accepted_rows(proxy: FilterProxyModel, source: StoryTableModel) -> list[int]:
+    """Return list of source row indices that pass the proxy filter."""
+    parent = MagicMock()
+    return [
+        row for row in range(source.rowCount()) if proxy.filterAcceptsRow(row, parent)
+    ]
+
+
 @pytest.fixture()
-def proxy_with_stories(
-    qapp, stories: list[StoryOutputDTO]
+def proxy_and_source(
+    stories: list[StoryOutputDTO],
 ) -> tuple[FilterProxyModel, StoryTableModel]:
-    """Create a FilterProxyModel with a populated StoryTableModel."""
-    source = StoryTableModel()
-    source.set_stories(stories)
-
-    proxy = FilterProxyModel()
-    proxy.setSourceModel(source)
-
+    source = _build_source_model(stories)
+    proxy = _build_proxy(source)
     return proxy, source
 
 
-class TestTextFilter:
-    """Tests for text filter functionality."""
+# ---------------------------------------------------------------------------
+# Tests: text filter
+# ---------------------------------------------------------------------------
 
+
+class TestTextFilter:  # noqa: D101
     def test_text_filter_by_id(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("AUTH")
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
 
     def test_text_filter_by_name(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("Dashboard")
-        assert proxy.rowCount() == 1
+        assert len(_accepted_rows(proxy, source)) == 1
 
     def test_text_filter_by_component(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("API")
-        assert proxy.rowCount() == 1
+        assert len(_accepted_rows(proxy, source)) == 1
 
     def test_text_filter_case_insensitive(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("auth")
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
 
     def test_text_filter_partial_match(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("001")
-        assert proxy.rowCount() == 3  # AUTH-001, DASH-001, API-001
+        assert len(_accepted_rows(proxy, source)) == 3  # AUTH-001, DASH-001, API-001
 
     def test_text_filter_no_match(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("NONEXISTENT")
-        assert proxy.rowCount() == 0
+        assert len(_accepted_rows(proxy, source)) == 0
 
     def test_text_filter_empty_shows_all(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("AUTH")
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
         proxy.set_text_filter("")
-        assert proxy.rowCount() == 5
+        assert len(_accepted_rows(proxy, source)) == 5
 
 
-class TestStatusFilter:
-    """Tests for status filter functionality."""
+# ---------------------------------------------------------------------------
+# Tests: status filter
+# ---------------------------------------------------------------------------
 
+
+class TestStatusFilter:  # noqa: D101
     def test_status_filter_backlog(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_status_filter("BACKLOG")
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
 
     def test_status_filter_execucao(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_status_filter("EXECUCAO")
-        assert proxy.rowCount() == 1
+        assert len(_accepted_rows(proxy, source)) == 1
 
     def test_status_filter_concluido(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_status_filter("CONCLUIDO")
-        assert proxy.rowCount() == 1
+        assert len(_accepted_rows(proxy, source)) == 1
 
     def test_status_filter_none_shows_all(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_status_filter("BACKLOG")
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
         proxy.set_status_filter(None)
-        assert proxy.rowCount() == 5
+        assert len(_accepted_rows(proxy, source)) == 5
 
     def test_status_filter_no_match(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_status_filter("IMPEDIDO")
-        assert proxy.rowCount() == 0
+        assert len(_accepted_rows(proxy, source)) == 0
 
 
-class TestFeatureFilter:
-    """Tests for feature filter functionality."""
+# ---------------------------------------------------------------------------
+# Tests: feature filter
+# ---------------------------------------------------------------------------
 
+
+class TestFeatureFilter:  # noqa: D101
     def test_feature_filter_by_id(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_feature_filter(1)
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
 
     def test_feature_filter_different_id(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_feature_filter(2)
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
 
     def test_feature_filter_none_shows_all(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_feature_filter(1)
-        assert proxy.rowCount() == 2
+        assert len(_accepted_rows(proxy, source)) == 2
         proxy.set_feature_filter(None)
-        assert proxy.rowCount() == 5
+        assert len(_accepted_rows(proxy, source)) == 5
 
     def test_feature_filter_no_match(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_feature_filter(999)
-        assert proxy.rowCount() == 0
+        assert len(_accepted_rows(proxy, source)) == 0
 
 
-class TestCompositeFilters:
-    """Tests for AND combination of multiple filters."""
+# ---------------------------------------------------------------------------
+# Tests: composite (AND) filters
+# ---------------------------------------------------------------------------
 
+
+class TestCompositeFilters:  # noqa: D101
     def test_text_and_status(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("AUTH")
         proxy.set_status_filter("BACKLOG")
-        assert proxy.rowCount() == 1  # Only AUTH-001
+        assert len(_accepted_rows(proxy, source)) == 1  # AUTH-001
 
     def test_text_and_feature(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("001")
         proxy.set_feature_filter(1)
-        assert proxy.rowCount() == 1  # Only AUTH-001
+        assert len(_accepted_rows(proxy, source)) == 1  # AUTH-001
 
     def test_status_and_feature(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_status_filter("BACKLOG")
         proxy.set_feature_filter(2)
-        assert proxy.rowCount() == 1  # Only DASH-001
+        assert len(_accepted_rows(proxy, source)) == 1  # DASH-001
 
     def test_all_three_filters(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("DASH")
         proxy.set_status_filter("BACKLOG")
         proxy.set_feature_filter(2)
-        assert proxy.rowCount() == 1  # Only DASH-001
+        assert len(_accepted_rows(proxy, source)) == 1  # DASH-001
 
     def test_all_three_filters_no_match(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, source = proxy_and_source
         proxy.set_text_filter("AUTH")
         proxy.set_status_filter("BACKLOG")
         proxy.set_feature_filter(2)  # AUTH is feature 1, not 2
-        assert proxy.rowCount() == 0
+        assert len(_accepted_rows(proxy, source)) == 0
 
 
-class TestHasActiveFilters:
-    """Tests for the has_active_filters property."""
+# ---------------------------------------------------------------------------
+# Tests: has_active_filters property
+# ---------------------------------------------------------------------------
 
+
+class TestHasActiveFilters:  # noqa: D101
     def test_no_filters_active(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         assert proxy.has_active_filters is False
 
     def test_text_filter_active(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         proxy.set_text_filter("test")
         assert proxy.has_active_filters is True
 
     def test_status_filter_active(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         proxy.set_status_filter("BACKLOG")
         assert proxy.has_active_filters is True
 
     def test_feature_filter_active(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         proxy.set_feature_filter(1)
         assert proxy.has_active_filters is True
 
     def test_clear_text_filter_deactivates(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         proxy.set_text_filter("test")
         assert proxy.has_active_filters is True
         proxy.set_text_filter("")
         assert proxy.has_active_filters is False
 
     def test_clear_status_filter_deactivates(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         proxy.set_status_filter("BACKLOG")
         assert proxy.has_active_filters is True
         proxy.set_status_filter(None)
         assert proxy.has_active_filters is False
 
     def test_multiple_filters_all_must_clear(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
+        self, proxy_and_source: tuple[FilterProxyModel, StoryTableModel]
     ) -> None:
-        proxy, _ = proxy_with_stories
+        proxy, _ = proxy_and_source
         proxy.set_text_filter("test")
         proxy.set_status_filter("BACKLOG")
         proxy.set_text_filter("")
         assert proxy.has_active_filters is True  # status still active
         proxy.set_status_filter(None)
         assert proxy.has_active_filters is False
-
-
-class TestProxyDataAccess:
-    """Tests for accessing data through the proxy model."""
-
-    def test_user_role_returns_story_id(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
-    ) -> None:
-        proxy, source = proxy_with_stories
-        index = proxy.index(0, 0)
-        story_id = proxy.data(index, Qt.ItemDataRole.UserRole)
-        assert story_id == "AUTH-001"
-
-    def test_filtered_proxy_returns_correct_ids(
-        self, proxy_with_stories: tuple[FilterProxyModel, StoryTableModel]
-    ) -> None:
-        proxy, _ = proxy_with_stories
-        proxy.set_status_filter("EXECUCAO")
-        assert proxy.rowCount() == 1
-        index = proxy.index(0, 0)
-        story_id = proxy.data(index, Qt.ItemDataRole.UserRole)
-        assert story_id == "AUTH-002"
