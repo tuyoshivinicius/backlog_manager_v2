@@ -17,6 +17,7 @@ from tests.headless_mocks import create_pyside6_mocks
 _mock_qt_core, _pyside6_mocks = create_pyside6_mocks()
 
 with patch.dict(sys.modules, _pyside6_mocks):
+    import backlog_manager.presentation.theme.theme as theme_module
     from backlog_manager.presentation.theme.theme import (
         DESIGN_TOKENS,
         ICON_NAMES,
@@ -333,8 +334,6 @@ class TestIconManagerGlobals:
 
     def test_get_icon_manager_lazy_init(self, tmp_path: Path):
         """get_icon_manager should create an IconManager on first call."""
-        import backlog_manager.presentation.theme.theme as theme_module
-
         # Reset the module-level singleton
         original = theme_module._icon_manager
         theme_module._icon_manager = None
@@ -352,8 +351,6 @@ class TestIconManagerGlobals:
 
     def test_get_icon_manager_returns_existing_instance(self, tmp_path: Path):
         """get_icon_manager should return existing instance if already created."""
-        import backlog_manager.presentation.theme.theme as theme_module
-
         original = theme_module._icon_manager
         fake_manager = IconManager(icons_dir=tmp_path)
         theme_module._icon_manager = fake_manager
@@ -365,8 +362,6 @@ class TestIconManagerGlobals:
 
     def test_initialize_icon_manager_sets_module_variable(self, tmp_path: Path):
         """_initialize_icon_manager should set the module-level icon_manager."""
-        import backlog_manager.presentation.theme.theme as theme_module
-
         original_singleton = theme_module._icon_manager
         original_compat = theme_module.icon_manager
         # Set _icon_manager to a known fake so get_icon_manager returns it
