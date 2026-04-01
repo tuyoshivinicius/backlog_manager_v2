@@ -50,14 +50,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OUTPUT=$(semantic-release version --push 2>&1) || true
+          echo "=== Running semantic-release ==="
+          OUTPUT=$(semantic-release version 2>&1) || true
+          echo "$OUTPUT"
+
           TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || true)
           if [ -n "$TAG" ]; then
+            echo "Tag found locally: $TAG"
+            echo "Pushing commit and tag to remote..."
+            git push origin HEAD:main
+            git push origin "$TAG"
             VERSION="${TAG#v}"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
             echo "released=true" >> "$GITHUB_OUTPUT"
           else
+            echo "No tag found on HEAD — nothing to release"
             echo "version=" >> "$GITHUB_OUTPUT"
             echo "tag=" >> "$GITHUB_OUTPUT"
             echo "released=false" >> "$GITHUB_OUTPUT"
@@ -100,13 +108,4 @@ jobs:
               --body "Automatic backmerge of release v$VERSION from main to develop" \
               --head main \
               --base develop
-          fi
-
-      - name: Enable auto-merge
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUM=$(gh pr list --head main --base develop --json number --jq '.[0].number')
-          if [ -n "$PR_NUM" ]; then
-            gh pr merge "$PR_NUM" --auto --merge
           fi
