@@ -28,6 +28,8 @@
 - Python 3.11+ (runtime), Python 3.13 (SonarQube analysis) + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite, aiofiles, openpyxl (034-sonarqube-quality-gate)
 - N/A — sem alterações de schema SQLite (034-sonarqube-quality-gate)
 - Python 3.11+ (runtime), Python 3.13 (SonarQube analysis) + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite, aiofiles, openpyxl, pytest ^8.0, pytest-cov ^4.0, pytest-asyncio ^0.23 (036-test-coverage-90)
+- Python 3.13+ (runtime), GitHub Actions YAML (workflows) + python-semantic-release v9+ (dev), gh CLI (pré-instalado nos runners) (037-auto-versioning-cicd)
+- N/A — sem alterações de banco de dados (037-auto-versioning-cicd)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

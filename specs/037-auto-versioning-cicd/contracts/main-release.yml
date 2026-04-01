@@ -1,0 +1,80 @@
+# Contract: main-release.yml
+# Workflow que executa release automático após merge na main
+#
+# Trigger: push em main (após merge de PR de release)
+# Resultado: Versão atualizada, tag criada, publish disparado, backmerge criado
+
+name: Main Release
+
+triggers:
+  - event: push
+    branches: [main]
+
+concurrency:
+  group: "main-release-${{ github.ref }}"
+  cancel_in_progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  ci:
+    description: "Reusar ci.yml via workflow_call (quality check completo)"
+    uses: "./.github/workflows/ci.yml"
+    secrets: inherit
+
+  release:
+    description: "Executar release via python-semantic-release"
+    needs: ci
+    steps:
+      - name: "Instalar python-semantic-release"
+        input: "pip install python-semantic-release"
+
+      - name: "Executar release"
+        input: "semantic-release version --push"
+        output: "Versão atualizada em pyproject.toml e __init__.py, commit criado, tag pushada"
+        logic: |
+          1. Calcula próxima versão baseada em Conventional Commits
+          2. Atualiza pyproject.toml e __init__.py
+          3. Cria commit "chore(release): vX.Y.Z"
+          4. Cria tag vX.Y.Z
+          5. Push commit + tag para main
+
+      - name: "Extrair versão da tag"
+        input: "Tag criada pelo semantic-release"
+        output: "VERSION (ex: 0.2.0)"
+
+    outputs:
+      version: "Versão publicada"
+      tag: "Tag criada (ex: v0.2.0)"
+      released: "true/false"
+
+  dispatch-publish:
+    description: "Disparar publish.yml via workflow_dispatch"
+    needs: release
+    conditions:
+      - "needs.release.outputs.released == 'true'"
+    steps:
+      - name: "Disparar publish.yml"
+        input: "gh workflow run publish.yml --ref vX.Y.Z -f confirm=yes"
+        output: "publish.yml disparado com ref da tag"
+        logic: |
+          - publish.yml já tem workflow_dispatch com input confirm
+          - --ref aponta para a tag (github.ref = refs/tags/vX.Y.Z)
+          - Lógica de PyPI vs TestPyPI funciona via contains(github.ref, '-rc')
+          - workflow_dispatch é exceção à limitação do GITHUB_TOKEN
+
+  backmerge:
+    description: "Criar PR de backmerge main→develop"
+    needs: release
+    conditions:
+      - "needs.release.outputs.released == 'true'"
+    steps:
+      - name: "Criar PR de backmerge"
+        input: "gh pr create --title 'chore: backmerge vX.Y.Z' --head main --base develop"
+        output: "PR de backmerge criada"
+
+      - name: "Habilitar auto-merge"
+        input: "gh pr merge --auto --merge"
+        output: "Auto-merge habilitado para backmerge"

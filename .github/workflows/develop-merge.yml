@@ -1,0 +1,104 @@
+name: Develop Merge
+
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: develop-merge-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  calculate-version:
+    name: Calculate Next Version
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      next_version: ${{ steps.version.outputs.next_version }}
+      has_bump: ${{ steps.version.outputs.has_bump }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Install python-semantic-release
+        run: pip install python-semantic-release
+
+      - name: Calculate version (dry-run)
+        id: version
+        run: |
+          NEXT=$(semantic-release --noop version --print 2>/dev/null || true)
+          if [ -n "$NEXT" ]; then
+            echo "next_version=$NEXT" >> "$GITHUB_OUTPUT"
+            echo "has_bump=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "next_version=" >> "$GITHUB_OUTPUT"
+            echo "has_bump=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  auto-pr-to-main:
+    name: Auto PR to Main
+    needs: calculate-version
+    if: needs.calculate-version.outputs.has_bump == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            CHANGES=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges)
+          else
+            CHANGES=$(git log --pretty=format:"- %s" --no-merges -20)
+          fi
+          {
+            echo "changes<<EOF"
+            echo "$CHANGES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check existing PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list --head develop --base main --json number --jq '.[0].number')
+          echo "pr_number=$EXISTING" >> "$GITHUB_OUTPUT"
+
+      - name: Create release PR
+        if: steps.check-pr.outputs.pr_number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_VERSION: ${{ needs.calculate-version.outputs.next_version }}
+          CHANGES: ${{ steps.changelog.outputs.changes }}
+        run: |
+          gh pr create \
+            --title "release: v$NEXT_VERSION" \
+            --body "$(cat <<PREOF
+          ## Release v$NEXT_VERSION
+
+          ### Changes
+          $CHANGES
+          PREOF
+          )" \
+            --base main \
+            --head develop

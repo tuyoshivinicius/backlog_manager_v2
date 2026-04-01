@@ -1,0 +1,61 @@
+name: Feature CI
+
+on:
+  push:
+    branches-ignore: [main, develop]
+
+concurrency:
+  group: feature-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  auto-pr:
+    name: Auto PR to Develop
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Extract branch description
+        id: branch-info
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          DESC=$(echo "$BRANCH" | sed 's/^[0-9]*-//' | tr '-' ' ')
+          echo "title=feat: $DESC" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list --head "${{ github.ref_name }}" --base develop --json number --jq '.[0].number')
+          echo "pr_number=$EXISTING" >> "$GITHUB_OUTPUT"
+
+      - name: Create PR
+        if: steps.check-pr.outputs.pr_number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "${{ steps.branch-info.outputs.title }}" \
+            --body "Auto-generated PR from feature branch \`${{ github.ref_name }}\`" \
+            --base develop \
+            --head "${{ github.ref_name }}"
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM=$(gh pr list --head "${{ github.ref_name }}" --base develop --json number --jq '.[0].number')
+          if [ -n "$PR_NUM" ]; then
+            gh pr merge "$PR_NUM" --auto --squash
+          fi
