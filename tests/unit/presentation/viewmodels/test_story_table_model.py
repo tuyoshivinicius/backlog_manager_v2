@@ -14,12 +14,14 @@ import pytest
 # ---------------------------------------------------------------------------
 # PySide6 mock setup -- must happen BEFORE importing the module under test
 # ---------------------------------------------------------------------------
-from tests.headless_mocks import MockSignal, create_pyside6_mocks
+from tests.headless_mocks import _SignalInstance, create_pyside6_mocks
 
 _mock_qt_core, _pyside6_mocks = create_pyside6_mocks(with_table_model=True)
 
 # Additional table-model-specific flags not in shared helper
 _mock_qt_core.Qt.ItemFlag.ItemIsEditable = 2
+_mock_qt_core.Qt.ItemFlag.ItemIsSelectable = 1
+_mock_qt_core.Qt.ItemFlag.ItemIsEnabled = 32
 
 with patch.dict("sys.modules", _pyside6_mocks):
     from backlog_manager.application.dto.story import StoryOutputDTO
@@ -122,7 +124,7 @@ def _new_model() -> StoryTableModel:
     model = StoryTableModel.__new__(StoryTableModel)
     model._stories = []
     model._story_status_map = {}
-    model.status_change_requested = MockSignal("str", "str")
+    model.status_change_requested = _SignalInstance()
     return model
 
 
@@ -130,6 +132,7 @@ def _model_with(stories: list[StoryOutputDTO]) -> StoryTableModel:
     model = _new_model()
     model._stories = list(stories)
     model._story_status_map = {s.id: s.status for s in stories}
+    model.status_change_requested = _SignalInstance()
     return model
 
 
@@ -548,3 +551,262 @@ class TestStoryTableModelLongText:
         idx = _make_index(0, 5)
         assert model.data(idx) == long_name
         assert model.data(idx, ToolTipRole) == long_name
+
+
+# ---------------------------------------------------------------------------
+# Tests: rowCount / columnCount with valid parent (lines 112, 127)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelParentIndex:
+    """Cover rowCount/columnCount returning 0 when parent.isValid() is True."""
+
+    def test_row_count_with_valid_parent_returns_zero(self) -> None:
+        model = _new_model()
+        parent = MagicMock()
+        parent.isValid.return_value = True
+        assert model.rowCount(parent) == 0
+
+    def test_column_count_with_valid_parent_returns_zero(self) -> None:
+        model = _new_model()
+        parent = MagicMock()
+        parent.isValid.return_value = True
+        assert model.columnCount(parent) == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: flags method (lines 208-211)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelFlags:
+    """Cover the flags() method: status column editable, others not."""
+
+    @pytest.fixture()
+    def model(self) -> StoryTableModel:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+        )
+        return _model_with([story])
+
+    def test_status_column_is_editable(self, model: StoryTableModel) -> None:
+        idx = _make_index(0, 6)
+        flags = model.flags(idx)
+        editable = _mock_qt_core.Qt.ItemFlag.ItemIsEditable
+        assert flags & editable
+
+    def test_non_status_column_not_editable(self, model: StoryTableModel) -> None:
+        base = (
+            _mock_qt_core.Qt.ItemFlag.ItemIsSelectable
+            | _mock_qt_core.Qt.ItemFlag.ItemIsEnabled
+        )
+        editable = _mock_qt_core.Qt.ItemFlag.ItemIsEditable
+        for col in (0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12):
+            idx = _make_index(0, col)
+            flags = model.flags(idx)
+            assert flags == base, f"Column {col} should not be editable"
+            assert not (flags & editable)
+
+
+# ---------------------------------------------------------------------------
+# Tests: setData method (lines 220-229)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelSetData:
+    """Cover setData inline status edit signal emission."""
+
+    @pytest.fixture()
+    def model(self) -> StoryTableModel:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+        )
+        return _model_with([story])
+
+    def test_set_data_invalid_index_returns_false(self, model: StoryTableModel) -> None:
+        assert model.setData(_invalid_index(), "DOING", EditRole) is False
+
+    def test_set_data_wrong_role_returns_false(self, model: StoryTableModel) -> None:
+        idx = _make_index(0, 6)
+        assert model.setData(idx, "DOING", DisplayRole) is False
+
+    def test_set_data_wrong_column_returns_false(self, model: StoryTableModel) -> None:
+        idx = _make_index(0, 0)  # Not status column
+        assert model.setData(idx, "DOING", EditRole) is False
+
+    def test_set_data_same_status_returns_false(self, model: StoryTableModel) -> None:
+        idx = _make_index(0, 6)
+        assert model.setData(idx, "BACKLOG", EditRole) is False
+
+    def test_set_data_emits_signal_and_returns_true(
+        self, model: StoryTableModel
+    ) -> None:
+        idx = _make_index(0, 6)
+        result = model.setData(idx, "doing", EditRole)
+        assert result is True
+        assert model.status_change_requested.emissions == [("TEST-001", "DOING")]
+
+
+# ---------------------------------------------------------------------------
+# Tests: _get_display_value default case (lines 282-283)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelDisplayDefault:
+    """Cover the default match case returning empty string for invalid column."""
+
+    def test_invalid_column_returns_empty_string(self) -> None:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+        )
+        model = _model_with([story])
+        idx = _make_index(0, 99)  # Out-of-range column
+        assert model.data(idx) == ""
+
+
+# ---------------------------------------------------------------------------
+# Tests: headerData edge cases (lines 329, 337)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelHeaderEdgeCases:
+    """Cover headerData returning None for non-display role and OOB section."""
+
+    def test_header_data_non_display_role_returns_none(self) -> None:
+        model = _new_model()
+        result = model.headerData(0, Horizontal, TextAlignmentRole)
+        assert result is None
+
+    def test_header_data_out_of_range_section_returns_none(self) -> None:
+        model = _new_model()
+        result = model.headerData(99, Horizontal)
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: _get_wave_background (lines 348-352)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelWaveBackground:
+    """Cover wave background color resolution."""
+
+    def test_wave_zero_returns_none(self) -> None:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+            wave=0,
+        )
+        model = _model_with([story])
+        result = model.data(_make_index(0, 0), BackgroundRole)
+        assert result is None
+
+    def test_wave_negative_returns_none(self) -> None:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+            wave=-1,
+        )
+        model = _model_with([story])
+        result = model.data(_make_index(0, 0), BackgroundRole)
+        assert result is None
+
+    def test_wave_positive_returns_qcolor(self) -> None:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+            wave=1,
+        )
+        model = _model_with([story])
+        result = model.data(_make_index(0, 0), BackgroundRole)
+        # QColor is mocked, so result should not be None
+        assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# Tests: _resolve_dependency_role fallthrough (line 204)
+# ---------------------------------------------------------------------------
+
+
+class TestStoryTableModelDependencyRoleFallthrough:
+    """Cover _resolve_dependency_role returning None for unknown role on col 8."""
+
+    def test_unknown_role_on_dep_column_returns_none(self) -> None:
+        story = StoryOutputDTO(
+            id="TEST-001",
+            component="TEST",
+            name="Test",
+            story_points=5,
+            priority=1,
+            status="BACKLOG",
+            duration=None,
+            start_date=None,
+            end_date=None,
+            developer_id=None,
+            feature_id=None,
+            dependency_ids=["DEP-001"],
+        )
+        model = _model_with([story])
+        # Use a role that is not BLOCKING_STATE_ROLE or DEPENDENCY_IDS_ROLE
+        # and not any standard Qt role handled in _resolve_role_data
+        unknown_role = 999
+        idx = _make_index(0, 8)
+        result = model.data(idx, unknown_role)
+        assert result is None

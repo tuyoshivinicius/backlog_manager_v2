@@ -85,6 +85,10 @@ class MockQBase:
     def endRemoveRows(self):  # noqa: N802
         """Stub: simula interface QAbstractItemModel para testes headless."""
 
+    def flags(self, index=None):  # noqa: N802
+        """Stub: returns ItemIsSelectable | ItemIsEnabled (33) like Qt default."""
+        return 33  # Qt.ItemFlag.ItemIsSelectable(1) | Qt.ItemFlag.ItemIsEnabled(32)
+
 
 class MockQSettings:
     """Dict-based QSettings mock for headless tests."""

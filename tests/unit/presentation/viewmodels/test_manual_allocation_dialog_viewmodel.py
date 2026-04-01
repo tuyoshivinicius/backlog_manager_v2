@@ -256,3 +256,75 @@ class TestManualAllocationDialogViewModel:
 
         # Should not crash or create any task
         vm.confirm_allocation()
+
+    def test_load_developers_sets_story_id_and_original_date(self) -> None:
+        """Test that load_developers sets story_id and original_start_date."""
+        container = _make_container()
+        vm = ManualAllocationDialogViewModel(container)
+
+        with patch.object(vm, "_create_task") as mock_task:
+            vm.load_developers("STORY-042", date(2026, 5, 10))
+
+            assert vm._story_id == "STORY-042"
+            assert vm._original_start_date == date(2026, 5, 10)
+            mock_task.assert_called_once()
+
+    def test_load_developers_preserves_original_start_date(self) -> None:
+        """Test that load_developers does not overwrite original_start_date."""
+        container = _make_container()
+        vm = ManualAllocationDialogViewModel(container)
+        vm._original_start_date = date(2026, 3, 1)
+
+        with patch.object(vm, "_create_task"):
+            vm.load_developers("STORY-042", date(2026, 5, 10))
+
+            # original_start_date should remain unchanged
+            assert vm._original_start_date == date(2026, 3, 1)
+
+    def test_confirm_allocation_creates_task_when_developer_selected(self) -> None:
+        """Test that confirm_allocation creates a task when developer is set."""
+        container = _make_container()
+        vm = ManualAllocationDialogViewModel(container)
+        vm._selected_developer_id = 7
+
+        with patch.object(vm, "_create_task") as mock_task:
+            vm.confirm_allocation()
+            mock_task.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_confirm_allocation_async_error_emits_signal(self) -> None:
+        """Test that error during confirm emits error_occurred signal."""
+        container = _make_container()
+        vm = ManualAllocationDialogViewModel(container)
+        vm._story_id = "TEST-ERR"
+        vm._selected_developer_id = 1
+
+        mock_use_case = MagicMock()
+        mock_use_case.execute = AsyncMock(
+            side_effect=RuntimeError("db connection lost")
+        )
+        container.create_edit_story_use_case.return_value = mock_use_case
+
+        await vm._confirm_allocation_async()
+
+        assert len(vm.error_occurred.emissions) == 1
+        assert "db connection lost" in vm.error_occurred.emissions[0][0]
+        assert len(vm.allocation_confirmed.emissions) == 0
+
+    @pytest.mark.asyncio
+    async def test_create_task_tracks_and_cleans_up(self) -> None:
+        """Test that _create_task adds task to pending set and removes on done."""
+        container = _make_container()
+        vm = ManualAllocationDialogViewModel(container)
+
+        async def _noop() -> None:
+            pass
+
+        task = vm._create_task(_noop())
+        assert task in vm._pending_tasks
+
+        # Let the task complete
+        await task
+
+        # done callback should have removed it
+        assert task not in vm._pending_tasks

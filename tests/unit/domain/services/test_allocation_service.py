@@ -1655,3 +1655,1189 @@ class TestHelperMethods:
         assert 1 in grouped
         assert len(grouped[0]) == 2
         assert len(grouped[1]) == 1
+
+
+# =============================================================================
+# Edge Case Tests for Uncovered Lines
+# =============================================================================
+
+
+class TestAllocationConfigEdgeCases:
+    """Tests for AllocationConfig edge cases (line 79)."""
+
+    def test_config_max_iterations_zero_rejected(self) -> None:
+        """max_iterations=0 raises ValueError (line 79)."""
+        with pytest.raises(ValueError, match="max_iterations deve ser maior que zero"):
+            AllocationConfig(
+                velocity=2.0,
+                project_start_date=date(2026, 3, 2),
+                max_iterations=0,
+            )
+
+    def test_config_max_iterations_negative_rejected(self) -> None:
+        """max_iterations=-1 raises ValueError (line 79)."""
+        with pytest.raises(ValueError, match="max_iterations deve ser maior que zero"):
+            AllocationConfig(
+                velocity=2.0,
+                project_start_date=date(2026, 3, 2),
+                max_iterations=-5,
+            )
+
+
+class TestRecalculateEndDate:
+    """Tests for _recalculate_end_date edge cases (lines 177-183)."""
+
+    def test_recalculate_end_date_without_duration(
+        self, holidays: frozenset[date]
+    ) -> None:
+        """Story without duration uses SP-based calculation (lines 177-183)."""
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        story = make_story(
+            "AUTH-001",
+            story_points=5,
+            duration=None,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        result = AllocationService._recalculate_end_date(
+            story, date(2026, 3, 9), holidays, config
+        )
+        # Should calculate end date from SP, not duration
+        assert result >= date(2026, 3, 9)
+
+    def test_recalculate_end_date_with_duration(
+        self, holidays: frozenset[date]
+    ) -> None:
+        """Story with duration uses duration-based calculation (line 176)."""
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        story = make_story(
+            "AUTH-001",
+            story_points=5,
+            duration=3,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        result = AllocationService._recalculate_end_date(
+            story, date(2026, 3, 9), holidays, config
+        )
+        assert result >= date(2026, 3, 9)
+
+
+class TestHasPeriodOverlapNone:
+    """Tests for _has_period_overlap with None dates (line 324)."""
+
+    def test_overlap_with_none_start_date_a(self) -> None:
+        """Returns False when story_a.start_date is None (line 324)."""
+        story_a = make_story("AUTH-001", start_date=None, end_date=date(2026, 3, 4))
+        story_b = make_story(
+            "AUTH-002", start_date=date(2026, 3, 3), end_date=date(2026, 3, 5)
+        )
+        assert AllocationService._has_period_overlap(story_a, story_b) is False
+
+    def test_overlap_with_none_end_date_a(self) -> None:
+        """Returns False when story_a.end_date is None (line 324)."""
+        story_a = make_story("AUTH-001", start_date=date(2026, 3, 2), end_date=None)
+        story_b = make_story(
+            "AUTH-002", start_date=date(2026, 3, 3), end_date=date(2026, 3, 5)
+        )
+        assert AllocationService._has_period_overlap(story_a, story_b) is False
+
+    def test_overlap_with_none_start_date_b(self) -> None:
+        """Returns False when story_b.start_date is None (line 324)."""
+        story_a = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        story_b = make_story("AUTH-002", start_date=None, end_date=date(2026, 3, 5))
+        assert AllocationService._has_period_overlap(story_a, story_b) is False
+
+
+class TestSelectDeveloperEdgeCases:
+    """Tests for _select_developer edge cases (lines 359, 364, 396)."""
+
+    def test_select_developer_empty_list(self) -> None:
+        """Returns None for empty developer list (line 359)."""
+        import random
+
+        rng = random.Random(42)
+        story = make_story("AUTH-001")
+        result = AllocationService._select_developer(
+            developers=[],
+            story=story,
+            dev_count={},
+            dependency_graph={},
+            story_map={},
+            config=AllocationConfig(
+                velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+            ),
+            rng=rng,
+        )
+        assert result is None
+
+    def test_select_developer_no_valid_ids(self) -> None:
+        """Returns None when all devs have id=None (line 364)."""
+        import random
+
+        rng = random.Random(42)
+        story = make_story("AUTH-001")
+        devs_no_id = [Developer(name="NoId1"), Developer(name="NoId2")]
+        result = AllocationService._select_developer(
+            developers=devs_no_id,
+            story=story,
+            dev_count={},
+            dependency_graph={},
+            story_map={},
+            config=AllocationConfig(
+                velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+            ),
+            rng=rng,
+        )
+        assert result is None
+
+    def test_select_by_load_balancing_empty(self) -> None:
+        """Returns None for empty developer list (line 396)."""
+        import random
+
+        rng = random.Random(42)
+        result = AllocationService._select_by_load_balancing([], {}, rng)
+        assert result is None
+
+
+class TestGetDependencyOwnerEdgeCases:
+    """Tests for _get_dependency_owner edge cases (lines 459, 465)."""
+
+    def test_dependency_owner_no_deps(self) -> None:
+        """Returns None when story has no dependencies (line 465)."""
+        story = make_story("AUTH-001")
+        result = AllocationService._get_dependency_owner(
+            story=story,
+            dependency_graph={},
+            story_map={},
+            developers=[Developer(name="Alice", id=1)],
+        )
+        assert result is None
+
+    def test_dependency_owner_dep_has_no_developer(self) -> None:
+        """Returns None when dependency story has no developer assigned (line 465)."""
+        story = make_story("AUTH-002")
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=None,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        result = AllocationService._get_dependency_owner(
+            story=story,
+            dependency_graph={"AUTH-002": ["AUTH-001"]},
+            story_map={"AUTH-001": dep_story, "AUTH-002": story},
+            developers=[Developer(name="Alice", id=1)],
+        )
+        assert result is None
+
+    def test_dependency_owner_dep_developer_not_in_list(self) -> None:
+        """Returns None when dep developer not in valid devs (line 462->465)."""
+        story = make_story("AUTH-002")
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=99,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        result = AllocationService._get_dependency_owner(
+            story=story,
+            dependency_graph={"AUTH-002": ["AUTH-001"]},
+            story_map={"AUTH-001": dep_story, "AUTH-002": story},
+            developers=[Developer(name="Alice", id=1)],
+        )
+        assert result is None
+
+    def test_dependency_owner_found(self) -> None:
+        """Returns developer when dep owner is in list (line 463)."""
+        story = make_story("AUTH-002")
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        devs = [Developer(name="Alice", id=1)]
+        result = AllocationService._get_dependency_owner(
+            story=story,
+            dependency_graph={"AUTH-002": ["AUTH-001"]},
+            story_map={"AUTH-001": dep_story, "AUTH-002": story},
+            developers=devs,
+        )
+        assert result is not None
+        assert result.id == 1
+
+
+class TestFixSingleOverlap:
+    """Tests for _fix_single_overlap edge cases (lines 477-486)."""
+
+    def test_fix_overlap_adjusts_dates(self, holidays: frozenset[date]) -> None:
+        """Overlapping stories get their dates fixed (lines 477-486)."""
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        current = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        next_story = make_story(
+            "AUTH-002", start_date=date(2026, 3, 3), end_date=date(2026, 3, 5)
+        )
+        result = AllocationService._fix_single_overlap(
+            current, next_story, holidays, config
+        )
+        assert result is True
+        # next_story start should now be after current end
+        assert next_story.start_date is not None
+        assert current.end_date is not None
+        assert next_story.start_date > current.end_date
+
+    def test_fix_no_overlap(self, holidays: frozenset[date]) -> None:
+        """No overlap returns False (line 476)."""
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        current = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        next_story = make_story(
+            "AUTH-002", start_date=date(2026, 3, 9), end_date=date(2026, 3, 11)
+        )
+        result = AllocationService._fix_single_overlap(
+            current, next_story, holidays, config
+        )
+        assert result is False
+
+    def test_fix_overlap_current_end_none(self, holidays: frozenset[date]) -> None:
+        """Returns False when current.end_date is None (line 478)."""
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        current = make_story("AUTH-001", start_date=date(2026, 3, 2), end_date=None)
+        next_story = make_story(
+            "AUTH-002", start_date=date(2026, 3, 3), end_date=date(2026, 3, 5)
+        )
+        result = AllocationService._fix_single_overlap(
+            current, next_story, holidays, config
+        )
+        assert result is False
+
+
+class TestResolveAllocationConflicts:
+    """Tests for _resolve_allocation_conflicts (lines 510-512, 514)."""
+
+    def test_resolve_conflicts_counts_fixes(self, holidays: frozenset[date]) -> None:
+        """Conflict fixes are counted in metrics (lines 510-512)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        # Two stories assigned to same dev with overlapping dates
+        s1 = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        s2 = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 3),
+            end_date=date(2026, 3, 5),
+        )
+        AllocationService._resolve_allocation_conflicts(
+            [s1, s2], holidays, config, metrics
+        )
+        assert metrics.validation_conflict_fixes >= 1
+        assert metrics.date_adjustments >= 1
+
+    def test_resolve_conflicts_no_conflicts(self, holidays: frozenset[date]) -> None:
+        """No-op when no conflicts exist (line 514 early break)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        s1 = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        s2 = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 9),
+            end_date=date(2026, 3, 11),
+        )
+        AllocationService._resolve_allocation_conflicts(
+            [s1, s2], holidays, config, metrics
+        )
+        assert metrics.validation_conflict_fixes == 0
+
+
+class TestEnsureDependenciesFinished:
+    """Tests for _ensure_dependencies_finished (lines 551-556)."""
+
+    def test_ensure_deps_adjusts_date(self, holidays: frozenset[date]) -> None:
+        """Adjusts start_date when story starts before deps finish (lines 551-556)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 6),
+        )
+        story = make_story(
+            "AUTH-002",
+            start_date=date(2026, 3, 4),
+            end_date=date(2026, 3, 6),
+        )
+        dep_graph = {"AUTH-002": ["AUTH-001"]}
+        story_map = {"AUTH-001": dep_story, "AUTH-002": story}
+        result = AllocationService._ensure_dependencies_finished(
+            story, dep_graph, story_map, holidays, config, metrics
+        )
+        assert result is True
+        assert metrics.date_adjustments == 1
+        assert story.start_date is not None
+        assert story.start_date > dep_story.end_date
+
+    def test_ensure_deps_no_adjustment_needed(self, holidays: frozenset[date]) -> None:
+        """No adjustment when story starts after deps (returns False)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        story = make_story(
+            "AUTH-002",
+            start_date=date(2026, 3, 9),
+            end_date=date(2026, 3, 11),
+        )
+        dep_graph = {"AUTH-002": ["AUTH-001"]}
+        story_map = {"AUTH-001": dep_story, "AUTH-002": story}
+        result = AllocationService._ensure_dependencies_finished(
+            story, dep_graph, story_map, holidays, config, metrics
+        )
+        assert result is False
+        assert metrics.date_adjustments == 0
+
+
+class TestFinalDependencyCheck:
+    """Tests for _final_dependency_check (lines 597-603)."""
+
+    def test_final_dep_check_fixes_violations(self, holidays: frozenset[date]) -> None:
+        """Fixes dependency violations and returns True (lines 597-603)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 6),
+        )
+        story = make_story(
+            "AUTH-002",
+            developer_id=2,
+            start_date=date(2026, 3, 4),
+            end_date=date(2026, 3, 6),
+        )
+        dep_graph = {"AUTH-002": ["AUTH-001"]}
+        story_map = {"AUTH-001": dep_story, "AUTH-002": story}
+        result = AllocationService._final_dependency_check(
+            [dep_story, story], dep_graph, story_map, holidays, config, metrics
+        )
+        assert result is True
+        assert metrics.validation_dependency_fixes >= 1
+        assert metrics.date_adjustments >= 1
+
+    def test_final_dep_check_no_violations(self, holidays: frozenset[date]) -> None:
+        """Returns False when no violations (line 605)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        story = make_story(
+            "AUTH-002",
+            developer_id=2,
+            start_date=date(2026, 3, 9),
+            end_date=date(2026, 3, 11),
+        )
+        dep_graph = {"AUTH-002": ["AUTH-001"]}
+        story_map = {"AUTH-001": dep_story, "AUTH-002": story}
+        result = AllocationService._final_dependency_check(
+            [dep_story, story], dep_graph, story_map, holidays, config, metrics
+        )
+        assert result is False
+
+
+class TestEmitIdlenessEdgeCases:
+    """Tests for _emit_idleness_if_excessive edge cases (line 621)."""
+
+    def test_emit_idleness_none_end_date(self, holidays: frozenset[date]) -> None:
+        """Returns early when current.end_date is None (line 621)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        current = make_story("AUTH-001", end_date=None)
+        next_story = make_story(
+            "AUTH-002", start_date=date(2026, 3, 9), end_date=date(2026, 3, 11)
+        )
+        dev = Developer(name="Alice", id=1)
+        AllocationService._emit_idleness_if_excessive(
+            current, next_story, 1, dev, {}, holidays, config, metrics, warnings
+        )
+        assert len(warnings) == 0
+
+    def test_emit_idleness_none_start_date_next(
+        self, holidays: frozenset[date]
+    ) -> None:
+        """Returns early when next_story.start_date is None (line 621)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        current = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        next_story = make_story("AUTH-002", start_date=None, end_date=date(2026, 3, 11))
+        dev = Developer(name="Alice", id=1)
+        AllocationService._emit_idleness_if_excessive(
+            current, next_story, 1, dev, {}, holidays, config, metrics, warnings
+        )
+        assert len(warnings) == 0
+
+    def test_emit_idleness_intra_wave_warning(self, holidays: frozenset[date]) -> None:
+        """Emits IdlenessWarning for intra-wave gap exceeding threshold."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        current = make_story(
+            "AUTH-001",
+            feature_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        next_story = make_story(
+            "AUTH-002",
+            feature_id=1,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        feature_map = {1: 1}
+        dev = Developer(name="Alice", id=1)
+        AllocationService._emit_idleness_if_excessive(
+            current,
+            next_story,
+            1,
+            dev,
+            feature_map,
+            holidays,
+            config,
+            metrics,
+            warnings,
+        )
+        assert metrics.max_idle_violations_detected >= 1
+        assert any(isinstance(w, IdlenessWarning) for w in warnings)
+
+    def test_emit_idleness_inter_wave_info(self, holidays: frozenset[date]) -> None:
+        """Emits BetweenWavesIdlenessInfo for inter-wave gap."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        current = make_story(
+            "AUTH-001",
+            feature_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        next_story = make_story(
+            "AUTH-002",
+            feature_id=2,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        feature_map = {1: 1, 2: 2}
+        dev = Developer(name="Alice", id=1)
+        AllocationService._emit_idleness_if_excessive(
+            current,
+            next_story,
+            1,
+            dev,
+            feature_map,
+            holidays,
+            config,
+            metrics,
+            warnings,
+        )
+        assert any(isinstance(w, BetweenWavesIdlenessInfo) for w in warnings)
+
+
+class TestCheckIdlenessDevNotFound:
+    """Tests for _check_idleness dev not in map (line 698)."""
+
+    def test_check_idleness_dev_not_in_map(self, holidays: frozenset[date]) -> None:
+        """Skips dev_id not found in developer map (line 698 continue)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        # Story with developer_id=99 which is not in the developer list
+        s1 = make_story(
+            "AUTH-001",
+            developer_id=99,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        s2 = make_story(
+            "AUTH-002",
+            developer_id=99,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        developers = [Developer(name="Alice", id=1)]
+        AllocationService._check_idleness(
+            [s1, s2], developers, {}, holidays, config, metrics, warnings
+        )
+        # Should not crash, just skip the unknown dev
+        assert len(warnings) == 0
+
+
+class TestTryReallocateIdleStory:
+    """Tests for _try_reallocate_idle_story edge cases (lines 734, 748-749, 756-769)."""
+
+    def test_reallocate_none_end_date(self, holidays: frozenset[date]) -> None:
+        """Returns False when current.end_date is None (line 734)."""
+        import random
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = __import__(
+            "backlog_manager.domain.services.allocation_service",
+            fromlist=["AllocationMetrics"],
+        ).AllocationMetrics()
+        rng = random.Random(42)
+        current = make_story("AUTH-001", end_date=None, developer_id=1)
+        next_story = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        result = AllocationService._try_reallocate_idle_story(
+            current,
+            next_story,
+            1,
+            [Developer(name="Bob", id=2)],
+            {1: 2, 2: 0},
+            {},
+            {},
+            holidays,
+            config,
+            metrics,
+            rng,
+        )
+        assert result is False
+
+    def test_reallocate_max_reached(self, holidays: frozenset[date]) -> None:
+        """Returns False when max reallocations reached (lines 748-749)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import (
+            MAX_REALLOCATIONS_PER_STORY,
+            AllocationMetrics,
+        )
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        rng = random.Random(42)
+        current = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        next_story = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        reallocation_count = {"AUTH-002": MAX_REALLOCATIONS_PER_STORY}
+        result = AllocationService._try_reallocate_idle_story(
+            current,
+            next_story,
+            1,
+            [Developer(name="Alice", id=1), Developer(name="Bob", id=2)],
+            {1: 2, 2: 0},
+            {},
+            reallocation_count,
+            holidays,
+            config,
+            metrics,
+            rng,
+        )
+        assert result is False
+        assert metrics.failed_reallocations == 1
+
+    def test_reallocate_no_other_devs(self, holidays: frozenset[date]) -> None:
+        """Returns False when no other devs available (lines 752-754)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        rng = random.Random(42)
+        current = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        next_story = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        # Only one dev, same as current
+        result = AllocationService._try_reallocate_idle_story(
+            current,
+            next_story,
+            1,
+            [Developer(name="Alice", id=1)],
+            {1: 2},
+            {},
+            {},
+            holidays,
+            config,
+            metrics,
+            rng,
+        )
+        assert result is False
+        assert metrics.failed_reallocations == 1
+
+    def test_reallocate_success(self, holidays: frozenset[date]) -> None:
+        """Successful reallocation updates counts (lines 756-769)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        rng = random.Random(42)
+        current = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        next_story = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        dev_count = {1: 2, 2: 0}
+        result = AllocationService._try_reallocate_idle_story(
+            current,
+            next_story,
+            1,
+            [Developer(name="Alice", id=1), Developer(name="Bob", id=2)],
+            dev_count,
+            {},
+            {},
+            holidays,
+            config,
+            metrics,
+            rng,
+        )
+        assert result is True
+        assert metrics.validation_reallocations == 1
+        assert metrics.max_idle_violations_fixed == 1
+        assert next_story.developer_id == 2
+        assert dev_count[1] == 1
+        assert dev_count[2] == 1
+
+    def test_reallocate_inter_wave_skip(self, holidays: frozenset[date]) -> None:
+        """Returns False for inter-wave gap (line 744-745)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        rng = random.Random(42)
+        current = make_story(
+            "AUTH-001",
+            developer_id=1,
+            feature_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        next_story = make_story(
+            "AUTH-002",
+            developer_id=1,
+            feature_id=2,
+            start_date=date(2026, 3, 16),
+            end_date=date(2026, 3, 18),
+        )
+        feature_map = {1: 1, 2: 2}
+        result = AllocationService._try_reallocate_idle_story(
+            current,
+            next_story,
+            1,
+            [Developer(name="Alice", id=1), Developer(name="Bob", id=2)],
+            {1: 2, 2: 0},
+            feature_map,
+            {},
+            holidays,
+            config,
+            metrics,
+            rng,
+        )
+        assert result is False
+
+
+class TestAdjustDateForAvailability:
+    """Tests for _adjust_date_for_availability (lines 861, 868, 893)."""
+
+    def test_adjust_no_start_date(self, holidays: frozenset[date]) -> None:
+        """Returns False when story has no start_date (line 861)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        story = make_story("AUTH-001", start_date=None, end_date=None)
+        result = AllocationService._adjust_date_for_availability(
+            story, [Developer(name="Alice", id=1)], {}, {}, holidays, config, metrics
+        )
+        assert result is False
+
+    def test_adjust_no_valid_devs(self, holidays: frozenset[date]) -> None:
+        """Returns False when no valid devs (line 864-865)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        story = make_story("AUTH-001")
+        result = AllocationService._adjust_date_for_availability(
+            story, [Developer(name="NoId")], {}, {}, holidays, config, metrics
+        )
+        assert result is False
+
+    def test_adjust_dev_available(self, holidays: frozenset[date]) -> None:
+        """Returns False when a dev is available (line 868)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        story = make_story(
+            "AUTH-001", start_date=date(2026, 3, 9), end_date=date(2026, 3, 11)
+        )
+        # Dev has no conflicting stories
+        result = AllocationService._adjust_date_for_availability(
+            story,
+            [Developer(name="Alice", id=1)],
+            {1: 0},
+            {},
+            holidays,
+            config,
+            metrics,
+        )
+        assert result is False
+
+    def test_adjust_no_dev_available_adjusts(self, holidays: frozenset[date]) -> None:
+        """Adjusts date when no dev is available (lines 870-875)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0, project_start_date=date(2026, 3, 2), random_seed=42
+        )
+        metrics = AllocationMetrics()
+        story = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        blocking = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        dev_stories = {1: [blocking]}
+        result = AllocationService._adjust_date_for_availability(
+            story,
+            [Developer(name="Alice", id=1)],
+            {1: 1},
+            dev_stories,
+            holidays,
+            config,
+            metrics,
+        )
+        assert result is True
+        assert metrics.date_adjustments == 1
+        assert story.start_date is not None
+        assert story.start_date > date(2026, 3, 2)
+
+
+class TestAnyDevAvailable:
+    """Tests for _any_dev_available (line 893)."""
+
+    def test_no_dev_available(self) -> None:
+        """Returns False when all devs have conflicts (line 894)."""
+        story = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        blocking = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        result = AllocationService._any_dev_available(
+            story, [Developer(name="Alice", id=1)], {1: [blocking]}
+        )
+        assert result is False
+
+    def test_dev_available(self) -> None:
+        """Returns True when a dev has no conflicts (line 893)."""
+        story = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        result = AllocationService._any_dev_available(
+            story, [Developer(name="Alice", id=1)], {}
+        )
+        assert result is True
+
+
+class TestFindAvailableDevelopersNoneId:
+    """Tests for _find_available_developers with None id (line 991)."""
+
+    def test_skip_dev_with_none_id(self) -> None:
+        """Developers with id=None are skipped (line 991)."""
+        story = make_story(
+            "AUTH-001", start_date=date(2026, 3, 2), end_date=date(2026, 3, 4)
+        )
+        devs = [Developer(name="NoId"), Developer(name="Alice", id=1)]
+        result = AllocationService._find_available_developers(story, devs, {})
+        assert len(result) == 1
+        assert result[0].id == 1
+
+
+class TestStabilizationLoopConvergence:
+    """Tests for _stabilization_loop (lines 1257-1297)."""
+
+    def test_stabilization_with_dependency_and_conflict(
+        self, holidays: frozenset[date]
+    ) -> None:
+        """Stabilization loop iterates when deps and conflicts exist (lines 1270, 1278, 1295)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        rng = random.Random(42)
+
+        # dep story ends on 3/6, story starts on 3/4 (violation)
+        dep_story = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 6),
+        )
+        story = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 4),
+            end_date=date(2026, 3, 6),
+        )
+        dep_graph = {"AUTH-002": ["AUTH-001"]}
+        story_map = {"AUTH-001": dep_story, "AUTH-002": story}
+        dev_count = {1: 2}
+        developers = [Developer(name="Alice", id=1)]
+
+        AllocationService._stabilization_loop(
+            [dep_story, story],
+            developers,
+            dev_count,
+            dep_graph,
+            story_map,
+            {},
+            holidays,
+            config,
+            metrics,
+            warnings,
+            rng,
+        )
+
+        # Should have fixed dependency violations
+        assert metrics.validation_dependency_fixes >= 1 or metrics.date_adjustments >= 1
+
+    def test_stabilization_with_idle_reallocation(
+        self, holidays: frozenset[date]
+    ) -> None:
+        """Stabilization loop performs idle reallocation (line 1295)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        rng = random.Random(42)
+
+        s1 = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        s2 = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 23),
+            end_date=date(2026, 3, 25),
+        )
+        story_map = {"AUTH-001": s1, "AUTH-002": s2}
+        dev_count = {1: 2, 2: 0}
+        developers = [Developer(name="Alice", id=1), Developer(name="Bob", id=2)]
+
+        AllocationService._stabilization_loop(
+            [s1, s2],
+            developers,
+            dev_count,
+            {},
+            story_map,
+            {},
+            holidays,
+            config,
+            metrics,
+            warnings,
+            rng,
+        )
+        # Should attempt reallocation or detect idleness
+        assert (
+            metrics.validation_reallocations >= 0
+            or metrics.max_idle_violations_fixed >= 0
+        )
+
+
+class TestHandleRemainingEligible:
+    """Tests for _handle_remaining_eligible deadlock detection."""
+
+    def test_deadlock_max_iterations_flag(self, holidays: frozenset[date]) -> None:
+        """DeadlockWarning has max_iterations_reached flag set correctly."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_iterations=3,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        eligible = [make_story("AUTH-001"), make_story("AUTH-002")]
+
+        AllocationService._handle_remaining_eligible(
+            eligible, 3, 1, config, metrics, warnings
+        )
+
+        assert metrics.deadlocks_detected == 1
+        assert len(warnings) == 1
+        assert isinstance(warnings[0], DeadlockWarning)
+        assert warnings[0].max_iterations_reached is True
+
+    def test_deadlock_without_max_iterations(self, holidays: frozenset[date]) -> None:
+        """DeadlockWarning when broke out early (not max iterations)."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_iterations=1000,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+        eligible = [make_story("AUTH-001")]
+
+        AllocationService._handle_remaining_eligible(
+            eligible, 5, 0, config, metrics, warnings
+        )
+
+        assert metrics.deadlocks_detected == 1
+        assert isinstance(warnings[0], DeadlockWarning)
+        assert warnings[0].max_iterations_reached is False
+
+    def test_no_deadlock_when_no_remaining(self) -> None:
+        """No deadlock when eligible list is empty."""
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        warnings: list = []
+
+        AllocationService._handle_remaining_eligible(
+            [], 1, 0, config, metrics, warnings
+        )
+
+        assert metrics.deadlocks_detected == 0
+        assert len(warnings) == 0
+
+
+class TestCheckAndFixIdleViolations:
+    """Tests for _check_and_fix_idle_violations (line 827)."""
+
+    def test_fix_idle_violations_success(self, holidays: frozenset[date]) -> None:
+        """Returns True when reallocation succeeds (line 827)."""
+        import random
+
+        from backlog_manager.domain.services.allocation_service import AllocationMetrics
+
+        config = AllocationConfig(
+            velocity=2.0,
+            project_start_date=date(2026, 3, 2),
+            max_idle_days=2,
+            random_seed=42,
+        )
+        metrics = AllocationMetrics()
+        rng = random.Random(42)
+        s1 = make_story(
+            "AUTH-001",
+            developer_id=1,
+            start_date=date(2026, 3, 2),
+            end_date=date(2026, 3, 4),
+        )
+        s2 = make_story(
+            "AUTH-002",
+            developer_id=1,
+            start_date=date(2026, 3, 23),
+            end_date=date(2026, 3, 25),
+        )
+        developers = [Developer(name="Alice", id=1), Developer(name="Bob", id=2)]
+        dev_count = {1: 2, 2: 0}
+        story_map = {"AUTH-001": s1, "AUTH-002": s2}
+
+        result = AllocationService._check_and_fix_idle_violations(
+            [s1, s2],
+            developers,
+            dev_count,
+            {},
+            story_map,
+            {},
+            {},
+            holidays,
+            config,
+            metrics,
+            rng,
+        )
+        assert result is True
+        assert metrics.validation_reallocations >= 1

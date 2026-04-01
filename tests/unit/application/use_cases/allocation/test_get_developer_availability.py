@@ -264,3 +264,107 @@ async def test_recalculated_dates_returned(mock_uow):
     assert result.story_start_date is not None
     assert result.story_end_date is not None
     assert result.story_end_date >= result.story_start_date
+
+
+@pytest.mark.asyncio
+async def test_developer_with_none_id_is_skipped(mock_uow):
+    """Should skip developers whose id is None."""
+    target = _make_story(
+        "PROJ-001",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 3),
+    )
+    dev_no_id = Developer(id=None, name="Ghost Dev")
+    dev_ok = Developer(id=1, name="Real Dev")
+
+    mock_uow.stories.get_by_id.return_value = target
+    mock_uow.stories.get_all.return_value = [target]
+    mock_uow.developers.get_all.return_value = [dev_no_id, dev_ok]
+
+    use_case = GetDeveloperAvailabilityUseCase(mock_uow)
+    result = await use_case.execute(_make_input("PROJ-001"))
+
+    # Only dev with id should appear in results
+    assert len(result.developers) == 1
+    assert result.developers[0].developer_name == "Real Dev"
+
+
+@pytest.mark.asyncio
+async def test_dependency_graph_builds_correctly(mock_uow):
+    """Should build dependency graph from all_deps and use it for recommendation."""
+    target = _make_story(
+        "PROJ-001",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 3),
+    )
+    dep_story = _make_story(
+        "PROJ-002",
+        start_date=date(2026, 3, 25),
+        end_date=date(2026, 3, 28),
+        developer_id=1,
+    )
+    dev1 = Developer(id=1, name="Ana")
+
+    mock_uow.stories.get_by_id.return_value = target
+    mock_uow.stories.get_all.return_value = [target, dep_story]
+    mock_uow.developers.get_all.return_value = [dev1]
+    mock_uow.dependencies.get_all_dependencies.return_value = [("PROJ-001", "PROJ-002")]
+
+    use_case = GetDeveloperAvailabilityUseCase(mock_uow)
+    result = await use_case.execute(_make_input("PROJ-001"))
+
+    # The dependency graph should influence date calculation
+    assert result.story_start_date is not None
+    assert result.story_end_date is not None
+
+
+@pytest.mark.asyncio
+async def test_no_free_devs_recommendation_is_none(mock_uow):
+    """When all developers are busy, recommended_developer_id should be None."""
+    target = _make_story(
+        "PROJ-001",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 3),
+    )
+    blocking = _make_story(
+        "PROJ-002",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 5),
+        developer_id=1,
+    )
+    dev1 = Developer(id=1, name="Busy Dev")
+
+    mock_uow.stories.get_by_id.return_value = target
+    mock_uow.stories.get_all.return_value = [target, blocking]
+    mock_uow.developers.get_all.return_value = [dev1]
+
+    use_case = GetDeveloperAvailabilityUseCase(mock_uow)
+    result = await use_case.execute(_make_input("PROJ-001"))
+
+    assert result.recommended_developer_id is None
+
+
+@pytest.mark.asyncio
+async def test_find_blocking_stories_skips_no_date_stories(mock_uow):
+    """Stories without start_date or end_date should not block a developer."""
+    target = _make_story(
+        "PROJ-001",
+        start_date=date(2026, 4, 1),
+        end_date=date(2026, 4, 3),
+    )
+    # Story with no dates - should not block
+    no_date_story = _make_story(
+        "PROJ-002",
+        developer_id=1,
+    )
+    dev1 = Developer(id=1, name="Dev")
+
+    mock_uow.stories.get_by_id.return_value = target
+    mock_uow.stories.get_all.return_value = [target, no_date_story]
+    mock_uow.developers.get_all.return_value = [dev1]
+
+    use_case = GetDeveloperAvailabilityUseCase(mock_uow)
+    result = await use_case.execute(_make_input("PROJ-001"))
+
+    assert len(result.developers) == 1
+    assert result.developers[0].is_available is True
