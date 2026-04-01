@@ -321,3 +321,60 @@ class TestIconManager:
         manager = IconManager(icons_dir=tmp_path)
         icon = manager.get("plus")
         assert icon is not None
+
+
+# ---------------------------------------------------------------------------
+# get_icon_manager / _initialize_icon_manager
+# ---------------------------------------------------------------------------
+
+
+class TestIconManagerGlobals:
+    """Tests for global icon manager lazy init and initialization."""
+
+    def test_get_icon_manager_lazy_init(self, tmp_path: Path):
+        """get_icon_manager should create an IconManager on first call."""
+        import backlog_manager.presentation.theme.theme as theme_module
+
+        # Reset the module-level singleton
+        original = theme_module._icon_manager
+        theme_module._icon_manager = None
+        try:
+            with patch.object(
+                theme_module,
+                "IconManager",
+                return_value=IconManager(icons_dir=tmp_path),
+            ) as mock_cls:
+                result = theme_module.get_icon_manager()
+                assert result is not None
+                mock_cls.assert_called_once()
+        finally:
+            theme_module._icon_manager = original
+
+    def test_get_icon_manager_returns_existing_instance(self, tmp_path: Path):
+        """get_icon_manager should return existing instance if already created."""
+        import backlog_manager.presentation.theme.theme as theme_module
+
+        original = theme_module._icon_manager
+        fake_manager = IconManager(icons_dir=tmp_path)
+        theme_module._icon_manager = fake_manager
+        try:
+            result = theme_module.get_icon_manager()
+            assert result is fake_manager
+        finally:
+            theme_module._icon_manager = original
+
+    def test_initialize_icon_manager_sets_module_variable(self, tmp_path: Path):
+        """_initialize_icon_manager should set the module-level icon_manager."""
+        import backlog_manager.presentation.theme.theme as theme_module
+
+        original_singleton = theme_module._icon_manager
+        original_compat = theme_module.icon_manager
+        # Set _icon_manager to a known fake so get_icon_manager returns it
+        fake_manager = IconManager(icons_dir=tmp_path)
+        theme_module._icon_manager = fake_manager
+        try:
+            theme_module._initialize_icon_manager()
+            assert theme_module.icon_manager is fake_manager
+        finally:
+            theme_module._icon_manager = original_singleton
+            theme_module.icon_manager = original_compat
