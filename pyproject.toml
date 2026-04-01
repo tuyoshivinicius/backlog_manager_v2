@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "zion-backlog-manager"
-version = "0.1.0"
+version = "1.0.0"
 description = "A desktop backlog manager with automatic developer allocation, built with PySide6"
 authors = ["Tuyoshi Vinicius <tuyoshi.dev@gmail.com>"]
 license = "MIT"
