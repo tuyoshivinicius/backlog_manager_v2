@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.6 (2026-04-02)
+
+### Bug Fixes
+
+- Add verbose output to pypi publish for debugging 400 error
+  ([`dbefebc`](https://github.com/tuyoshivinicius/zion-backlog-manager/commit/dbefebcc525e56e78f92bfdf8b344a7d50cfcfee))
+
+
 ## v1.0.5 (2026-04-02)
 
 ### Bug Fixes
