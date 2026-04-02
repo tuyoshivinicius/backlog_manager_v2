@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.3 (2026-04-02)
+
+### Bug Fixes
+
+- Use correct commit SHA for pypi publish action docker image
+  ([`a672526`](https://github.com/tuyoshivinicius/zion-backlog-manager/commit/a6725261971ca94e196409cc7371e7661a24a24b))
+
+
 ## v1.0.2 (2026-04-01)
 
 ### Bug Fixes
