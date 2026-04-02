@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.4 (2026-04-02)
+
+### Bug Fixes
+
+- Remove attestations permission from publish jobs
+  ([`5f42b24`](https://github.com/tuyoshivinicius/zion-backlog-manager/commit/5f42b2473e6c0c1c6602ad7654672424c6de2085))
+
+
 ## v1.0.3 (2026-04-02)
 
 ### Bug Fixes
