@@ -55,7 +55,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      attestations: write
 
     steps:
       - name: Download dist artifact
@@ -79,7 +78,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      attestations: write
 
     steps:
       - name: Download dist artifact
