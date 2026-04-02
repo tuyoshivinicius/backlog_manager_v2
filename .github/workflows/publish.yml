@@ -92,6 +92,7 @@ jobs:
         with:
           skip-existing: true
           attestations: false
+          verbose: true
 
   github-release:
     name: GitHub Release
