@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.5 (2026-04-02)
+
+### Bug Fixes
+
+- Explicitly disable attestations in pypi publish action
+  ([`5785c93`](https://github.com/tuyoshivinicius/zion-backlog-manager/commit/5785c93afc8b1260694e7cfcf949bab41deff437))
+
+
 ## v1.0.4 (2026-04-02)
 
 ### Bug Fixes
