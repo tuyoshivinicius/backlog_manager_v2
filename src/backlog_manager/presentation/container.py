@@ -78,6 +78,9 @@ if TYPE_CHECKING:
     from backlog_manager.presentation.viewmodels.reset_planning_viewmodel import (
         ResetPlanningViewModel,
     )
+    from backlog_manager.presentation.viewmodels.roadmap_viewmodel import (
+        RoadmapViewModel,
+    )
     from backlog_manager.presentation.viewmodels.schedule_viewmodel import (
         ScheduleViewModel,
     )
@@ -130,6 +133,7 @@ class DIContainer:
         self._manual_allocation_dialog_viewmodel: (
             ManualAllocationDialogViewModel | None
         ) = None
+        self._roadmap_viewmodel: RoadmapViewModel | None = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -665,3 +669,16 @@ class DIContainer:
                 self
             )
         return self._manual_allocation_dialog_viewmodel
+
+    @property
+    def roadmap_viewmodel(self) -> RoadmapViewModel:
+        """Get the RoadmapViewModel instance (lazy loaded)."""
+        if self._roadmap_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.roadmap_viewmodel import (
+                RoadmapViewModel,
+            )
+
+            self._roadmap_viewmodel = RoadmapViewModel(
+                container=self,
+            )
+        return self._roadmap_viewmodel

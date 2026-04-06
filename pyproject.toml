@@ -26,6 +26,7 @@ pydantic = "^2.0"
 PySide6 = "^6.10.0"
 qasync = "^0.27.1"
 openpyxl = "^3.1.0"
+matplotlib = "^3.10.0"
 
 [tool.poetry.scripts]
 zion-backlog-manager = "backlog_manager.presentation.app:main"
@@ -84,7 +85,7 @@ warn_unreachable = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["PySide6.*", "qasync.*", "openpyxl.*"]
+module = ["PySide6.*", "qasync.*", "openpyxl.*", "matplotlib.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -99,6 +100,11 @@ warn_return_any = false
 
 [[tool.mypy.overrides]]
 module = "backlog_manager.presentation.container"
+disable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
+module = "backlog_manager.presentation.views.roadmap_dialog"
+disallow_untyped_calls = false
 disable_error_code = ["arg-type"]
 
 [tool.pydantic-mypy]
