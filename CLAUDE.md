@@ -31,6 +31,12 @@
 - Python 3.13+ (runtime), GitHub Actions YAML (workflows) + python-semantic-release v9+ (dev), gh CLI (pré-instalado nos runners) (037-auto-versioning-cicd)
 - N/A — sem alterações de banco de dados (037-auto-versioning-cicd)
 - N/A (Markdown/documentação) + N/A — nenhuma dependência de código (038-readme-profissional)
+- Python 3.11+ (runtime) + PySide6 ^6.10.0 (QGraphicsView, QGraphicsScene, QGraphicsItem, QDialog), qasync ^0.27.1, Pydantic ^2.0 (039-roadmap-visualization)
+- QSettings (INI format) para preferencias de indicadores visuais; sem alteracoes SQLite (dados lidos via use cases existentes) (039-roadmap-visualization)
+- Python 3.13+ (runtime), 3.11+ (compatibilidade) + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, matplotlib (nova dependencia) (040-roadmap-refactor)
+- N/A (dados lidos via use cases existentes — sem alteracoes SQLite) (040-roadmap-refactor)
+- Python 3.13+ (runtime), 3.11+ (compatibilidade) + PySide6 ^6.10.0, matplotlib ^3.10.0, qasync ^0.27.1, Pydantic ^2.0 (041-roadmap-ux-overhaul)
+- N/A (dados lidos via use cases existentes — sem alterações SQLite) (042-roadmap-ux-fix)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)
