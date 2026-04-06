@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v1.1.0 (2026-04-06)
+
+### Features
+
+- **EP-043**: Add roadmap visualization with Gantt chart dialog
+  ([`7c84b07`](https://github.com/tuyoshivinicius/zion-backlog-manager/commit/7c84b0785c9b730e4c0ad1c715223d022b67f20d))
+
+Implements a fullscreen roadmap dialog with matplotlib-based Gantt timeline, collapsible feature
+  groups, filtering (feature/developer/component/search), dependency arrows, zoom/pan navigation,
+  and progress indicators.
+
+- Add RoadmapViewModel with data loading, grouping, and filtering logic - Add RoadmapDialog with
+  embedded matplotlib canvas and rich tooltips - Wire roadmap action into MainWindow toolbar and
+  Tools menu (Ctrl+Shift+R) - Add matplotlib dependency and mypy overrides - Include specs, docs,
+  and comprehensive unit tests
+
+
 ## v1.0.1 (2026-04-02)
 
 ### Bug Fixes
