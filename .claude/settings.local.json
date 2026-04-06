@@ -21,7 +21,11 @@
       "Bash(poetry run:*)",
       "Bash(echo \"exit: $?\")",
       "Bash(poetry lock:*)",
-      "Bash(poetry add:*)"
+      "Bash(poetry add:*)",
+      "Bash(grep -E 'refs/heads/[0-9]+-roadmap-ux-fix$')",
+      "Bash(grep -E '^[* ]*[0-9]+-roadmap-ux-fix$')",
+      "Bash(xargs grep:*)",
+      "Bash(sed:*)"
     ]
   }
 }

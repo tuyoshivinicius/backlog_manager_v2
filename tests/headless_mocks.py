@@ -108,8 +108,14 @@ class MockQSettings:
     def setValue(self, key, value):  # noqa: N802
         MockQSettings._store[f"{self._group}/{key}"] = value
 
-    def value(self, key, default=None):
-        return MockQSettings._store.get(f"{self._group}/{key}", default)
+    def value(self, key, default=None, type=None):
+        val = MockQSettings._store.get(f"{self._group}/{key}", default)
+        if type is not None and val is not default:
+            try:
+                val = type(val)
+            except (TypeError, ValueError):
+                val = default
+        return val
 
     def remove(self, key):
         prefix = f"{key}/"

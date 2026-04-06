@@ -353,6 +353,8 @@ class MainWindow(QMainWindow):
         tools_menu.addSeparator()
         tools_menu.addAction(self._action_schedule)
         tools_menu.addAction(self._action_allocate)
+        tools_menu.addSeparator()
+        tools_menu.addAction(self._action_roadmap)
 
         # Menu Ajuda
         help_menu = menu_bar.addMenu("A&juda")
@@ -455,6 +457,12 @@ class MainWindow(QMainWindow):
         self._action_allocate.setToolTip("Alocar Desenvolvedores (Ctrl+Shift+A)")
         self._action_allocate.triggered.connect(self._on_allocate)
         toolbar.addAction(self._action_allocate)
+
+        self._action_roadmap = QAction(icon.get("calendar-check"), "Roadmap", self)
+        self._action_roadmap.setShortcut(QKeySequence("Ctrl+Shift+R"))
+        self._action_roadmap.setToolTip("Visualizar Roadmap (Ctrl+Shift+R)")
+        self._action_roadmap.triggered.connect(self._on_roadmap)
+        toolbar.addAction(self._action_roadmap)
 
         toolbar.addSeparator()
 
@@ -1453,6 +1461,22 @@ class MainWindow(QMainWindow):
 
         text = "\n".join(f"\u2022 {w}" for w in self._current_warnings)
         QMessageBox.information(self, "Avisos da Alocacao", text)
+
+    # --- Roadmap ---
+
+    def _on_roadmap(self) -> None:
+        """Handle roadmap visualization action."""
+        logger.debug("Roadmap action triggered")
+        QTimer.singleShot(0, lambda: self._create_task(self._execute_roadmap()))
+
+    async def _execute_roadmap(self) -> None:
+        """Load roadmap data and open dialog."""
+        from backlog_manager.presentation.views.roadmap_dialog import RoadmapDialog
+
+        vm = self._container.roadmap_viewmodel
+        dialog = RoadmapDialog(vm, parent=self)
+        dialog.showMaximized()
+        await dialog.load_and_render()
 
     # --- Status bar ---
 
