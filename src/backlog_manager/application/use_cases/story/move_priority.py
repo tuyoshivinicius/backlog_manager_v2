@@ -26,10 +26,11 @@ class MovePriorityUseCase:
         """
         self._uow = uow
 
-    async def move_up(self, story_id: str) -> StoryOutputDTO:
+    async def move_up(self, planning_id: int, story_id: str) -> StoryOutputDTO:
         """Move historia para cima (menor prioridade = mais prioritaria).
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia a mover.
 
         Returns:
@@ -38,7 +39,7 @@ class MovePriorityUseCase:
         Raises:
             ValueError: Se historia nao existe ou ja esta no topo.
         """
-        story = await self._uow.stories.get_by_id(story_id)
+        story = await self._uow.stories.get_by_id(planning_id, story_id)
         if story is None:
             raise ValueError(f"Historia {story_id} nao encontrada")
 
@@ -49,7 +50,9 @@ class MovePriorityUseCase:
             raise ValueError(f"Historia {story_id} ja esta no topo do backlog")
 
         # Get adjacent story
-        adjacent = await self._uow.stories.get_by_priority(story.priority - 1)
+        adjacent = await self._uow.stories.get_by_priority(
+            planning_id, story.priority - 1
+        )
 
         if adjacent is not None:
             # Swap priorities with adjacent story
@@ -63,10 +66,11 @@ class MovePriorityUseCase:
 
         return StoryOutputDTO.from_entity(story)
 
-    async def move_down(self, story_id: str) -> StoryOutputDTO:
+    async def move_down(self, planning_id: int, story_id: str) -> StoryOutputDTO:
         """Move historia para baixo (maior prioridade = menos prioritaria).
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia a mover.
 
         Returns:
@@ -75,7 +79,7 @@ class MovePriorityUseCase:
         Raises:
             ValueError: Se historia nao existe ou ja esta no fim.
         """
-        story = await self._uow.stories.get_by_id(story_id)
+        story = await self._uow.stories.get_by_id(planning_id, story_id)
         if story is None:
             raise ValueError(f"Historia {story_id} nao encontrada")
 
@@ -86,7 +90,9 @@ class MovePriorityUseCase:
             raise ValueError(f"Historia {story_id} ja esta no fim do backlog")
 
         # Get adjacent story
-        adjacent = await self._uow.stories.get_by_priority(story.priority + 1)
+        adjacent = await self._uow.stories.get_by_priority(
+            planning_id, story.priority + 1
+        )
 
         if adjacent is not None:
             # Swap priorities with adjacent story

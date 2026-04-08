@@ -29,6 +29,7 @@ def _make_story(
 ) -> Story:
     """Helper to create a Story with optional calculated fields."""
     return Story(
+        planning_id=1,
         id=story_id,
         component=story_id.split("-")[0],
         name=f"Historia {story_id}",
@@ -82,7 +83,7 @@ class TestResetPlanningUseCase:
         )
         mock_story_repo.get_all.return_value = [story]
 
-        result = await use_case.execute(ResetPlanningInputDTO())
+        result = await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         assert result.success is True
         assert result.stories_reset == 1
@@ -104,7 +105,7 @@ class TestResetPlanningUseCase:
         )
         mock_story_repo.get_all.return_value = [story]
 
-        await use_case.execute(ResetPlanningInputDTO())
+        await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         assert story.id == "AUTH-001"
         assert story.component == "AUTH"
@@ -126,7 +127,7 @@ class TestResetPlanningUseCase:
         )
         mock_story_repo.get_all.return_value = [story]
 
-        result = await use_case.execute(ResetPlanningInputDTO())
+        result = await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         # Dependencies are stored separately in Story_Dependency table,
         # not on the Story entity. The use case only clears story fields.
@@ -145,7 +146,7 @@ class TestResetPlanningUseCase:
         )
         mock_story_repo.get_all.return_value = [story]
 
-        await use_case.execute(ResetPlanningInputDTO())
+        await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         assert story.status == StoryStatus.EXECUCAO
 
@@ -159,13 +160,13 @@ class TestResetPlanningUseCase:
         mock_story_repo.update.side_effect = [None, RuntimeError("DB error")]
 
         with pytest.raises(RuntimeError, match="DB error"):
-            await use_case.execute(ResetPlanningInputDTO())
+            await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
     async def test_reset_planning_empty_backlog(self, use_case, mock_story_repo):
         """T010: Should succeed with 0 stories reset when backlog is empty."""
         mock_story_repo.get_all.return_value = []
 
-        result = await use_case.execute(ResetPlanningInputDTO())
+        result = await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         assert result.success is True
         assert result.stories_reset == 0
@@ -181,7 +182,7 @@ class TestResetPlanningUseCase:
         ]
         mock_story_repo.get_all.return_value = stories
 
-        result = await use_case.execute(ResetPlanningInputDTO())
+        result = await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         assert result.success is True
         assert result.stories_reset == 0
@@ -199,7 +200,7 @@ class TestResetPlanningUseCase:
         )
         mock_story_repo.get_all.return_value = [story_dev_only, story_dates_only]
 
-        result = await use_case.execute(ResetPlanningInputDTO())
+        result = await use_case.execute(ResetPlanningInputDTO(planning_id=1))
 
         assert result.success is True
         assert result.stories_reset == 2

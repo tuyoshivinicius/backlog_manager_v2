@@ -56,16 +56,24 @@ class ResetPlanningViewModel(QObject):
         """Return True if reset is in progress."""
         return self._is_running
 
+    def _get_active_planning_id(self) -> int | None:
+        """Get the active planning ID from the main window viewmodel."""
+        return self._container.main_window_viewmodel.active_planning_id
+
     async def preview(self) -> CountAffectedStoriesOutputDTO | None:
         """Get preview counts of affected stories.
 
         Returns:
             DTO with counts or None on error.
         """
+        planning_id = self._get_active_planning_id()
+        if planning_id is None:
+            return None
+
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_count_affected_stories_use_case(uow)
-                return await use_case.execute()
+                return await use_case.execute(planning_id)
         except Exception as e:
             logger.error("Failed to get preview counts: %s", e)
             return None
@@ -76,6 +84,10 @@ class ResetPlanningViewModel(QObject):
         Returns:
             DTO with results or None if already running or on error.
         """
+        planning_id = self._get_active_planning_id()
+        if planning_id is None:
+            return None
+
         if self._is_running:
             logger.warning("Reset planning already running")
             return None
@@ -87,7 +99,9 @@ class ResetPlanningViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_reset_planning_use_case(uow)
-                result = await use_case.execute(ResetPlanningInputDTO())
+                result = await use_case.execute(
+                    ResetPlanningInputDTO(planning_id=planning_id)
+                )
 
             logger.info(
                 "Reset planning completed: %d stories reset", result.stories_reset

@@ -46,6 +46,7 @@ def _make_story(
     dependency_ids: list[str] | None = None,
 ) -> StoryOutputDTO:
     return StoryOutputDTO(
+        planning_id=1,
         id=id,
         component=component,
         name=name,

@@ -30,13 +30,16 @@ class CountAffectedStoriesUseCase:
         """
         self._uow = uow
 
-    async def execute(self) -> CountAffectedStoriesOutputDTO:
+    async def execute(self, planning_id: int) -> CountAffectedStoriesOutputDTO:
         """Execute the count operation.
+
+        Args:
+            planning_id: ID do planning ativo.
 
         Returns:
             Output DTO with counts of affected stories.
         """
-        all_stories = await self._uow.stories.get_all()
+        all_stories = await self._uow.stories.get_all(planning_id)
 
         total = 0
         with_dates = 0

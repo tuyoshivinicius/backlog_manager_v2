@@ -112,7 +112,7 @@ class TestImportExcelUseCase:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 2
         assert result.success is True
@@ -138,7 +138,7 @@ class TestImportExcelUseCase:
         mock_story_repo.get_max_id_number.return_value = 0
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 1
         # Check the story was created with generated ID
@@ -171,7 +171,7 @@ class TestImportExcelUseCase:
         mock_feature_repo.get_all.return_value = []
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.features_created == 1
         mock_feature_repo.add.assert_called_once()
@@ -212,10 +212,10 @@ class TestImportExcelUseCase:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 2
-        mock_dependency_repo.add.assert_called_once_with("AUTH-002", "AUTH-001")
+        mock_dependency_repo.add.assert_called_once_with(1, "AUTH-002", "AUTH-001")
 
     async def test_import_empty_file_returns_zero_counts(
         self, use_case, mock_excel_service, valid_excel_file
@@ -227,7 +227,7 @@ class TestImportExcelUseCase:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
         assert result.features_created == 0
@@ -263,7 +263,7 @@ class TestImportExcelUseCase:
         mock_story_repo.exists.side_effect = [True, False]
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         # Only AUTH-002 should be imported
         assert result.stories_imported == 1
@@ -306,7 +306,7 @@ class TestImportValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 1
         assert any("Story Points invalido" in w for w in result.warnings)
@@ -340,7 +340,7 @@ class TestImportValidation:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelCycleDetectedException, match="Ciclo de dependencia"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
     async def test_import_missing_dependency_generates_warning(
         self,
@@ -367,7 +367,7 @@ class TestImportValidation:
         mock_story_repo.exists.return_value = False
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 1
         assert any("nao encontrada" in w for w in result.warnings)
@@ -408,7 +408,7 @@ class TestImportValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 2  # Only valid stories
         assert len(result.warnings) >= 1  # Warning for invalid row
@@ -443,7 +443,7 @@ class TestProgressCallback:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        await use_case.execute(input_dto)
+        await use_case.execute(input_dto, 1)
 
         assert len(progress_values) > 0
         assert 0 in progress_values
@@ -493,7 +493,7 @@ class TestDependencyParsing:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 3
         assert mock_dependency_repo.add.call_count == 2
@@ -523,7 +523,7 @@ class TestLargeFileAndEdgeCases:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert any("mais de 500" in w for w in result.warnings)
 
@@ -547,7 +547,7 @@ class TestLargeFileAndEdgeCases:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 1
         assert any("200 caracteres" in w for w in result.warnings)
@@ -573,7 +573,7 @@ class TestLargeFileAndEdgeCases:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
         assert any("Story Points invalido" in w for w in result.warnings)
@@ -597,7 +597,7 @@ class TestLargeFileAndEdgeCases:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
 
@@ -623,7 +623,7 @@ class TestLargeFileAndEdgeCases:
 
         use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
         assert any("DB error" in w for w in result.warnings)
@@ -664,7 +664,7 @@ class TestLargeFileAndEdgeCases:
 
         use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 2
         assert any("Erro ao criar dependencia" in w for w in result.warnings)
@@ -704,7 +704,7 @@ class TestFeatureHandling:
 
         use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 2
         assert result.features_created == 1
@@ -737,7 +737,7 @@ class TestFeatureHandling:
 
         use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 1
         assert result.features_created == 0
@@ -773,7 +773,7 @@ class TestFeatureHandling:
 
         use_case = ImportExcelUseCase(mock_uow, mock_excel_service)
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.features_created == 1
         added_feature = mock_uow.features.add.call_args[0][0]
@@ -810,7 +810,7 @@ class TestParsingEdgeCases:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         # Only one real dependency (A-001), empty parts should be ignored
         assert result.stories_imported == 2

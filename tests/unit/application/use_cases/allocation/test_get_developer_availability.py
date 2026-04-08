@@ -27,6 +27,7 @@ def _make_story(
     status: StoryStatus = StoryStatus.BACKLOG,
 ) -> Story:
     return Story(
+        planning_id=1,
         id=story_id,
         component=story_id.split("-")[0],
         name=f"Historia {story_id}",
@@ -75,7 +76,7 @@ async def test_story_not_found(mock_uow):
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
 
     with pytest.raises(ValueError, match="nao encontrada"):
-        await use_case.execute(_make_input())
+        await use_case.execute(_make_input(), 1)
 
 
 @pytest.mark.asyncio
@@ -87,7 +88,7 @@ async def test_story_without_story_points(mock_uow):
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
 
     with pytest.raises(ValueError, match="sem story points"):
-        await use_case.execute(_make_input())
+        await use_case.execute(_make_input(), 1)
 
 
 @pytest.mark.asyncio
@@ -99,7 +100,7 @@ async def test_no_developers(mock_uow):
     mock_uow.developers.get_all.return_value = []
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input())
+    result = await use_case.execute(_make_input(), 1)
 
     assert len(result.developers) == 0
     assert result.recommended_developer_id is None
@@ -121,7 +122,7 @@ async def test_all_developers_free(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1, dev2]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     assert len(result.developers) == 2
     assert all(d.is_available for d in result.developers)
@@ -151,7 +152,7 @@ async def test_developer_busy_with_overlap(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1, dev2]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     busy_devs = [d for d in result.developers if not d.is_available]
     free_devs = [d for d in result.developers if d.is_available]
@@ -181,7 +182,7 @@ async def test_recommendation_goes_to_free_dev(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1, dev2]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     recommended = [d for d in result.developers if d.is_recommended]
     assert len(recommended) == 1
@@ -211,7 +212,7 @@ async def test_free_devs_sorted_first(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1, dev2]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     assert result.developers[0].is_available is True
     assert result.developers[1].is_available is False
@@ -239,7 +240,7 @@ async def test_concluido_stories_dont_block(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     assert len(result.developers) == 1
     assert result.developers[0].is_available is True
@@ -259,7 +260,7 @@ async def test_recalculated_dates_returned(mock_uow):
     mock_uow.developers.get_all.return_value = []
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001", start=date(2026, 4, 1)))
+    result = await use_case.execute(_make_input("PROJ-001", start=date(2026, 4, 1)), 1)
 
     assert result.story_start_date is not None
     assert result.story_end_date is not None
@@ -282,7 +283,7 @@ async def test_developer_with_none_id_is_skipped(mock_uow):
     mock_uow.developers.get_all.return_value = [dev_no_id, dev_ok]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     # Only dev with id should appear in results
     assert len(result.developers) == 1
@@ -311,7 +312,7 @@ async def test_dependency_graph_builds_correctly(mock_uow):
     mock_uow.dependencies.get_all_dependencies.return_value = [("PROJ-001", "PROJ-002")]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     # The dependency graph should influence date calculation
     assert result.story_start_date is not None
@@ -339,7 +340,7 @@ async def test_no_free_devs_recommendation_is_none(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     assert result.recommended_developer_id is None
 
@@ -364,7 +365,7 @@ async def test_find_blocking_stories_skips_no_date_stories(mock_uow):
     mock_uow.developers.get_all.return_value = [dev1]
 
     use_case = GetDeveloperAvailabilityUseCase(mock_uow)
-    result = await use_case.execute(_make_input("PROJ-001"))
+    result = await use_case.execute(_make_input("PROJ-001"), 1)
 
     assert len(result.developers) == 1
     assert result.developers[0].is_available is True

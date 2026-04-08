@@ -26,10 +26,13 @@ class ListStoriesUseCase:
         """
         self._uow = uow
 
-    async def _enrich_dtos(self, stories: Sequence[Story]) -> list[StoryOutputDTO]:
+    async def _enrich_dtos(
+        self, planning_id: int, stories: Sequence[Story]
+    ) -> list[StoryOutputDTO]:
         """Enriquece DTOs com developer_name, feature_name, wave e dependency_ids.
 
         Args:
+            planning_id: ID do planejamento.
             stories: Sequencia de entidades Story.
 
         Returns:
@@ -56,7 +59,7 @@ class ListStoriesUseCase:
                     dto.feature_name = feat_info[0]
                     dto.wave = feat_info[1]
 
-            deps = await self._uow.dependencies.get_dependencies(story.id)
+            deps = await self._uow.dependencies.get_dependencies(planning_id, story.id)
             dto.dependency_ids = list(deps)
 
             result.append(dto)
@@ -163,49 +166,61 @@ class ListStoriesUseCase:
 
         return wave_sorted
 
-    async def execute(self) -> Sequence[StoryOutputDTO]:
+    async def execute(self, planning_id: int) -> Sequence[StoryOutputDTO]:
         """Lista todas as historias ordenadas por onda, dependencias e prioridade.
 
         Enriquece DTOs com developer_name, feature_name, wave e dependency_ids.
 
+        Args:
+            planning_id: ID do planejamento.
+
         Returns:
             Lista de DTOs de historias ordenadas por onda, dependencias e prioridade.
         """
-        stories = await self._uow.stories.get_all()
-        return await self._enrich_dtos(stories)
+        stories = await self._uow.stories.get_all(planning_id)
+        return await self._enrich_dtos(planning_id, stories)
 
-    async def execute_by_status(self, status: str) -> Sequence[StoryOutputDTO]:
+    async def execute_by_status(
+        self, planning_id: int, status: str
+    ) -> Sequence[StoryOutputDTO]:
         """Lista historias filtradas por status.
 
         Args:
+            planning_id: ID do planejamento.
             status: Status para filtrar (BACKLOG, IN_PROGRESS, DONE, BLOCKED).
 
         Returns:
             Lista de DTOs de historias com o status especificado.
         """
-        stories = await self._uow.stories.get_by_status(status)
-        return await self._enrich_dtos(stories)
+        stories = await self._uow.stories.get_by_status(planning_id, status)
+        return await self._enrich_dtos(planning_id, stories)
 
-    async def execute_by_feature(self, feature_id: int) -> Sequence[StoryOutputDTO]:
+    async def execute_by_feature(
+        self, planning_id: int, feature_id: int
+    ) -> Sequence[StoryOutputDTO]:
         """Lista historias de uma feature.
 
         Args:
+            planning_id: ID do planejamento.
             feature_id: ID da feature.
 
         Returns:
             Lista de DTOs de historias da feature.
         """
-        stories = await self._uow.stories.get_by_feature(feature_id)
-        return await self._enrich_dtos(stories)
+        stories = await self._uow.stories.get_by_feature(planning_id, feature_id)
+        return await self._enrich_dtos(planning_id, stories)
 
-    async def execute_by_developer(self, developer_id: int) -> Sequence[StoryOutputDTO]:
+    async def execute_by_developer(
+        self, planning_id: int, developer_id: int
+    ) -> Sequence[StoryOutputDTO]:
         """Lista historias alocadas a um desenvolvedor.
 
         Args:
+            planning_id: ID do planejamento.
             developer_id: ID do desenvolvedor.
 
         Returns:
             Lista de DTOs de historias do desenvolvedor.
         """
-        stories = await self._uow.stories.get_by_developer(developer_id)
-        return await self._enrich_dtos(stories)
+        stories = await self._uow.stories.get_by_developer(planning_id, developer_id)
+        return await self._enrich_dtos(planning_id, stories)

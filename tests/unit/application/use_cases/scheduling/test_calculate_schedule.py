@@ -26,6 +26,7 @@ def _make_story(
     end_date: date | None = None,
 ) -> Story:
     return Story(
+        planning_id=1,
         id=story_id,
         component=story_id.rsplit("-", 1)[0],
         name=f"Story {story_id}",
@@ -73,7 +74,7 @@ class TestFilterEligibleStories:
         mock_uow.stories.get_all.return_value = [story]
 
         use_case = CalculateScheduleUseCase(mock_uow)
-        result = await use_case.execute(_make_input())
+        result = await use_case.execute(_make_input(), 1)
 
         assert any("story_points invalido" in w for w in result.warnings)
         assert result.stories_updated == 0
@@ -89,7 +90,7 @@ class TestFilterEligibleStories:
         mock_uow.stories.get_all.return_value = [story]
 
         use_case = CalculateScheduleUseCase(mock_uow)
-        result = await use_case.execute(_make_input(recalculate_all=False))
+        result = await use_case.execute(_make_input(recalculate_all=False), 1)
 
         # Story should be skipped (already has dates)
         assert result.stories_updated == 0
@@ -111,7 +112,7 @@ class TestResolveDependencyEndDates:
         mock_uow.dependencies.get_all_dependencies.return_value = [("A-001", "B-001")]
 
         use_case = CalculateScheduleUseCase(mock_uow)
-        result = await use_case.execute(_make_input())
+        result = await use_case.execute(_make_input(), 1)
 
         # Should have processed and generated a fallback warning
         assert any("sem data" in w for w in result.warnings)
@@ -131,7 +132,7 @@ class TestResolveDependencyEndDates:
         mock_uow.dependencies.get_all_dependencies.return_value = [("A-001", "B-001")]
 
         use_case = CalculateScheduleUseCase(mock_uow)
-        result = await use_case.execute(_make_input())
+        result = await use_case.execute(_make_input(), 1)
 
         assert result.stories_updated == 1
         # No fallback warning because B-001 has an end_date

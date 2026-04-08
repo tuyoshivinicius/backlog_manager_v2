@@ -21,10 +21,13 @@ class AssignDeveloperUseCase:
         """
         self._uow = uow
 
-    async def assign(self, story_id: str, developer_id: int) -> StoryOutputDTO:
+    async def assign(
+        self, planning_id: int, story_id: str, developer_id: int
+    ) -> StoryOutputDTO:
         """Aloca desenvolvedor a uma historia.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia.
             developer_id: ID do desenvolvedor.
 
@@ -35,7 +38,7 @@ class AssignDeveloperUseCase:
             ValueError: Se historia ou desenvolvedor nao existe.
         """
         # Validate story exists
-        story = await self._uow.stories.get_by_id(story_id)
+        story = await self._uow.stories.get_by_id(planning_id, story_id)
         if story is None:
             raise ValueError(f"Historia {story_id} nao encontrada")
 
@@ -52,10 +55,11 @@ class AssignDeveloperUseCase:
 
         return StoryOutputDTO.from_entity(story)
 
-    async def unassign(self, story_id: str) -> StoryOutputDTO:
+    async def unassign(self, planning_id: int, story_id: str) -> StoryOutputDTO:
         """Remove alocacao de desenvolvedor de uma historia.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia.
 
         Returns:
@@ -65,7 +69,7 @@ class AssignDeveloperUseCase:
             ValueError: Se historia nao existe.
         """
         # Validate story exists
-        story = await self._uow.stories.get_by_id(story_id)
+        story = await self._uow.stories.get_by_id(planning_id, story_id)
         if story is None:
             raise ValueError(f"Historia {story_id} nao encontrada")
 

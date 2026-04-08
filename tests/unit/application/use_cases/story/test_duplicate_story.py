@@ -23,6 +23,7 @@ def _make_story(
 ) -> Story:
     """Create a Story entity for testing."""
     return Story(
+        planning_id=1,
         id=story_id,
         component=component,
         name=name,
@@ -66,7 +67,7 @@ class TestDuplicateStoryUseCase:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="Historia .* nao encontrada"):
-            await use_case.execute("AUTH-999")
+            await use_case.execute(1, "AUTH-999")
 
     async def test_creates_duplicate_with_new_id(self, use_case, mock_story_repo):
         """Should create a copy with a new generated ID."""
@@ -74,7 +75,7 @@ class TestDuplicateStoryUseCase:
         mock_story_repo.get_by_id.return_value = original
         mock_story_repo.get_max_id_number.return_value = 1
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.id == "AUTH-002"
         assert result.id != original.id
@@ -84,7 +85,7 @@ class TestDuplicateStoryUseCase:
         original = _make_story(name="Implement login")
         mock_story_repo.get_by_id.return_value = original
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.name == "Implement login (copia)"
 
@@ -94,7 +95,7 @@ class TestDuplicateStoryUseCase:
         mock_story_repo.get_by_id.return_value = original
         mock_story_repo.get_max_priority.return_value = 10
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.priority == 11
 
@@ -104,7 +105,7 @@ class TestDuplicateStoryUseCase:
         original.status = StoryStatus.BACKLOG
         mock_story_repo.get_by_id.return_value = original
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.status == "BACKLOG"
 
@@ -114,7 +115,7 @@ class TestDuplicateStoryUseCase:
         mock_story_repo.get_by_id.return_value = original
         mock_story_repo.get_max_id_number.return_value = 3
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.component == "CORE"
 
@@ -123,7 +124,7 @@ class TestDuplicateStoryUseCase:
         original = _make_story(story_points=StoryPoint.LARGE)
         mock_story_repo.get_by_id.return_value = original
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.story_points == 8
 
@@ -132,7 +133,7 @@ class TestDuplicateStoryUseCase:
         original = _make_story(feature_id=42)
         mock_story_repo.get_by_id.return_value = original
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result.feature_id == 42
 
@@ -141,7 +142,7 @@ class TestDuplicateStoryUseCase:
         original = _make_story()
         mock_story_repo.get_by_id.return_value = original
 
-        await use_case.execute("AUTH-001")
+        await use_case.execute(1, "AUTH-001")
 
         mock_story_repo.add.assert_called_once()
         added = mock_story_repo.add.call_args[0][0]
@@ -153,7 +154,7 @@ class TestDuplicateStoryUseCase:
         original = _make_story()
         mock_story_repo.get_by_id.return_value = original
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert hasattr(result, "id")
         assert hasattr(result, "component")
@@ -167,6 +168,6 @@ class TestDuplicateStoryUseCase:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError):
-            await use_case.execute("AUTH-999")
+            await use_case.execute(1, "AUTH-999")
 
         mock_story_repo.add.assert_not_called()

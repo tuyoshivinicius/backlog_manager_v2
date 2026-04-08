@@ -28,33 +28,40 @@ class StoryService:
         """
         self._story_repo = story_repository
 
-    async def generate_story_id(self, component: str) -> str:
+    async def generate_story_id(self, planning_id: int, component: str) -> str:
         """Gera ID unico para nova historia.
 
         Formato: COMPONENTE-NNN (ex: AUTH-001, AUTH-002).
 
         Args:
+            planning_id: ID do planejamento.
             component: Nome do componente.
 
         Returns:
             ID unico no formato padrao.
         """
         component_upper = component.upper()
-        max_number = await self._story_repo.get_max_id_number(component_upper)
+        max_number = await self._story_repo.get_max_id_number(
+            planning_id, component_upper
+        )
         next_number = max_number + 1
         return f"{component_upper}-{next_number:03d}"
 
-    async def get_next_priority(self) -> int:
+    async def get_next_priority(self, planning_id: int) -> int:
         """Retorna proxima prioridade disponivel (fim da fila).
+
+        Args:
+            planning_id: ID do planejamento.
 
         Returns:
             Proxima prioridade (max + 1).
         """
-        max_priority = await self._story_repo.get_max_priority()
+        max_priority = await self._story_repo.get_max_priority(planning_id)
         return max_priority + 1
 
     async def create_story(
         self,
+        planning_id: int,
         component: str,
         name: str,
         story_points: int,
@@ -63,6 +70,7 @@ class StoryService:
         """Cria nova historia com ID e prioridade gerados automaticamente.
 
         Args:
+            planning_id: ID do planejamento.
             component: Componente da historia.
             name: Nome/titulo da historia.
             story_points: Estimativa em pontos (3, 5, 8, 13).
@@ -71,10 +79,11 @@ class StoryService:
         Returns:
             Nova entidade Story criada.
         """
-        story_id = await self.generate_story_id(component)
-        priority = await self.get_next_priority()
+        story_id = await self.generate_story_id(planning_id, component)
+        priority = await self.get_next_priority(planning_id)
 
         return Story(
+            planning_id=planning_id,
             id=story_id,
             component=component.upper(),
             name=name,
@@ -113,22 +122,26 @@ class StoryService:
         Returns:
             True se pode mover, False caso contrario.
         """
-        next_story = await self._story_repo.get_by_priority(story.priority + 1)
+        next_story = await self._story_repo.get_by_priority(
+            story.planning_id, story.priority + 1
+        )
         return next_story is not None
 
-    async def duplicate_story(self, original: Story) -> Story:
+    async def duplicate_story(self, planning_id: int, original: Story) -> Story:
         """Cria copia de historia existente com novo ID e prioridade.
 
         Args:
+            planning_id: ID do planejamento destino.
             original: Historia a duplicar.
 
         Returns:
             Nova historia duplicada.
         """
-        new_id = await self.generate_story_id(original.component)
-        priority = await self.get_next_priority()
+        new_id = await self.generate_story_id(planning_id, original.component)
+        priority = await self.get_next_priority(planning_id)
 
         return Story(
+            planning_id=planning_id,
             id=new_id,
             component=original.component,
             name=f"{original.name} (copia)",

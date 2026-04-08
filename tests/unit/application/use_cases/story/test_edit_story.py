@@ -17,6 +17,7 @@ from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 def mock_story():
     """Create a mock Story entity."""
     story = MagicMock(spec=Story)
+    story.planning_id = 1
     story.id = "TEST-001"
     story.component = "TEST"
     story.name = "Test Story"
@@ -81,7 +82,7 @@ class TestEditStoryDeveloperId:
             developer_id=42,
         )
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.developer_id == 42
 
@@ -96,7 +97,7 @@ class TestEditStoryDeveloperId:
             developer_id=None,
         )
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.developer_id is None
 
@@ -114,7 +115,7 @@ class TestEditStoryNotFound:
         dto = EditStoryInputDTO(story_id="MISS-001")
 
         with pytest.raises(ValueError, match="Historia MISS-001 nao encontrada"):
-            await use_case.execute(dto)
+            await use_case.execute(1, dto)
 
 
 class TestEditStoryFeatureValidation:
@@ -130,7 +131,7 @@ class TestEditStoryFeatureValidation:
         dto = EditStoryInputDTO(story_id="TEST-001", feature_id=999)
 
         with pytest.raises(ValueError, match="Feature com ID 999 nao encontrada"):
-            await use_case.execute(dto)
+            await use_case.execute(1, dto)
 
     @pytest.mark.asyncio
     async def test_skips_feature_validation_when_feature_id_is_none(
@@ -140,7 +141,7 @@ class TestEditStoryFeatureValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         mock_feature_repo.exists.assert_not_called()
 
@@ -153,7 +154,7 @@ class TestEditStoryFeatureValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", feature_id=5)
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.feature_id == 5
 
@@ -167,7 +168,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", name="New Name")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.name == "New Name"
 
@@ -177,7 +178,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", story_points=13)
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.story_points == StoryPoint(13)
 
@@ -187,7 +188,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", status="EXECUCAO")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.status == StoryStatus.EXECUCAO
 
@@ -197,7 +198,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", duration=10)
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.duration == 10
 
@@ -208,7 +209,7 @@ class TestEditStoryPartialUpdate:
         target_date = date(2026, 3, 15)
         dto = EditStoryInputDTO(story_id="TEST-001", start_date=target_date)
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.start_date == target_date
 
@@ -219,7 +220,7 @@ class TestEditStoryPartialUpdate:
         target_date = date(2026, 4, 20)
         dto = EditStoryInputDTO(story_id="TEST-001", end_date=target_date)
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.end_date == target_date
 
@@ -234,7 +235,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.name == original_name
         assert mock_story.story_points == original_points
@@ -246,7 +247,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", name="Updated")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         mock_story_repo.update.assert_awaited_once()
 
@@ -256,7 +257,7 @@ class TestEditStoryPartialUpdate:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", name="Updated")
 
-        result = await use_case.execute(dto)
+        result = await use_case.execute(1, dto)
 
         assert result.id == mock_story.id
 
@@ -274,9 +275,9 @@ class TestEditStoryDependencyValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
-        mock_dependency_repo.get_dependencies.assert_awaited_once_with("TEST-001")
+        mock_dependency_repo.get_dependencies.assert_awaited_once_with(1, "TEST-001")
 
     @pytest.mark.asyncio
     async def test_skips_validation_when_already_concluido(
@@ -287,7 +288,7 @@ class TestEditStoryDependencyValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         mock_dependency_repo.get_dependencies.assert_not_called()
 
@@ -299,7 +300,7 @@ class TestEditStoryDependencyValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", status="EXECUCAO")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         mock_dependency_repo.get_dependencies.assert_not_called()
 
@@ -311,7 +312,7 @@ class TestEditStoryDependencyValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         mock_dependency_repo.get_dependencies.assert_not_called()
 
@@ -325,7 +326,7 @@ class TestEditStoryDependencyValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.status == StoryStatus.CONCLUIDO
 
@@ -349,7 +350,7 @@ class TestEditStoryDependencyValidation:
         dep2.status = StoryStatus.CONCLUIDO
 
         mock_story_repo.get_by_id = AsyncMock(
-            side_effect=lambda sid: {
+            side_effect=lambda pid, sid: {
                 "TEST-001": mock_story,
                 "DEP-001": dep1,
                 "DEP-002": dep2,
@@ -359,7 +360,7 @@ class TestEditStoryDependencyValidation:
         use_case = EditStoryUseCase(mock_uow)
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.status == StoryStatus.CONCLUIDO
 
@@ -376,7 +377,7 @@ class TestEditStoryDependencyValidation:
         dep1.status = StoryStatus.EXECUCAO
 
         mock_story_repo.get_by_id = AsyncMock(
-            side_effect=lambda sid: {
+            side_effect=lambda pid, sid: {
                 "TEST-001": mock_story,
                 "DEP-001": dep1,
             }[sid]
@@ -386,7 +387,7 @@ class TestEditStoryDependencyValidation:
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
         with pytest.raises(IncompleteDependencyException):
-            await use_case.execute(dto)
+            await use_case.execute(1, dto)
 
     @pytest.mark.asyncio
     async def test_skips_none_dependency_story(
@@ -403,7 +404,7 @@ class TestEditStoryDependencyValidation:
         dep2.status = StoryStatus.CONCLUIDO
 
         mock_story_repo.get_by_id = AsyncMock(
-            side_effect=lambda sid: {
+            side_effect=lambda pid, sid: {
                 "TEST-001": mock_story,
                 "DEP-001": None,
                 "DEP-002": dep2,
@@ -414,7 +415,7 @@ class TestEditStoryDependencyValidation:
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
         # Should succeed: DEP-001 is None (skipped), DEP-002 is CONCLUIDO
-        await use_case.execute(dto)
+        await use_case.execute(1, dto)
 
         assert mock_story.status == StoryStatus.CONCLUIDO
 
@@ -431,7 +432,7 @@ class TestEditStoryDependencyValidation:
         dep1.status = StoryStatus.TESTES
 
         mock_story_repo.get_by_id = AsyncMock(
-            side_effect=lambda sid: {
+            side_effect=lambda pid, sid: {
                 "TEST-001": mock_story,
                 "DEP-001": dep1,
             }[sid]
@@ -441,7 +442,7 @@ class TestEditStoryDependencyValidation:
         dto = EditStoryInputDTO(story_id="TEST-001", status="CONCLUIDO")
 
         with pytest.raises(IncompleteDependencyException) as exc_info:
-            await use_case.execute(dto)
+            await use_case.execute(1, dto)
 
         assert exc_info.value.story_id == "TEST-001"
         assert ("DEP-001", "Blocker Story", "TESTES") in (

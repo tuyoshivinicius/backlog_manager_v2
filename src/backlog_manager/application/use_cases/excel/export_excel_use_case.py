@@ -41,7 +41,9 @@ class ExportExcelUseCase:
         self._uow = uow
         self._excel_service = excel_service
 
-    async def execute(self, input_dto: ExportExcelInputDTO) -> ExportExcelOutputDTO:
+    async def execute(
+        self, planning_id: int, input_dto: ExportExcelInputDTO
+    ) -> ExportExcelOutputDTO:
         """Executa exportacao de backlog para arquivo Excel.
 
         Fluxo:
@@ -52,6 +54,7 @@ class ExportExcelUseCase:
         5. Escreve arquivo via ExcelService
 
         Args:
+            planning_id: ID do planejamento.
             input_dto: DTO com caminho do arquivo de destino.
 
         Returns:
@@ -64,7 +67,7 @@ class ExportExcelUseCase:
         logger.info("Iniciando export para arquivo: %s", input_dto.file_path)
 
         # Fetch all data
-        stories = await self._uow.stories.get_all()
+        stories = await self._uow.stories.get_all(planning_id)
         developers = await self._uow.developers.get_all()
         features = await self._uow.features.get_all()
 
@@ -128,7 +131,9 @@ class ExportExcelUseCase:
 
         for story in stories:
             # Get dependencies for this story
-            deps = await self._uow.dependencies.get_dependencies(story.id)
+            deps = await self._uow.dependencies.get_dependencies(
+                story.planning_id, story.id
+            )
             deps_str = self._format_dependencies(list(deps))
 
             # Get developer name

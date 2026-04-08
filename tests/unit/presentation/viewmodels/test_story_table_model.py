@@ -67,6 +67,7 @@ def _invalid_index():
 def sample_stories() -> list[StoryOutputDTO]:
     return [
         StoryOutputDTO(
+            planning_id=1,
             id="COMP-001",
             component="COMP",
             name="Primeira Historia",
@@ -84,6 +85,7 @@ def sample_stories() -> list[StoryOutputDTO]:
             dependency_ids=["API-001"],
         ),
         StoryOutputDTO(
+            planning_id=1,
             id="COMP-002",
             component="COMP",
             name="Segunda Historia",
@@ -101,6 +103,7 @@ def sample_stories() -> list[StoryOutputDTO]:
             dependency_ids=[],
         ),
         StoryOutputDTO(
+            planning_id=1,
             id="API-001",
             component="API",
             name="Terceira Historia",
@@ -255,6 +258,7 @@ class TestStoryTableModelMissingValues:
     @pytest.fixture()
     def minimal_model(self) -> StoryTableModel:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -289,6 +293,7 @@ class TestStoryTableModelMissingValues:
 
     def test_wave_zero_shows_dash(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -307,6 +312,7 @@ class TestStoryTableModelMissingValues:
 
     def test_empty_component_shows_dash(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="",
             name="Test",
@@ -332,6 +338,7 @@ class TestStoryTableModelAlignment:
     @pytest.fixture()
     def model(self) -> StoryTableModel:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -369,6 +376,7 @@ class TestStoryTableModelTooltip:
     @pytest.fixture()
     def model(self) -> StoryTableModel:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="A Long Name",
@@ -454,6 +462,7 @@ class TestStoryTableModelHelpers:
 class TestStoryTableModelEdgeCases:
     def test_developer_id_no_match_shows_dash(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -472,6 +481,7 @@ class TestStoryTableModelEdgeCases:
 
     def test_feature_id_no_match_shows_dash(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -492,6 +502,7 @@ class TestStoryTableModelEdgeCases:
 
     def test_orphaned_dependency_ids_displayed_as_is(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -510,6 +521,7 @@ class TestStoryTableModelEdgeCases:
 
     def test_none_duration_shows_dash(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -535,6 +547,7 @@ class TestStoryTableModelLongText:
     def test_long_name_full_in_tooltip(self) -> None:
         long_name = "A" * 600
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name=long_name,
@@ -585,6 +598,7 @@ class TestStoryTableModelFlags:
     @pytest.fixture()
     def model(self) -> StoryTableModel:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -629,6 +643,7 @@ class TestStoryTableModelSetData:
     @pytest.fixture()
     def model(self) -> StoryTableModel:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -677,6 +692,7 @@ class TestStoryTableModelDisplayDefault:
 
     def test_invalid_column_returns_empty_string(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -723,6 +739,7 @@ class TestStoryTableModelWaveBackground:
 
     def test_wave_zero_returns_none(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -742,6 +759,7 @@ class TestStoryTableModelWaveBackground:
 
     def test_wave_negative_returns_none(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -761,6 +779,7 @@ class TestStoryTableModelWaveBackground:
 
     def test_wave_positive_returns_qcolor(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",
@@ -790,6 +809,7 @@ class TestStoryTableModelDependencyRoleFallthrough:
 
     def test_unknown_role_on_dep_column_returns_none(self) -> None:
         story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test",

@@ -35,16 +35,16 @@ class TestGenerateStoryId:
         """Should generate 001 for component with no stories."""
         mock_story_repo.get_max_id_number.return_value = 0
 
-        result = await story_service.generate_story_id("AUTH")
+        result = await story_service.generate_story_id(1, "AUTH")
 
         assert result == "AUTH-001"
-        mock_story_repo.get_max_id_number.assert_called_once_with("AUTH")
+        mock_story_repo.get_max_id_number.assert_called_once_with(1, "AUTH")
 
     async def test_increments_existing_number(self, story_service, mock_story_repo):
         """Should increment from max existing number."""
         mock_story_repo.get_max_id_number.return_value = 5
 
-        result = await story_service.generate_story_id("CORE")
+        result = await story_service.generate_story_id(1, "CORE")
 
         assert result == "CORE-006"
 
@@ -54,7 +54,7 @@ class TestGenerateStoryId:
         """Should uppercase component in generated ID."""
         mock_story_repo.get_max_id_number.return_value = 0
 
-        result = await story_service.generate_story_id("auth")
+        result = await story_service.generate_story_id(1, "auth")
 
         assert result == "AUTH-001"
 
@@ -62,7 +62,7 @@ class TestGenerateStoryId:
         """Should pad number to 3 digits."""
         mock_story_repo.get_max_id_number.return_value = 99
 
-        result = await story_service.generate_story_id("AUTH")
+        result = await story_service.generate_story_id(1, "AUTH")
 
         assert result == "AUTH-100"
 
@@ -74,7 +74,7 @@ class TestGetNextPriority:
         """Should return 1 when backlog is empty."""
         mock_story_repo.get_max_priority.return_value = 0
 
-        result = await story_service.get_next_priority()
+        result = await story_service.get_next_priority(1)
 
         assert result == 1
 
@@ -82,7 +82,7 @@ class TestGetNextPriority:
         """Should return max + 1."""
         mock_story_repo.get_max_priority.return_value = 10
 
-        result = await story_service.get_next_priority()
+        result = await story_service.get_next_priority(1)
 
         assert result == 11
 
@@ -98,6 +98,7 @@ class TestCreateStory:
         mock_story_repo.get_max_priority.return_value = 3
 
         story = await story_service.create_story(
+            planning_id=1,
             component="AUTH",
             name="Implement login",
             story_points=5,
@@ -115,6 +116,7 @@ class TestCreateStory:
         mock_story_repo.get_max_priority.return_value = 0
 
         story = await story_service.create_story(
+            planning_id=1,
             component="CORE",
             name="Test story",
             story_points=3,
@@ -130,6 +132,7 @@ class TestSwapPriorities:
     def test_swaps_priorities_between_stories(self, story_service):
         """Should swap priority values."""
         story1 = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Story 1",
@@ -137,6 +140,7 @@ class TestSwapPriorities:
             priority=1,
         )
         story2 = Story(
+            planning_id=1,
             id="AUTH-002",
             component="AUTH",
             name="Story 2",
@@ -156,6 +160,7 @@ class TestValidateCanMoveUp:
     def test_returns_false_at_top(self, story_service, mock_story_repo):
         """Should return False when already at top (priority 0)."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Story",
@@ -172,6 +177,7 @@ class TestValidateCanMoveUp:
     ):
         """Should return True when priority is above zero."""
         story = Story(
+            planning_id=1,
             id="AUTH-002",
             component="AUTH",
             name="Story",
@@ -190,6 +196,7 @@ class TestValidateCanMoveDown:
     async def test_returns_false_at_bottom(self, story_service, mock_story_repo):
         """Should return False when no story below."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Story",
@@ -205,6 +212,7 @@ class TestValidateCanMoveDown:
     async def test_returns_true_when_next_exists(self, story_service, mock_story_repo):
         """Should return True when story with next priority exists."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Story",
@@ -212,6 +220,7 @@ class TestValidateCanMoveDown:
             priority=2,
         )
         mock_story_repo.get_by_priority.return_value = Story(
+            planning_id=1,
             id="AUTH-002",
             component="AUTH",
             name="Next",
@@ -233,6 +242,7 @@ class TestDuplicateStory:
         mock_story_repo.get_max_priority.return_value = 5
 
         original = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Original Story",
@@ -241,7 +251,7 @@ class TestDuplicateStory:
             feature_id=42,
         )
 
-        duplicate = await story_service.duplicate_story(original)
+        duplicate = await story_service.duplicate_story(1, original)
 
         assert duplicate.id == "AUTH-011"
         assert duplicate.name == "Original Story (copia)"

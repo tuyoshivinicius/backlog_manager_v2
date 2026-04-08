@@ -4,9 +4,11 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from backlog_manager.domain.entities import Developer, Story
+from backlog_manager.domain.entities import Developer, Planning, Story
 from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 from backlog_manager.infrastructure.database import SQLiteUnitOfWork, init_database
+
+PLANNING_ID = 1
 
 
 @pytest.mark.integration
@@ -19,6 +21,11 @@ class TestTransactions:
         """Create a temporary database path."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             yield Path(tmp_dir) / "test.db"
+
+    async def _create_planning(self, db_path: Path) -> None:
+        """Create a test planning row."""
+        async with SQLiteUnitOfWork(db_path) as uow:
+            await uow.plannings.add(Planning(id=None, name="Test Planning"))
 
     async def test_commit_on_success(self, db_path: Path) -> None:
         """Test transaction commits on successful exit."""
@@ -65,11 +72,13 @@ class TestTransactions:
     async def test_multiple_operations_in_transaction(self, db_path: Path) -> None:
         """Test multiple operations in single transaction."""
         await init_database(db_path)
+        await self._create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             dev_id = await uow.developers.add(Developer(name="John"))
 
             story = Story(
+                planning_id=PLANNING_ID,
                 id="TEST-001",
                 component="TEST",
                 name="Test Story",
@@ -83,7 +92,7 @@ class TestTransactions:
         # Verify all data persisted
         async with SQLiteUnitOfWork(db_path) as uow:
             developers = await uow.developers.get_all()
-            stories = await uow.stories.get_all()
+            stories = await uow.stories.get_all(PLANNING_ID)
 
             assert len(developers) == 1
             assert len(stories) == 1
@@ -92,6 +101,7 @@ class TestTransactions:
     async def test_partial_failure_rollback(self, db_path: Path) -> None:
         """Test partial failure rolls back all changes."""
         await init_database(db_path)
+        await self._create_planning(db_path)
 
         with pytest.raises(ValueError):
             async with SQLiteUnitOfWork(db_path) as uow:
@@ -100,6 +110,7 @@ class TestTransactions:
                 # This should fail - duplicate ID
                 await uow.stories.add(
                     Story(
+                        planning_id=PLANNING_ID,
                         id="TEST-001",
                         component="TEST",
                         name="Story 1",
@@ -109,6 +120,7 @@ class TestTransactions:
                 )
                 await uow.stories.add(
                     Story(
+                        planning_id=PLANNING_ID,
                         id="TEST-001",  # Duplicate
                         component="TEST",
                         name="Story 2",
@@ -120,7 +132,7 @@ class TestTransactions:
         # Verify nothing persisted
         async with SQLiteUnitOfWork(db_path) as uow:
             developers = await uow.developers.get_all()
-            stories = await uow.stories.get_all()
+            stories = await uow.stories.get_all(PLANNING_ID)
 
             assert len(developers) == 0
             assert len(stories) == 0

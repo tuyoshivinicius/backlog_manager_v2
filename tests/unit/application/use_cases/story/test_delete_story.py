@@ -14,6 +14,7 @@ from backlog_manager.domain.value_objects.story_status import StoryStatus
 def _make_story(story_id: str = "AUTH-001") -> Story:
     """Create a Story entity for testing."""
     return Story(
+        planning_id=1,
         id=story_id,
         component="AUTH",
         name="Test story",
@@ -65,17 +66,17 @@ class TestDeleteStoryUseCase:
         story = _make_story()
         mock_story_repo.get_by_id.return_value = story
 
-        await use_case.execute("AUTH-001")
+        await use_case.execute(1, "AUTH-001")
 
-        mock_dependency_repo.remove_all_for_story.assert_called_once_with("AUTH-001")
-        mock_story_repo.delete.assert_called_once_with("AUTH-001")
+        mock_dependency_repo.remove_all_for_story.assert_called_once_with(1, "AUTH-001")
+        mock_story_repo.delete.assert_called_once_with(1, "AUTH-001")
 
     async def test_raises_when_story_not_found(self, use_case, mock_story_repo):
         """Should raise ValueError when story does not exist."""
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="Historia .* nao encontrada"):
-            await use_case.execute("AUTH-999")
+            await use_case.execute(1, "AUTH-999")
 
     async def test_removes_dependencies_before_deleting(
         self, use_case, mock_story_repo, mock_dependency_repo
@@ -90,7 +91,7 @@ class TestDeleteStoryUseCase:
         )
         mock_story_repo.delete.side_effect = lambda *a: call_order.append("delete")
 
-        await use_case.execute("AUTH-001")
+        await use_case.execute(1, "AUTH-001")
 
         assert call_order == ["remove_deps", "delete"]
 
@@ -101,7 +102,7 @@ class TestDeleteStoryUseCase:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError):
-            await use_case.execute("AUTH-999")
+            await use_case.execute(1, "AUTH-999")
 
         mock_dependency_repo.remove_all_for_story.assert_not_called()
         mock_story_repo.delete.assert_not_called()
@@ -111,7 +112,7 @@ class TestDeleteStoryUseCase:
         story = _make_story()
         mock_story_repo.get_by_id.return_value = story
 
-        result = await use_case.execute("AUTH-001")
+        result = await use_case.execute(1, "AUTH-001")
 
         assert result is None
 
@@ -120,6 +121,6 @@ class TestDeleteStoryUseCase:
         story = _make_story(story_id="CORE-005")
         mock_story_repo.get_by_id.return_value = story
 
-        await use_case.execute("CORE-005")
+        await use_case.execute(1, "CORE-005")
 
-        mock_story_repo.get_by_id.assert_called_once_with("CORE-005")
+        mock_story_repo.get_by_id.assert_called_once_with(1, "CORE-005")

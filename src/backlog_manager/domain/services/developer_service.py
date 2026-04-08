@@ -90,7 +90,7 @@ class DeveloperService:
         if existing is None:
             raise ValueError(f"Desenvolvedor nao encontrado: {developer_id}")
 
-        count = await self._story_repo.count_by_developer(developer_id)
+        count = await self._story_repo.count_all_by_developer(developer_id)
         await self._developer_repo.delete(developer_id)
         return count
 

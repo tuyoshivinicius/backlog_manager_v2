@@ -29,6 +29,7 @@ from backlog_manager.domain.exceptions import (  # noqa: E402
 def _make_story(story_id: str, name: str = "Story") -> StoryOutputDTO:
     """Create a minimal StoryOutputDTO for testing."""
     return StoryOutputDTO(
+        planning_id=1,
         id=story_id,
         component="COMP",
         name=f"{name} {story_id}",

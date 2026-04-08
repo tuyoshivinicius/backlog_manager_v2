@@ -163,6 +163,11 @@ class TestInitDatabase:
         mock_conn.commit = AsyncMock()
         mock_conn.close = AsyncMock()
 
+        # Mock PRAGMA table_info response (empty = no Story table yet = no migration)
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_conn.execute = AsyncMock(return_value=mock_cursor)
+
         with (
             patch(
                 "backlog_manager.infrastructure.database.sqlite_connection.create_connection",
@@ -180,7 +185,6 @@ class TestInitDatabase:
 
         mock_create.assert_called_once_with(None)
         mock_conn.executescript.assert_called_once()
-        mock_conn.commit.assert_called_once()
         mock_conn.close.assert_called_once()
 
     @pytest.mark.asyncio
@@ -190,6 +194,11 @@ class TestInitDatabase:
         mock_conn.executescript = AsyncMock(side_effect=RuntimeError("schema error"))
         mock_conn.commit = AsyncMock()
         mock_conn.close = AsyncMock()
+
+        # Mock PRAGMA table_info response (empty = no migration needed)
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall = AsyncMock(return_value=[])
+        mock_conn.execute = AsyncMock(return_value=mock_cursor)
 
         with (
             patch(

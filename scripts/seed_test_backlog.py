@@ -502,8 +502,8 @@ async def generate_stories(
             await conn.execute(
                 """
                 INSERT INTO Story
-                (id, component, name, story_points, priority, status, developer_id, feature_id)
-                VALUES (?, ?, ?, ?, ?, 'BACKLOG', NULL, ?)
+                (planning_id, id, component, name, story_points, priority, status, developer_id, feature_id)
+                VALUES (1, ?, ?, ?, ?, ?, 'BACKLOG', NULL, ?)
                 """,
                 (story_id, component, name, story_points, priority, feature_id),
             )
@@ -746,7 +746,7 @@ async def _insert_dependencies(
     """
     for story_id, depends_on_id in dependencies:
         await conn.execute(
-            "INSERT INTO Story_Dependency (story_id, depends_on_id) VALUES (?, ?)",
+            "INSERT INTO Story_Dependency (planning_id, story_id, depends_on_id) VALUES (1, ?, ?)",
             (story_id, depends_on_id),
         )
 
@@ -828,7 +828,8 @@ async def calculate_story_dates(
     for story_id, _wave, _priority in sorted_stories:
         # Get story points from database
         cursor = await conn.execute(
-            "SELECT story_points FROM Story WHERE id = ?", (story_id,)
+            "SELECT story_points FROM Story WHERE planning_id = 1 AND id = ?",
+            (story_id,),
         )
         row = await cursor.fetchone()
         if not row:
@@ -850,7 +851,7 @@ async def calculate_story_dates(
             """
             UPDATE Story
             SET start_date = ?, end_date = ?, duration = ?
-            WHERE id = ?
+            WHERE planning_id = 1 AND id = ?
             """,
             (start_date.isoformat(), end_date.isoformat(), duration, story_id),
         )
@@ -892,6 +893,12 @@ async def seed_database(
 
     conn = await create_connection(db_path)
     try:
+        # Create default Planning row for seed data
+        await conn.execute(
+            "INSERT OR IGNORE INTO Planning (name) VALUES ('Seed Planning')"
+        )
+        await conn.commit()
+
         # Check for existing data (T015, T017)
         has_data = await check_existing_data(conn)
         if has_data:

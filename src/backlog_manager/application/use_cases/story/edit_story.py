@@ -27,10 +27,13 @@ class EditStoryUseCase:
         """
         self._uow = uow
 
-    async def execute(self, input_dto: EditStoryInputDTO) -> StoryOutputDTO:
+    async def execute(
+        self, planning_id: int, input_dto: EditStoryInputDTO
+    ) -> StoryOutputDTO:
         """Executa edicao de historia.
 
         Args:
+            planning_id: ID do planejamento.
             input_dto: Dados de entrada validados.
 
         Returns:
@@ -40,7 +43,7 @@ class EditStoryUseCase:
             ValueError: Se historia nao existe ou feature_id invalido.
         """
         # Get existing story
-        story = await self._uow.stories.get_by_id(input_dto.story_id)
+        story = await self._uow.stories.get_by_id(planning_id, input_dto.story_id)
         if story is None:
             raise ValueError(f"Historia {input_dto.story_id} nao encontrada")
 
@@ -58,7 +61,9 @@ class EditStoryUseCase:
             and StoryStatus(input_dto.status) == StoryStatus.CONCLUIDO
             and story.status != StoryStatus.CONCLUIDO
         ):
-            await self._validate_dependencies_for_completion(input_dto.story_id)
+            await self._validate_dependencies_for_completion(
+                planning_id, input_dto.story_id
+            )
 
         # Update fields that were provided
         if input_dto.name is not None:
@@ -90,23 +95,28 @@ class EditStoryUseCase:
 
         return StoryOutputDTO.from_entity(story)
 
-    async def _validate_dependencies_for_completion(self, story_id: str) -> None:
+    async def _validate_dependencies_for_completion(
+        self, planning_id: int, story_id: str
+    ) -> None:
         """Validate all direct dependencies are CONCLUIDO.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID of the story being completed.
 
         Raises:
             IncompleteDependencyException: If any direct dependency
                 is not in CONCLUIDO status.
         """
-        dependency_ids = await self._uow.dependencies.get_dependencies(story_id)
+        dependency_ids = await self._uow.dependencies.get_dependencies(
+            planning_id, story_id
+        )
         if not dependency_ids:
             return
 
         incomplete: list[tuple[str, str, str]] = []
         for dep_id in dependency_ids:
-            dep_story = await self._uow.stories.get_by_id(dep_id)
+            dep_story = await self._uow.stories.get_by_id(planning_id, dep_id)
             if dep_story is None:
                 continue
             if dep_story.status != StoryStatus.CONCLUIDO:

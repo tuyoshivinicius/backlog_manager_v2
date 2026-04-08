@@ -25,7 +25,8 @@
       "Bash(grep -E 'refs/heads/[0-9]+-roadmap-ux-fix$')",
       "Bash(grep -E '^[* ]*[0-9]+-roadmap-ux-fix$')",
       "Bash(xargs grep:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(grep -E \"\\\\.py$\")"
     ]
   }
 }

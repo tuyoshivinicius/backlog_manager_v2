@@ -20,6 +20,7 @@ def _make_dto(
 ) -> StoryOutputDTO:
     """Helper to create a StoryOutputDTO for testing."""
     return StoryOutputDTO(
+        planning_id=1,
         id=id,
         component="COMP",
         name=f"Story {id}",
@@ -190,6 +191,7 @@ def _make_story(
 ) -> Story:
     """Helper to create a Story entity for testing."""
     return Story(
+        planning_id=1,
         id=story_id,
         component=component,
         name=f"Story {story_id}",
@@ -222,7 +224,7 @@ def _make_uow(
 
     dep_map = dependency_map or {}
     uow.dependencies.get_dependencies = AsyncMock(
-        side_effect=lambda sid: dep_map.get(sid, [])
+        side_effect=lambda pid, sid: dep_map.get(sid, [])
     )
 
     return uow
@@ -236,10 +238,10 @@ class TestExecute:
         uow = _make_uow()
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result == []
-        uow.stories.get_all.assert_awaited_once()
+        uow.stories.get_all.assert_awaited_once_with(1)
 
     async def test_execute_returns_enriched_dtos(self):
         stories = [_make_story("A-001", developer_id=1, feature_id=10)]
@@ -248,7 +250,7 @@ class TestExecute:
         uow = _make_uow(stories=stories, developers=developers, features=features)
 
         use_case = ListStoriesUseCase(uow)
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert len(result) == 1
         assert result[0].id == "A-001"
@@ -266,16 +268,16 @@ class TestExecuteByStatus:
         uow = _make_uow(stories=stories)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute_by_status("BACKLOG")
+        result = await use_case.execute_by_status(1, "BACKLOG")
 
         assert len(result) == 1
-        uow.stories.get_by_status.assert_awaited_once_with("BACKLOG")
+        uow.stories.get_by_status.assert_awaited_once_with(1, "BACKLOG")
 
     async def test_execute_by_status_empty(self):
         uow = _make_uow(stories=[])
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute_by_status("DONE")
+        result = await use_case.execute_by_status(1, "DONE")
 
         assert result == []
 
@@ -290,10 +292,10 @@ class TestExecuteByFeature:
         uow = _make_uow(stories=stories, features=features)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute_by_feature(5)
+        result = await use_case.execute_by_feature(1, 5)
 
         assert len(result) == 1
-        uow.stories.get_by_feature.assert_awaited_once_with(5)
+        uow.stories.get_by_feature.assert_awaited_once_with(1, 5)
         assert result[0].feature_name == "Feat"
         assert result[0].wave == 2
 
@@ -301,7 +303,7 @@ class TestExecuteByFeature:
         uow = _make_uow(stories=[])
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute_by_feature(999)
+        result = await use_case.execute_by_feature(1, 999)
 
         assert result == []
 
@@ -316,17 +318,17 @@ class TestExecuteByDeveloper:
         uow = _make_uow(stories=stories, developers=developers)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute_by_developer(3)
+        result = await use_case.execute_by_developer(1, 3)
 
         assert len(result) == 1
-        uow.stories.get_by_developer.assert_awaited_once_with(3)
+        uow.stories.get_by_developer.assert_awaited_once_with(1, 3)
         assert result[0].developer_name == "Bob"
 
     async def test_execute_by_developer_empty(self):
         uow = _make_uow(stories=[])
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute_by_developer(999)
+        result = await use_case.execute_by_developer(1, 999)
 
         assert result == []
 
@@ -341,7 +343,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories, developers=developers)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result[0].developer_name == "Alice"
 
@@ -350,7 +352,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result[0].developer_name is None
 
@@ -360,7 +362,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories, developers=developers)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result[0].developer_name is None
 
@@ -370,7 +372,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories, features=features)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result[0].feature_name == "Auth"
         assert result[0].wave == 2
@@ -380,7 +382,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result[0].feature_name is None
         assert result[0].wave == 0
@@ -391,7 +393,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories, features=features)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result[0].feature_name is None
         assert result[0].wave == 0
@@ -402,7 +404,7 @@ class TestEnrichDtos:
         uow = _make_uow(stories=stories, dependency_map=dep_map)
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         dto_a = next(d for d in result if d.id == "A-001")
         dto_b = next(d for d in result if d.id == "B-001")
@@ -432,7 +434,7 @@ class TestEnrichDtos:
         )
         use_case = ListStoriesUseCase(uow)
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert len(result) == 2
         # Wave 1 first (A-001), then wave 2 (B-001)

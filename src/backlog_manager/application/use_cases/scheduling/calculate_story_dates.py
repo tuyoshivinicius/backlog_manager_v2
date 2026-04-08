@@ -42,12 +42,13 @@ class CalculateStoryDatesUseCase:
         self._uow = uow
 
     async def execute(
-        self, input_dto: CalculateStoryDatesInputDTO
+        self, input_dto: CalculateStoryDatesInputDTO, planning_id: int
     ) -> CalculateStoryDatesOutputDTO:
         """Execute story dates calculation.
 
         Args:
             input_dto: Input containing story ID, velocity, and project start date.
+            planning_id: ID do planning ativo.
 
         Returns:
             Output DTO with calculated dates.
@@ -56,17 +57,19 @@ class CalculateStoryDatesUseCase:
             ValueError: If story not found.
         """
         # Get story
-        story = await self._uow.stories.get_by_id(input_dto.story_id)
+        story = await self._uow.stories.get_by_id(planning_id, input_dto.story_id)
         if story is None:
             raise ValueError(f"Historia {input_dto.story_id} nao encontrada")
 
         # Get dependencies
-        dep_ids = await self._uow.dependencies.get_dependencies(input_dto.story_id)
+        dep_ids = await self._uow.dependencies.get_dependencies(
+            planning_id, input_dto.story_id
+        )
 
         # Collect end dates from dependencies
         dependency_end_dates = []
         for dep_id in dep_ids:
-            dep_story = await self._uow.stories.get_by_id(dep_id)
+            dep_story = await self._uow.stories.get_by_id(planning_id, dep_id)
             if dep_story is not None and dep_story.end_date is not None:
                 dependency_end_dates.append(dep_story.end_date)
             else:

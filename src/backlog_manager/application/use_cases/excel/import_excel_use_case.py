@@ -54,7 +54,9 @@ class ImportExcelUseCase:
         self._excel_service = excel_service
         self._progress_callback = progress_callback
 
-    async def execute(self, input_dto: ImportExcelInputDTO) -> ImportExcelOutputDTO:
+    async def execute(
+        self, input_dto: ImportExcelInputDTO, planning_id: int
+    ) -> ImportExcelOutputDTO:
         """Executa importacao de arquivo Excel.
 
         Fluxo:
@@ -66,6 +68,7 @@ class ImportExcelUseCase:
 
         Args:
             input_dto: DTO com caminho do arquivo.
+            planning_id: ID do planejamento.
 
         Returns:
             DTO com contagens e avisos.
@@ -104,12 +107,12 @@ class ImportExcelUseCase:
             features_created,
             pending_dependencies,
             created_story_ids,
-        ) = await self._execute_pass_one(rows, warnings)
+        ) = await self._execute_pass_one(planning_id, rows, warnings)
 
-        await self._validate_cycles(pending_dependencies)
+        await self._validate_cycles(planning_id, pending_dependencies)
 
         deps_created = await self._execute_pass_two(
-            pending_dependencies, created_story_ids, warnings
+            planning_id, pending_dependencies, created_story_ids, warnings
         )
 
         self._report_progress(100)
@@ -131,12 +134,14 @@ class ImportExcelUseCase:
 
     async def _execute_pass_one(
         self,
+        planning_id: int,
         rows: list[dict[str, Any]],
         warnings: list[str],
     ) -> tuple[int, int, list[tuple[str, list[str]]], set[str]]:
         """Pass 1: Create stories and features from rows.
 
         Args:
+            planning_id: ID do planejamento.
             rows: List of row dicts from Excel.
             warnings: List to accumulate warnings.
 
@@ -155,6 +160,7 @@ class ImportExcelUseCase:
         for idx, row in enumerate(rows, start=1):
             try:
                 story, feature_was_created = await self._process_row_pass_one(
+                    planning_id=planning_id,
                     row=row,
                     row_number=idx + 1,
                     story_service=story_service,
@@ -205,11 +211,13 @@ class ImportExcelUseCase:
 
     async def _validate_cycles(
         self,
+        planning_id: int,
         pending_dependencies: list[tuple[str, list[str]]],
     ) -> None:
         """Validate that pending dependencies do not create cycles.
 
         Args:
+            planning_id: ID do planning ativo.
             pending_dependencies: List of (story_id, dep_ids) tuples.
 
         Raises:
@@ -218,7 +226,7 @@ class ImportExcelUseCase:
         if not pending_dependencies:
             return
 
-        existing_deps = await self._uow.dependencies.get_all_dependencies()
+        existing_deps = await self._uow.dependencies.get_all_dependencies(planning_id)
         all_deps = list(existing_deps)
 
         for story_id, dep_ids in pending_dependencies:
@@ -237,6 +245,7 @@ class ImportExcelUseCase:
 
     async def _execute_pass_two(
         self,
+        planning_id: int,
         pending_dependencies: list[tuple[str, list[str]]],
         created_story_ids: set[str],
         warnings: list[str],
@@ -244,6 +253,7 @@ class ImportExcelUseCase:
         """Pass 2: Create dependencies between stories.
 
         Args:
+            planning_id: ID do planning ativo.
             pending_dependencies: List of (story_id, dep_ids) tuples.
             created_story_ids: Set of story IDs created in pass 1.
             warnings: List to accumulate warnings.
@@ -256,7 +266,7 @@ class ImportExcelUseCase:
 
         for dep_idx, (story_id, dep_ids) in enumerate(pending_dependencies):
             deps_created += await self._create_dependencies_for_story(
-                story_id, dep_ids, created_story_ids, warnings
+                planning_id, story_id, dep_ids, created_story_ids, warnings
             )
 
             self._report_progress(50 + int((dep_idx + 1) / total * 50))
@@ -265,6 +275,7 @@ class ImportExcelUseCase:
 
     async def _create_dependencies_for_story(
         self,
+        planning_id: int,
         story_id: str,
         dep_ids: list[str],
         created_story_ids: set[str],
@@ -273,6 +284,7 @@ class ImportExcelUseCase:
         """Create dependencies for a single story.
 
         Args:
+            planning_id: ID do planning ativo.
             story_id: Story that depends on others.
             dep_ids: IDs of stories it depends on.
             created_story_ids: Set of story IDs created in pass 1.
@@ -286,7 +298,7 @@ class ImportExcelUseCase:
             try:
                 dep_exists = (
                     dep_id in created_story_ids
-                    or await self._uow.stories.exists(dep_id)
+                    or await self._uow.stories.exists(planning_id, dep_id)
                 )
                 if not dep_exists:
                     warnings.append(
@@ -295,9 +307,11 @@ class ImportExcelUseCase:
                     )
                     continue
 
-                already_exists = await self._uow.dependencies.exists(story_id, dep_id)
+                already_exists = await self._uow.dependencies.exists(
+                    planning_id, story_id, dep_id
+                )
                 if not already_exists:
-                    await self._uow.dependencies.add(story_id, dep_id)
+                    await self._uow.dependencies.add(planning_id, story_id, dep_id)
                     deps_created += 1
 
             except Exception as e:
@@ -308,6 +322,7 @@ class ImportExcelUseCase:
 
     async def _process_row_pass_one(
         self,
+        planning_id: int,
         row: dict[str, Any],
         row_number: int,
         story_service: StoryService,
@@ -317,6 +332,7 @@ class ImportExcelUseCase:
         """Processa uma linha do Excel no pass 1 (cria story e feature).
 
         Args:
+            planning_id: ID do planning ativo.
             row: Dicionario com dados da linha.
             row_number: Numero da linha no Excel (para mensagens).
             story_service: Servico para geracao de ID.
@@ -329,12 +345,14 @@ class ImportExcelUseCase:
         feature_created = False
 
         # Get and validate ID/Component
-        story_id = await self._generate_id_if_needed(row, row_number, story_service)
+        story_id = await self._generate_id_if_needed(
+            planning_id, row, row_number, story_service
+        )
         if story_id is None:
             return None, False
 
         # Check if story already exists
-        if await self._uow.stories.exists(story_id):
+        if await self._uow.stories.exists(planning_id, story_id):
             warnings.append(
                 f"Linha {row_number}: Historia {story_id} ja existe, ignorada"
             )
@@ -380,10 +398,11 @@ class ImportExcelUseCase:
                 feature_created = True
 
         # Get next priority
-        priority = await story_service.get_next_priority()
+        priority = await story_service.get_next_priority(planning_id)
 
         # Create story entity
         story = Story(
+            planning_id=planning_id,
             id=story_id,
             component=component,
             name=name,
@@ -400,6 +419,7 @@ class ImportExcelUseCase:
 
     async def _generate_id_if_needed(
         self,
+        planning_id: int,
         row: dict[str, Any],
         row_number: int,
         story_service: StoryService,
@@ -407,6 +427,7 @@ class ImportExcelUseCase:
         """Gera ID automatico se coluna ID estiver vazia.
 
         Args:
+            planning_id: ID do planning ativo.
             row: Dicionario com dados da linha.
             row_number: Numero da linha no Excel.
             story_service: Servico para geracao de ID.
@@ -433,7 +454,7 @@ class ImportExcelUseCase:
             return None
 
         # Generate ID
-        return await story_service.generate_story_id(component)
+        return await story_service.generate_story_id(planning_id, component)
 
     async def _create_feature_if_needed(
         self, feature_name: str, feature_cache: dict[str, int]

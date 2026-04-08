@@ -188,7 +188,9 @@ class DependencyPanel(QWidget):
                 # Get dependencies (stories this one depends on)
                 deps_input = GetDependenciesInputDTO(story_id=self._current_story_id)
                 deps_use_case = self._container.create_get_dependencies_use_case(uow)
-                deps_result = await deps_use_case.execute(deps_input)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None
+                deps_result = await deps_use_case.execute(deps_input, planning_id)
 
                 self._depends_on_list.clear()
                 for dep_id in deps_result.dependencies:
@@ -203,7 +205,9 @@ class DependencyPanel(QWidget):
                 dependents_use_case = self._container.create_get_dependents_use_case(
                     uow
                 )
-                dependents_result = await dependents_use_case.execute(dependents_input)
+                dependents_result = await dependents_use_case.execute(
+                    dependents_input, planning_id
+                )
 
                 self._dependents_list.clear()
                 for dep_id in dependents_result.dependents:
@@ -277,7 +281,9 @@ class DependencyPanel(QWidget):
             )
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_add_dependency_use_case(uow)
-                result = await use_case.execute(dto)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None
+                result = await use_case.execute(dto, planning_id)
 
                 if result.warning:
                     QMessageBox.warning(
@@ -339,7 +345,9 @@ class DependencyPanel(QWidget):
             )
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_remove_dependency_use_case(uow)
-                await use_case.execute(dto)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None
+                await use_case.execute(dto, planning_id)
 
             await self._load_dependencies()
             self.dependency_removed.emit(self._current_story_id, depends_on_id)
