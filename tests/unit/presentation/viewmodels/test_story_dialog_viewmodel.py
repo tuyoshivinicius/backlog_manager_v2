@@ -34,6 +34,7 @@ def container() -> MagicMock:
     # create_unit_of_work returns an async context manager
     mock_uow = AsyncMock()
     mock.create_unit_of_work.return_value = mock_uow
+    mock.main_window_viewmodel.active_planning_id = 1
     return mock
 
 
@@ -515,7 +516,7 @@ class TestStoryDialogViewModelDeveloperId:
             result = await viewmodel.save()
 
         assert result is not None
-        call_dto = mock_use_case.execute.call_args[0][0]
+        call_dto = mock_use_case.execute.call_args[0][1]
         assert call_dto.developer_id == 42
 
     @pytest.mark.asyncio
@@ -549,7 +550,7 @@ class TestStoryDialogViewModelDeveloperId:
             result = await viewmodel.save()
 
         assert result is not None
-        call_dto = mock_use_case.execute.call_args[0][0]
+        call_dto = mock_use_case.execute.call_args[0][1]
         assert call_dto.developer_id is None
 
 
@@ -614,7 +615,7 @@ class TestStoryDialogViewModelStatus:
             result = await viewmodel.save()
 
         assert result is not None
-        call_dto = mock_use_case.execute.call_args[0][0]
+        call_dto = mock_use_case.execute.call_args[0][1]
         assert call_dto.status == "CONCLUIDO"
 
 
