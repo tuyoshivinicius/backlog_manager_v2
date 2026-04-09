@@ -22,6 +22,7 @@ def _make_story(
 ) -> Story:
     """Create a Story entity for testing."""
     return Story(
+        planning_id=1,
         id=story_id,
         component=component,
         name=name,
@@ -64,7 +65,7 @@ class TestMoveUp:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="Historia .* nao encontrada"):
-            await use_case.move_up("AUTH-999")
+            await use_case.move_up(1, "AUTH-999")
 
     async def test_raises_when_already_at_top(self, use_case, mock_story_repo):
         """Should raise ValueError when story is already at priority 0."""
@@ -72,7 +73,7 @@ class TestMoveUp:
         mock_story_repo.get_by_id.return_value = story
 
         with pytest.raises(ValueError, match="ja esta no topo"):
-            await use_case.move_up("AUTH-001")
+            await use_case.move_up(1, "AUTH-001")
 
     async def test_swaps_with_adjacent_story(self, use_case, mock_story_repo):
         """Should swap priorities when adjacent story exists."""
@@ -81,7 +82,7 @@ class TestMoveUp:
         mock_story_repo.get_by_id.return_value = story
         mock_story_repo.get_by_priority.return_value = adjacent
 
-        result = await use_case.move_up("AUTH-001")
+        result = await use_case.move_up(1, "AUTH-001")
 
         assert story.priority == 2
         assert adjacent.priority == 3
@@ -95,7 +96,7 @@ class TestMoveUp:
         mock_story_repo.get_by_id.return_value = story
         mock_story_repo.get_by_priority.return_value = None
 
-        result = await use_case.move_up("AUTH-001")
+        result = await use_case.move_up(1, "AUTH-001")
 
         assert story.priority == 4
         assert mock_story_repo.update.call_count == 1
@@ -108,7 +109,7 @@ class TestMoveUp:
         mock_story_repo.get_by_id.return_value = story
         mock_story_repo.get_by_priority.return_value = adjacent
 
-        result = await use_case.move_up("AUTH-001")
+        result = await use_case.move_up(1, "AUTH-001")
 
         assert result.id == "AUTH-001"
         assert result.component == "AUTH"
@@ -122,7 +123,7 @@ class TestMoveDown:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="Historia .* nao encontrada"):
-            await use_case.move_down("AUTH-999")
+            await use_case.move_down(1, "AUTH-999")
 
     async def test_raises_when_already_at_bottom(self, use_case, mock_story_repo):
         """Should raise ValueError when no story exists below."""
@@ -133,7 +134,7 @@ class TestMoveDown:
         mock_story_repo.get_by_priority.return_value = None
 
         with pytest.raises(ValueError, match="ja esta no fim"):
-            await use_case.move_down("AUTH-001")
+            await use_case.move_down(1, "AUTH-001")
 
     async def test_swaps_with_adjacent_story(self, use_case, mock_story_repo):
         """Should swap priorities when adjacent story exists below."""
@@ -143,7 +144,7 @@ class TestMoveDown:
         # Both validate_can_move_down and the adjacent lookup use get_by_priority(4)
         mock_story_repo.get_by_priority.return_value = adjacent
 
-        result = await use_case.move_down("AUTH-001")
+        result = await use_case.move_down(1, "AUTH-001")
 
         assert story.priority == 4
         assert adjacent.priority == 3
@@ -163,7 +164,7 @@ class TestMoveDown:
             None,
         ]
 
-        result = await use_case.move_down("AUTH-001")
+        result = await use_case.move_down(1, "AUTH-001")
 
         assert story.priority == 4
         assert mock_story_repo.update.call_count == 1
@@ -176,7 +177,7 @@ class TestMoveDown:
         mock_story_repo.get_by_id.return_value = story
         mock_story_repo.get_by_priority.return_value = adjacent
 
-        result = await use_case.move_down("AUTH-001")
+        result = await use_case.move_down(1, "AUTH-001")
 
         assert result.id == "AUTH-001"
         assert result.component == "AUTH"

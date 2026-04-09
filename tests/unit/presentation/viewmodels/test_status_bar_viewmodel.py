@@ -24,6 +24,7 @@ from backlog_manager.application.dto.story import StoryOutputDTO  # noqa: E402
 def _make_story(story_id: str, sp: int = 3) -> StoryOutputDTO:
     """Create a minimal StoryOutputDTO for testing."""
     return StoryOutputDTO(
+        planning_id=1,
         id=story_id,
         component="COMP",
         name=f"Story {story_id}",

@@ -119,11 +119,13 @@ class DependencyDialogViewModel(QObject):
             return
 
         try:
+            planning_id = self._container.main_window_viewmodel.active_planning_id
+            assert planning_id is not None, "Active planning must be set"
             async with self._container.create_unit_of_work() as uow:
                 # Dependencias (historias das quais esta depende)
                 deps_input = GetDependenciesInputDTO(story_id=self._story_id)
                 deps_uc = self._container.create_get_dependencies_use_case(uow)
-                deps_result = await deps_uc.execute(deps_input)
+                deps_result = await deps_uc.execute(deps_input, planning_id)
 
                 self._depends_on = [
                     s
@@ -134,7 +136,9 @@ class DependencyDialogViewModel(QObject):
                 # Dependentes (historias que dependem desta)
                 dependents_input = GetDependentsInputDTO(story_id=self._story_id)
                 dependents_uc = self._container.create_get_dependents_use_case(uow)
-                dependents_result = await dependents_uc.execute(dependents_input)
+                dependents_result = await dependents_uc.execute(
+                    dependents_input, planning_id
+                )
 
                 self._dependents = [
                     s
@@ -170,9 +174,11 @@ class DependencyDialogViewModel(QObject):
                 story_id=self._story_id,
                 depends_on_id=target_id,
             )
+            planning_id = self._container.main_window_viewmodel.active_planning_id
+            assert planning_id is not None, "Active planning must be set"
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_add_dependency_use_case(uow)
-                await use_case.execute(dto)
+                await use_case.execute(dto, planning_id)
 
             await self.load_dependencies()
             logger.info("Added dependency: %s depends on %s", self._story_id, target_id)
@@ -209,7 +215,9 @@ class DependencyDialogViewModel(QObject):
             )
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_remove_dependency_use_case(uow)
-                await use_case.execute(dto)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None
+                await use_case.execute(dto, planning_id)
 
             await self.load_dependencies()
             logger.info(

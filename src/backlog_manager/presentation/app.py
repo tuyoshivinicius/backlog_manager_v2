@@ -101,9 +101,9 @@ async def run_application(db_path: Path | None = None) -> int:
 
     logger.info("Main window displayed")
 
-    # Load initial data
-    await container.main_window_viewmodel.load_stories()
-    logger.info("Initial data loaded")
+    # Bootstrap: ensure active planning exists, then load stories
+    await window.initialize_planning()
+    logger.info("Planning initialized and initial data loaded")
 
     # Keep the event loop running while the window is visible
     while window.isVisible():

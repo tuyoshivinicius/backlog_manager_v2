@@ -14,6 +14,7 @@ class TestStory:
     def test_valid_story_creation(self) -> None:
         """Test creating a valid story."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Implement login",
@@ -31,6 +32,7 @@ class TestStory:
     def test_story_with_all_fields(self) -> None:
         """Test creating a story with all optional fields."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Implement login",
@@ -53,6 +55,7 @@ class TestStory:
     def test_story_with_integer_story_points(self) -> None:
         """Test story accepts integer story points and converts to enum."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -66,6 +69,7 @@ class TestStory:
         """Test empty ID raises ValueError."""
         with pytest.raises(ValueError, match="ID da historia nao pode ser vazio"):
             Story(
+                planning_id=1,
                 id="",
                 component="AUTH",
                 name="Test",
@@ -77,6 +81,7 @@ class TestStory:
         """Test whitespace-only ID raises ValueError."""
         with pytest.raises(ValueError, match="ID da historia nao pode ser vazio"):
             Story(
+                planning_id=1,
                 id="   ",
                 component="AUTH",
                 name="Test",
@@ -88,6 +93,7 @@ class TestStory:
         """Test invalid ID format raises ValueError."""
         with pytest.raises(ValueError, match="ID deve seguir padrao COMPONENTE-NNN"):
             Story(
+                planning_id=1,
                 id="INVALID",
                 component="AUTH",
                 name="Test",
@@ -99,6 +105,7 @@ class TestStory:
         """Test lowercase ID raises ValueError."""
         with pytest.raises(ValueError, match="ID deve seguir padrao COMPONENTE-NNN"):
             Story(
+                planning_id=1,
                 id="auth-001",
                 component="AUTH",
                 name="Test",
@@ -110,6 +117,7 @@ class TestStory:
         """Test empty component raises ValueError."""
         with pytest.raises(ValueError, match="Componente nao pode ser vazio"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="",
                 name="Test",
@@ -121,6 +129,7 @@ class TestStory:
         """Test component over 50 chars raises ValueError."""
         with pytest.raises(ValueError, match="Componente nao pode exceder 50"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="A" * 51,
                 name="Test",
@@ -132,6 +141,7 @@ class TestStory:
         """Test empty name raises ValueError."""
         with pytest.raises(ValueError, match="Nome da historia nao pode ser vazio"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="",
@@ -143,6 +153,7 @@ class TestStory:
         """Test name over 200 chars raises ValueError."""
         with pytest.raises(ValueError, match="Nome da historia nao pode exceder 200"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="A" * 201,
@@ -154,6 +165,7 @@ class TestStory:
         """Test invalid story points raises ValueError."""
         with pytest.raises(ValueError, match="Story points deve ser 3, 5, 8 ou 13"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="Test",
@@ -165,6 +177,7 @@ class TestStory:
         """Test negative priority raises ValueError."""
         with pytest.raises(ValueError, match="Prioridade deve ser >= 0"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="Test",
@@ -176,6 +189,7 @@ class TestStory:
         """Test start_date after end_date raises ValueError."""
         with pytest.raises(ValueError, match="Data de inicio nao pode ser posterior"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="Test",
@@ -188,6 +202,7 @@ class TestStory:
     def test_valid_dates(self) -> None:
         """Test valid date range is accepted."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -203,6 +218,7 @@ class TestStory:
     def test_same_start_end_date(self) -> None:
         """Test same start and end date is valid."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -218,6 +234,7 @@ class TestStory:
     def test_story_points_value_3_valid(self) -> None:
         """Story points 3 deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -229,6 +246,7 @@ class TestStory:
     def test_story_points_value_8_valid(self) -> None:
         """Story points 8 deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -240,6 +258,7 @@ class TestStory:
     def test_story_points_value_13_valid(self) -> None:
         """Story points 13 deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -254,6 +273,7 @@ class TestStory:
         for value in invalid_values:
             with pytest.raises(ValueError, match="Story points deve ser 3, 5, 8 ou 13"):
                 Story(
+                    planning_id=1,
                     id="AUTH-001",
                     component="AUTH",
                     name="Test",
@@ -265,6 +285,7 @@ class TestStory:
     def test_default_status_is_backlog(self) -> None:
         """Status padrao deve ser BACKLOG."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -276,6 +297,7 @@ class TestStory:
     def test_status_execucao_valid(self) -> None:
         """Status EXECUCAO deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -288,6 +310,7 @@ class TestStory:
     def test_status_testes_valid(self) -> None:
         """Status TESTES deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -300,6 +323,7 @@ class TestStory:
     def test_status_concluido_valid(self) -> None:
         """Status CONCLUIDO deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -312,6 +336,7 @@ class TestStory:
     def test_status_impedido_valid(self) -> None:
         """Status IMPEDIDO deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -325,6 +350,7 @@ class TestStory:
     def test_max_component_length_valid(self) -> None:
         """Component com exatamente 50 chars deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="A" * 50,
             name="Test",
@@ -336,6 +362,7 @@ class TestStory:
     def test_max_name_length_valid(self) -> None:
         """Name com exatamente 200 chars deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="A" * 200,
@@ -348,6 +375,7 @@ class TestStory:
         """Component com apenas espacos deve lancar ValueError."""
         with pytest.raises(ValueError, match="Componente nao pode ser vazio"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="   ",
                 name="Test",
@@ -359,6 +387,7 @@ class TestStory:
         """Name com apenas espacos deve lancar ValueError."""
         with pytest.raises(ValueError, match="Nome da historia nao pode ser vazio"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="   ",
@@ -369,6 +398,7 @@ class TestStory:
     def test_priority_zero_valid(self) -> None:
         """Prioridade zero deve ser valida."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -380,6 +410,7 @@ class TestStory:
     def test_priority_positive_valid(self) -> None:
         """Prioridade positiva deve ser valida."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -392,6 +423,7 @@ class TestStory:
     def test_duration_none_valid(self) -> None:
         """Duration None deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -404,6 +436,7 @@ class TestStory:
     def test_duration_zero_valid(self) -> None:
         """Duration 0 deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -416,6 +449,7 @@ class TestStory:
     def test_duration_positive_valid(self) -> None:
         """Duration positivo deve ser valido."""
         story = Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Test",
@@ -429,6 +463,7 @@ class TestStory:
         """Duration negativo deve lancar ValueError."""
         with pytest.raises(ValueError, match="Duracao deve ser >= 0"):
             Story(
+                planning_id=1,
                 id="AUTH-001",
                 component="AUTH",
                 name="Test",

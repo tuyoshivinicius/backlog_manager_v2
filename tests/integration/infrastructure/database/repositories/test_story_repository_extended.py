@@ -6,9 +6,17 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from backlog_manager.domain.entities import Story
+from backlog_manager.domain.entities import Planning, Story
 from backlog_manager.domain.value_objects import StoryPoint
 from backlog_manager.infrastructure.database import SQLiteUnitOfWork, init_database
+
+PLANNING_ID = 1
+
+
+async def _create_planning(db_path: Path) -> None:
+    """Create a test planning row."""
+    async with SQLiteUnitOfWork(db_path) as uow:
+        await uow.plannings.add(Planning(id=None, name="Test Planning"))
 
 
 @pytest.mark.integration
@@ -25,17 +33,20 @@ class TestGetMaxIdNumber:
     async def test_returns_zero_when_no_stories(self, db_path: Path):
         """Should return 0 when no stories exist for component."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_max_id_number("AUTH")
+            result = await uow.stories.get_max_id_number(PLANNING_ID, "AUTH")
             assert result == 0
 
     async def test_returns_max_number_for_component(self, db_path: Path):
         """Should return max number for existing component."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             story1 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-001",
                 component="AUTH",
                 name="Story 1",
@@ -43,6 +54,7 @@ class TestGetMaxIdNumber:
                 priority=1,
             )
             story2 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-005",
                 component="AUTH",
                 name="Story 2",
@@ -53,15 +65,17 @@ class TestGetMaxIdNumber:
             await uow.stories.add(story2)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_max_id_number("AUTH")
+            result = await uow.stories.get_max_id_number(PLANNING_ID, "AUTH")
             assert result == 5
 
     async def test_is_case_insensitive(self, db_path: Path):
         """Should match component case-insensitively."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             story = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-003",
                 component="AUTH",
                 name="Story",
@@ -71,15 +85,17 @@ class TestGetMaxIdNumber:
             await uow.stories.add(story)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_max_id_number("auth")
+            result = await uow.stories.get_max_id_number(PLANNING_ID, "auth")
             assert result == 3
 
     async def test_isolates_components(self, db_path: Path):
         """Should return max for specific component only."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             story1 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-010",
                 component="AUTH",
                 name="Auth Story",
@@ -87,6 +103,7 @@ class TestGetMaxIdNumber:
                 priority=1,
             )
             story2 = Story(
+                planning_id=PLANNING_ID,
                 id="CORE-005",
                 component="CORE",
                 name="Core Story",
@@ -97,8 +114,8 @@ class TestGetMaxIdNumber:
             await uow.stories.add(story2)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            assert await uow.stories.get_max_id_number("AUTH") == 10
-            assert await uow.stories.get_max_id_number("CORE") == 5
+            assert await uow.stories.get_max_id_number(PLANNING_ID, "AUTH") == 10
+            assert await uow.stories.get_max_id_number(PLANNING_ID, "CORE") == 5
 
 
 @pytest.mark.integration
@@ -115,17 +132,20 @@ class TestGetMaxPriority:
     async def test_returns_minus_one_when_empty(self, db_path: Path):
         """Should return -1 when no stories exist."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_max_priority()
+            result = await uow.stories.get_max_priority(PLANNING_ID)
             assert result == -1
 
     async def test_returns_max_priority(self, db_path: Path):
         """Should return highest priority value."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             story1 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-001",
                 component="AUTH",
                 name="Story 1",
@@ -133,6 +153,7 @@ class TestGetMaxPriority:
                 priority=1,
             )
             story2 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-002",
                 component="AUTH",
                 name="Story 2",
@@ -140,6 +161,7 @@ class TestGetMaxPriority:
                 priority=5,
             )
             story3 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-003",
                 component="AUTH",
                 name="Story 3",
@@ -151,7 +173,7 @@ class TestGetMaxPriority:
             await uow.stories.add(story3)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_max_priority()
+            result = await uow.stories.get_max_priority(PLANNING_ID)
             assert result == 5
 
 
@@ -169,17 +191,20 @@ class TestGetByPriority:
     async def test_returns_none_when_not_found(self, db_path: Path):
         """Should return None when no story has the priority."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_by_priority(1)
+            result = await uow.stories.get_by_priority(PLANNING_ID, 1)
             assert result is None
 
     async def test_returns_story_with_exact_priority(self, db_path: Path):
         """Should return story with exact priority match."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             story = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-001",
                 component="AUTH",
                 name="Test Story",
@@ -189,7 +214,7 @@ class TestGetByPriority:
             await uow.stories.add(story)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_by_priority(3)
+            result = await uow.stories.get_by_priority(PLANNING_ID, 3)
             assert result is not None
             assert result.id == "AUTH-001"
             assert result.priority == 3
@@ -197,9 +222,11 @@ class TestGetByPriority:
     async def test_returns_correct_story_among_multiple(self, db_path: Path):
         """Should return correct story when multiple exist."""
         await init_database(db_path)
+        await _create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             story1 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-001",
                 component="AUTH",
                 name="Story 1",
@@ -207,6 +234,7 @@ class TestGetByPriority:
                 priority=1,
             )
             story2 = Story(
+                planning_id=PLANNING_ID,
                 id="AUTH-002",
                 component="AUTH",
                 name="Story 2",
@@ -217,6 +245,6 @@ class TestGetByPriority:
             await uow.stories.add(story2)
 
         async with SQLiteUnitOfWork(db_path) as uow:
-            result = await uow.stories.get_by_priority(2)
+            result = await uow.stories.get_by_priority(PLANNING_ID, 2)
             assert result is not None
             assert result.id == "AUTH-002"

@@ -114,7 +114,9 @@ class ManualAllocationDialogViewModel(QObject):
                     velocity=velocity,
                     allocation_criteria="LOAD_BALANCING",
                 )
-                result = await use_case.execute(input_dto)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None
+                result = await use_case.execute(input_dto, planning_id)
 
             self._availability_data = result
             self._new_start_date = result.story_start_date
@@ -167,7 +169,9 @@ class ManualAllocationDialogViewModel(QObject):
                         end_date=self._new_end_date,
                     )
 
-                await use_case.execute(edit_dto)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None
+                await use_case.execute(planning_id, edit_dto)
                 await uow.commit()
 
             self.allocation_confirmed.emit()

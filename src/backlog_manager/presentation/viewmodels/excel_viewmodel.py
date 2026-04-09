@@ -170,8 +170,10 @@ class ExcelViewModel(QObject):
                 use_case = self._container.create_import_excel_use_case(
                     uow, self._progress_callback
                 )
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None, "Active planning must be set"
                 input_dto = ImportExcelInputDTO(file_path=file_path)
-                result = await use_case.execute(input_dto)
+                result = await use_case.execute(input_dto, planning_id)
 
                 self.progress_updated.emit(100)
                 self.import_completed.emit(result)
@@ -225,8 +227,10 @@ class ExcelViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_export_excel_use_case(uow)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None, "Active planning must be set"
                 input_dto = ExportExcelInputDTO(file_path=file_path)
-                result = await use_case.execute(input_dto)
+                result = await use_case.execute(planning_id, input_dto)
 
                 self.progress_updated.emit(100)
                 self.export_completed.emit(result)

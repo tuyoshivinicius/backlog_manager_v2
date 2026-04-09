@@ -37,6 +37,8 @@
 - N/A (dados lidos via use cases existentes — sem alteracoes SQLite) (040-roadmap-refactor)
 - Python 3.13+ (runtime), 3.11+ (compatibilidade) + PySide6 ^6.10.0, matplotlib ^3.10.0, qasync ^0.27.1, Pydantic ^2.0 (041-roadmap-ux-overhaul)
 - N/A (dados lidos via use cases existentes — sem alterações SQLite) (042-roadmap-ux-fix)
+- Python 3.11+ (runtime), Python 3.13 (dev/CI) + PySide6 ^6.10.0, qasync ^0.27.1, Pydantic ^2.0, aiosqlite (045-planning-crud)
+- SQLite (adicao de tabela Planning + migracao de Story com planning_id) (045-planning-crud)
 
 ## Recent Changes
 - 019-backlog-table: Added Python 3.11+ + PySide6 (UI), Pydantic (DTOs), pytest + pytest-qt (testes)

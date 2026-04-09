@@ -24,6 +24,7 @@ def _make_story(
 ) -> Story:
     """Helper to create a Story with optional calculated fields."""
     return Story(
+        planning_id=1,
         id=story_id,
         component=story_id.split("-")[0],
         name=f"Historia {story_id}",
@@ -88,7 +89,7 @@ class TestCountAffectedStoriesUseCase:
         ]
         mock_story_repo.get_all.return_value = stories
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result.total == 3
         assert result.with_dates == 2
@@ -98,7 +99,7 @@ class TestCountAffectedStoriesUseCase:
         """Should return all zeros for empty backlog."""
         mock_story_repo.get_all.return_value = []
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result.total == 0
         assert result.with_dates == 0
@@ -112,7 +113,7 @@ class TestCountAffectedStoriesUseCase:
         ]
         mock_story_repo.get_all.return_value = stories
 
-        result = await use_case.execute()
+        result = await use_case.execute(1)
 
         assert result.total == 0
         assert result.with_dates == 0

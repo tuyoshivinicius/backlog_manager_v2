@@ -132,6 +132,7 @@ from backlog_manager.application.dto.story.story_output_dto import StoryOutputDT
 
 def _make_story(**kwargs) -> StoryOutputDTO:
     defaults = {
+        "planning_id": 1,
         "id": "COMP-001",
         "component": "Backend",
         "name": "Story 1",

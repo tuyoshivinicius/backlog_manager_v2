@@ -31,18 +31,17 @@ class ResetPlanningUseCase:
         """
         self._uow = uow
 
-    async def execute(
-        self, _input_dto: ResetPlanningInputDTO
-    ) -> ResetPlanningOutputDTO:
+    async def execute(self, input_dto: ResetPlanningInputDTO) -> ResetPlanningOutputDTO:
         """Execute the reset planning operation.
 
         Args:
-            input_dto: Input DTO (no parameters needed).
+            input_dto: Input DTO with planning_id.
 
         Returns:
             Output DTO with reset operation results.
         """
-        all_stories = await self._uow.stories.get_all()
+        planning_id = input_dto.planning_id
+        all_stories = await self._uow.stories.get_all(planning_id)
 
         # Filter stories with any calculated field filled
         affected_stories = [

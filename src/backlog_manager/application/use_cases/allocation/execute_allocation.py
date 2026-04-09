@@ -55,7 +55,7 @@ class ExecuteAllocationUseCase:
         self._uow = uow
 
     async def execute(
-        self, input_dto: ExecuteAllocationInputDTO
+        self, input_dto: ExecuteAllocationInputDTO, planning_id: int
     ) -> ExecuteAllocationOutputDTO:
         """Execute automatic allocation of developers to stories.
 
@@ -69,6 +69,7 @@ class ExecuteAllocationUseCase:
 
         Args:
             input_dto: Allocation parameters.
+            planning_id: ID do planning ativo.
 
         Returns:
             ExecuteAllocationOutputDTO with result and metrics.
@@ -79,10 +80,10 @@ class ExecuteAllocationUseCase:
         warnings: list[str] = []
 
         # Get all data
-        all_stories = await self._uow.stories.get_all()
+        all_stories = await self._uow.stories.get_all(planning_id)
         all_developers = await self._uow.developers.get_all()
         all_features = await self._uow.features.get_all()
-        all_deps = await self._uow.dependencies.get_all_dependencies()
+        all_deps = await self._uow.dependencies.get_all_dependencies(planning_id)
 
         logger.info(
             "Starting allocation: %d stories, %d developers",

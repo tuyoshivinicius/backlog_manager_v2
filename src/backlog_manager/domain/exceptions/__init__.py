@@ -16,6 +16,11 @@ from backlog_manager.domain.exceptions.feature import (
     FeatureException,
     FeatureHasStoriesException,
 )
+from backlog_manager.domain.exceptions.planning_exceptions import (
+    ActivePlanningDeletionException,
+    DuplicatePlanningNameException,
+    PlanningException,
+)
 from backlog_manager.domain.exceptions.warnings import (
     BacklogWarning,
     BetweenWavesIdlenessInfo,
@@ -35,6 +40,10 @@ __all__ = [
     "FeatureException",
     "DuplicateWaveException",
     "FeatureHasStoriesException",
+    # Planning
+    "PlanningException",
+    "DuplicatePlanningNameException",
+    "ActivePlanningDeletionException",
     # Allocation
     "AllocationException",
     "MaxIterationsExceeded",

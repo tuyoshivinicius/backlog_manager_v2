@@ -331,6 +331,18 @@ class MainWindow(QMainWindow):
 
         # Menu Arquivo
         file_menu = menu_bar.addMenu("&Arquivo")
+
+        self._action_create_planning = QAction("Novo Planejamento", self)
+        self._action_create_planning.setShortcut(QKeySequence("Ctrl+N"))
+        self._action_create_planning.triggered.connect(self._on_create_planning)
+        file_menu.addAction(self._action_create_planning)
+
+        self._action_open_planning = QAction("Abrir Planejamento", self)
+        self._action_open_planning.setShortcut(QKeySequence("Ctrl+O"))
+        self._action_open_planning.triggered.connect(self._on_open_planning)
+        file_menu.addAction(self._action_open_planning)
+
+        file_menu.addSeparator()
         file_menu.addAction(self._action_import_excel)
         file_menu.addAction(self._action_export_excel)
         file_menu.addSeparator()
@@ -376,8 +388,7 @@ class MainWindow(QMainWindow):
 
         # Grupo 1: CRUD
         self._action_new_story = QAction(icon.get("plus"), "Nova", self)
-        self._action_new_story.setShortcut(QKeySequence("Ctrl+N"))
-        self._action_new_story.setToolTip("Nova Historia (Ctrl+N)")
+        self._action_new_story.setToolTip("Nova Historia")
         self._action_new_story.triggered.connect(self._on_new_story)
         toolbar.addAction(self._action_new_story)
 
@@ -434,11 +445,11 @@ class MainWindow(QMainWindow):
 
         # Grupo 4: Processamento
         self._action_new_planning = QAction(
-            icon.get("arrows-down-up"), "Novo Planejamento", self
+            icon.get("arrows-down-up"), "Reiniciar Planejamento", self
         )
-        self._action_new_planning.setShortcut(QKeySequence("Ctrl+Shift+N"))
+        self._action_new_planning.setShortcut(QKeySequence("Ctrl+Shift+R"))
         self._action_new_planning.setToolTip(
-            "Limpar dados de planejamento e recomecar do zero (Ctrl+Shift+N)"
+            "Limpar dados de planejamento e recomecar do zero (Ctrl+Shift+R)"
         )
         self._action_new_planning.setEnabled(False)
         self._action_new_planning.triggered.connect(self._on_new_planning)
@@ -459,8 +470,8 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self._action_allocate)
 
         self._action_roadmap = QAction(icon.get("calendar-check"), "Roadmap", self)
-        self._action_roadmap.setShortcut(QKeySequence("Ctrl+Shift+R"))
-        self._action_roadmap.setToolTip("Visualizar Roadmap (Ctrl+Shift+R)")
+        self._action_roadmap.setShortcut(QKeySequence("Ctrl+Shift+M"))
+        self._action_roadmap.setToolTip("Visualizar Roadmap (Ctrl+Shift+M)")
         self._action_roadmap.triggered.connect(self._on_roadmap)
         toolbar.addAction(self._action_roadmap)
 
@@ -857,6 +868,9 @@ class MainWindow(QMainWindow):
         self._viewmodel.error_occurred.connect(self._on_error)
         self._viewmodel.table_model.status_change_requested.connect(
             self._on_inline_status_change
+        )
+        self._viewmodel.active_planning_changed.connect(
+            self._on_active_planning_changed
         )
 
         # Connect allocation viewmodel signals
@@ -1631,3 +1645,174 @@ class MainWindow(QMainWindow):
         self._end_excel_operation()
         QMessageBox.critical(self, "Erro na Exportacao", error)
         logger.error("Export error: %s", error)
+
+    # --- Planning handlers ---
+
+    @Slot(int, str)
+    def _on_active_planning_changed(self, planning_id: int, name: str) -> None:
+        """Update window title when active planning changes."""
+        self.setWindowTitle(f"Backlog Manager \u2014 {name}")
+
+    @Slot()
+    def _on_create_planning(self) -> None:
+        """Handle Arquivo > Novo Planejamento."""
+        QTimer.singleShot(0, lambda: self._create_task(self._execute_create_planning()))
+
+    async def _execute_create_planning(self) -> None:
+        """Execute create planning flow."""
+        from backlog_manager.presentation.views.create_planning_dialog import (
+            CreatePlanningDialog,
+        )
+
+        dialog = CreatePlanningDialog(parent=self)
+        name = dialog.get_name()
+        if name is None:
+            return
+
+        planning_vm = self._container.planning_viewmodel
+        result = await planning_vm.create_planning(name)
+        if result is None:
+            return
+
+        # Set as active and persist in QSettings
+        self._viewmodel.set_active_planning(result.id, result.name)
+        self._save_active_planning_id(result.id)
+
+        # Reload stories for the new (empty) planning
+        await self._viewmodel.load_stories()
+
+    @Slot()
+    def _on_open_planning(self) -> None:
+        """Handle Arquivo > Abrir Planejamento."""
+        QTimer.singleShot(0, lambda: self._create_task(self._execute_open_planning()))
+
+    async def _execute_open_planning(self) -> None:
+        """Execute open planning flow."""
+        from backlog_manager.presentation.views.open_planning_dialog import (
+            OpenPlanningDialog,
+        )
+
+        planning_vm = self._container.planning_viewmodel
+        plannings = await planning_vm.list_plannings()
+
+        active_id = self._viewmodel.active_planning_id or 0
+        dialog = OpenPlanningDialog(plannings, active_id, parent=self)
+
+        # Connect rename/delete signals
+        dialog.rename_requested.connect(
+            lambda pid, new_name: self._create_task(
+                self._handle_rename_planning(pid, new_name, dialog)
+            )
+        )
+        dialog.delete_requested.connect(
+            lambda pid: self._create_task(self._handle_delete_planning(pid, dialog))
+        )
+
+        if not dialog.exec():
+            return
+
+        selected_id = dialog.get_selected_planning_id()
+        if selected_id is None or selected_id == self._viewmodel.active_planning_id:
+            return
+
+        result = await planning_vm.activate_planning(selected_id)
+        if result is None:
+            return
+
+        self._viewmodel.set_active_planning(result.id, result.name)
+        self._save_active_planning_id(result.id)
+        await self._viewmodel.load_stories()
+
+    async def _handle_rename_planning(
+        self, planning_id: int, new_name: str, dialog: object
+    ) -> None:
+        """Handle rename from OpenPlanningDialog."""
+        planning_vm = self._container.planning_viewmodel
+        result = await planning_vm.rename_planning(planning_id, new_name)
+        if result and planning_id == self._viewmodel.active_planning_id:
+            self._viewmodel.set_active_planning(result.id, result.name)
+
+    async def _handle_delete_planning(self, planning_id: int, dialog: object) -> None:
+        """Handle delete from OpenPlanningDialog."""
+        planning_vm = self._container.planning_viewmodel
+        active_id = self._viewmodel.active_planning_id or 0
+
+        # Count stories for confirmation
+        plannings = await planning_vm.list_plannings()
+        target = next((p for p in plannings if p.id == planning_id), None)
+        story_count = target.story_count if target else 0
+
+        reply = QMessageBox.warning(
+            self,
+            "Excluir Planejamento",
+            f"Tem certeza que deseja excluir este planejamento?\n\n"
+            f"{story_count} historia(s) serao removidas permanentemente.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        await planning_vm.delete_planning(planning_id, active_id)
+
+    def _save_active_planning_id(self, planning_id: int) -> None:
+        """Persist active planning ID in QSettings."""
+        settings = QSettings(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            "BacklogManager",
+            "Backlog Manager",
+        )
+        settings.setValue("planning/last_active_id", planning_id)
+
+    def _load_active_planning_id(self) -> int | None:
+        """Load active planning ID from QSettings."""
+        settings = QSettings(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            "BacklogManager",
+            "Backlog Manager",
+        )
+        value = settings.value("planning/last_active_id")
+        if value is not None:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    async def initialize_planning(self) -> None:
+        """Bootstrap: ensure a planning is active before loading stories.
+
+        Called after MainWindow is shown. Checks QSettings for last active,
+        verifies it exists, or forces creation dialog.
+        """
+        planning_vm = self._container.planning_viewmodel
+        last_id = self._load_active_planning_id()
+
+        # Try to restore last active
+        result = await planning_vm.get_active_planning(last_id)
+        if result is not None:
+            self._viewmodel.set_active_planning(result.id, result.name)
+            await self._viewmodel.load_stories()
+            return
+
+        # No valid planning — force creation
+        from backlog_manager.presentation.views.create_planning_dialog import (
+            CreatePlanningDialog,
+        )
+
+        while True:
+            dialog = CreatePlanningDialog(parent=self, bootstrap_mode=True)
+            dialog.exec()
+            name = dialog.get_name()
+            if name is None:
+                # In bootstrap mode cancel is hidden, but just in case
+                continue
+
+            created = await planning_vm.create_planning(name)
+            if created is not None:
+                self._viewmodel.set_active_planning(created.id, created.name)
+                self._save_active_planning_id(created.id)
+                await self._viewmodel.load_stories()
+                return

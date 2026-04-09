@@ -136,7 +136,9 @@ class AllocationViewModel(QObject):
 
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_execute_allocation_use_case(uow)
-                result = await use_case.execute(dto)
+                planning_id = self._container.main_window_viewmodel.active_planning_id
+                assert planning_id is not None, "Active planning must be set"
+                result = await use_case.execute(dto, planning_id)
 
             self._last_metrics = result.metrics
             self._last_warnings = [str(w) for w in result.warnings]

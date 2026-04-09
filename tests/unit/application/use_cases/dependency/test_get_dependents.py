@@ -40,17 +40,17 @@ class TestGetDependentsSuccess:
 
         input_dto = GetDependentsInputDTO(story_id="AUTH-001")
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.story_id == "AUTH-001"
         assert result.dependents == ["AUTH-002", "AUTH-003"]
-        mock_dependency_repo.get_dependents.assert_called_once_with("AUTH-001")
+        mock_dependency_repo.get_dependents.assert_called_once_with(1, "AUTH-001")
 
     async def test_get_dependents_returns_output_dto(self, use_case):
         """Should return GetDependentsOutputDTO with all fields."""
         input_dto = GetDependentsInputDTO(story_id="AUTH-001")
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert hasattr(result, "story_id")
         assert hasattr(result, "dependents")
@@ -65,7 +65,7 @@ class TestGetDependentsEmpty:
 
         input_dto = GetDependentsInputDTO(story_id="AUTH-001")
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.story_id == "AUTH-001"
         assert result.dependents == []

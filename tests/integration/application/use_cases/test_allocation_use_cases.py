@@ -10,6 +10,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+import aiosqlite
 import pytest
 from backlog_manager.application.dto.allocation import ExecuteAllocationInputDTO
 from backlog_manager.application.use_cases.allocation import ExecuteAllocationUseCase
@@ -43,6 +44,7 @@ class TestExecuteAllocationUseCaseIntegration:
     ) -> Story:
         """Helper to create a test story."""
         story = Story(
+            planning_id=1,
             id=story_id,
             component=story_id.split("-")[0],
             name=f"Story {story_id}",
@@ -81,6 +83,9 @@ class TestExecuteAllocationUseCaseIntegration:
         - Resultado esperado: alocacao balanceada
         """
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup: create developers and stories with dates
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -124,7 +129,8 @@ class TestExecuteAllocationUseCaseIntegration:
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
                     random_seed=42,
-                )
+                ),
+                planning_id=1,
             )
 
         # Verify
@@ -135,7 +141,7 @@ class TestExecuteAllocationUseCaseIntegration:
 
         # Verify persistence
         async with SQLiteUnitOfWork(db_path) as uow:
-            all_stories = await uow.stories.get_all()
+            all_stories = await uow.stories.get_all(1)
             allocated = [s for s in all_stories if s.developer_id is not None]
             assert len(allocated) == 3
 
@@ -152,6 +158,9 @@ class TestExecuteAllocationUseCaseIntegration:
         - Resultado esperado: A alocada antes de B
         """
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -190,7 +199,7 @@ class TestExecuteAllocationUseCaseIntegration:
             )
 
             # Create dependency: AUTH-002 depends on AUTH-001
-            await uow.dependencies.add("AUTH-002", "AUTH-001")
+            await uow.dependencies.add(1, "AUTH-002", "AUTH-001")
 
         # Execute allocation
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -200,7 +209,8 @@ class TestExecuteAllocationUseCaseIntegration:
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
                     random_seed=42,
-                )
+                ),
+                planning_id=1,
             )
 
         # Verify
@@ -209,8 +219,8 @@ class TestExecuteAllocationUseCaseIntegration:
 
         # Verify dependency relationship preserved
         async with SQLiteUnitOfWork(db_path) as uow:
-            story_a = await uow.stories.get_by_id("AUTH-001")
-            story_b = await uow.stories.get_by_id("AUTH-002")
+            story_a = await uow.stories.get_by_id(1, "AUTH-001")
+            story_b = await uow.stories.get_by_id(1, "AUTH-002")
 
             assert story_a is not None
             assert story_b is not None
@@ -231,6 +241,9 @@ class TestExecuteAllocationUseCaseIntegration:
         - Resultado esperado: wave 1 processada antes de wave 2
         """
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -292,7 +305,8 @@ class TestExecuteAllocationUseCaseIntegration:
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
                     random_seed=42,
-                )
+                ),
+                planning_id=1,
             )
 
         # Verify
@@ -307,6 +321,9 @@ class TestExecuteAllocationUseCaseIntegration:
     async def test_allocation_no_stories(self, db_path: Path) -> None:
         """T113: Empty backlog returns zero allocations."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup: only developers, no stories
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -319,7 +336,8 @@ class TestExecuteAllocationUseCaseIntegration:
                 ExecuteAllocationInputDTO(
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -328,6 +346,9 @@ class TestExecuteAllocationUseCaseIntegration:
     async def test_allocation_no_developers(self, db_path: Path) -> None:
         """T114: No developers produces deadlock warning."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup: only stories, no developers
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -348,7 +369,8 @@ class TestExecuteAllocationUseCaseIntegration:
                 ExecuteAllocationInputDTO(
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True  # Completes but with deadlock
@@ -358,6 +380,9 @@ class TestExecuteAllocationUseCaseIntegration:
     async def test_allocation_dependency_owner_criteria(self, db_path: Path) -> None:
         """T115: DEPENDENCY_OWNER criteria allocates to dependency owner."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -386,7 +411,7 @@ class TestExecuteAllocationUseCaseIntegration:
                 duration=3,
             )
 
-            await uow.dependencies.add("AUTH-002", "AUTH-001")
+            await uow.dependencies.add(1, "AUTH-002", "AUTH-001")
 
         # Execute with DEPENDENCY_OWNER criteria
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -397,7 +422,8 @@ class TestExecuteAllocationUseCaseIntegration:
                     project_start_date=date(2026, 3, 2),
                     allocation_criteria="DEPENDENCY_OWNER",
                     random_seed=42,
-                )
+                ),
+                planning_id=1,
             )
 
         # Verify
@@ -408,7 +434,7 @@ class TestExecuteAllocationUseCaseIntegration:
 
         # Check that B was allocated to Alice (owner of A)
         async with SQLiteUnitOfWork(db_path) as uow:
-            story_b = await uow.stories.get_by_id("AUTH-002")
+            story_b = await uow.stories.get_by_id(1, "AUTH-002")
             assert story_b is not None
             # B should be allocated to Alice (owner of dependency A)
             assert story_b.developer_id == alice.id
@@ -416,6 +442,9 @@ class TestExecuteAllocationUseCaseIntegration:
     async def test_allocation_metrics_populated(self, db_path: Path) -> None:
         """T116: All metrics fields are populated correctly."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -438,7 +467,8 @@ class TestExecuteAllocationUseCaseIntegration:
                 ExecuteAllocationInputDTO(
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         # Verify all metrics fields exist and are valid
@@ -463,6 +493,9 @@ class TestExecuteAllocationUseCaseIntegration:
     async def test_allocation_persistence(self, db_path: Path) -> None:
         """T117: Allocated stories are persisted to database."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -485,13 +518,14 @@ class TestExecuteAllocationUseCaseIntegration:
                 ExecuteAllocationInputDTO(
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.stories_allocated == 1
 
         # Verify persistence in new session
         async with SQLiteUnitOfWork(db_path) as uow:
-            story = await uow.stories.get_by_id("FEAT-001")
+            story = await uow.stories.get_by_id(1, "FEAT-001")
             assert story is not None
             assert story.developer_id is not None

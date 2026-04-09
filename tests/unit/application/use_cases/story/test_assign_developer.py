@@ -20,6 +20,7 @@ def _make_story(
 ) -> Story:
     """Create a Story entity for testing."""
     return Story(
+        planning_id=1,
         id=story_id,
         component="AUTH",
         name="Test story",
@@ -73,7 +74,7 @@ class TestAssign:
         mock_story_repo.get_by_id.return_value = story
         mock_developer_repo.exists.return_value = True
 
-        result = await use_case.assign("AUTH-001", 42)
+        result = await use_case.assign(1, "AUTH-001", 42)
 
         assert story.developer_id == 42
         mock_story_repo.update.assert_called_once_with(story)
@@ -84,7 +85,7 @@ class TestAssign:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="Historia .* nao encontrada"):
-            await use_case.assign("AUTH-999", 1)
+            await use_case.assign(1, "AUTH-999", 1)
 
     async def test_raises_when_developer_not_found(
         self, use_case, mock_story_repo, mock_developer_repo
@@ -95,7 +96,7 @@ class TestAssign:
         mock_developer_repo.exists.return_value = False
 
         with pytest.raises(ValueError, match="Desenvolvedor .* nao encontrado"):
-            await use_case.assign("AUTH-001", 999)
+            await use_case.assign(1, "AUTH-001", 999)
 
     async def test_validates_developer_exists(
         self, use_case, mock_story_repo, mock_developer_repo
@@ -105,7 +106,7 @@ class TestAssign:
         mock_story_repo.get_by_id.return_value = story
         mock_developer_repo.exists.return_value = True
 
-        await use_case.assign("AUTH-001", 7)
+        await use_case.assign(1, "AUTH-001", 7)
 
         mock_developer_repo.exists.assert_called_once_with(7)
 
@@ -118,7 +119,7 @@ class TestAssign:
         mock_developer_repo.exists.return_value = False
 
         with pytest.raises(ValueError):
-            await use_case.assign("AUTH-001", 999)
+            await use_case.assign(1, "AUTH-001", 999)
 
         mock_story_repo.update.assert_not_called()
 
@@ -130,7 +131,7 @@ class TestAssign:
         mock_story_repo.get_by_id.return_value = story
         mock_developer_repo.exists.return_value = True
 
-        result = await use_case.assign("AUTH-001", 1)
+        result = await use_case.assign(1, "AUTH-001", 1)
 
         assert result.id == "AUTH-001"
         assert result.component == "AUTH"
@@ -145,7 +146,7 @@ class TestUnassign:
         story = _make_story(developer_id=42)
         mock_story_repo.get_by_id.return_value = story
 
-        result = await use_case.unassign("AUTH-001")
+        result = await use_case.unassign(1, "AUTH-001")
 
         assert story.developer_id is None
         mock_story_repo.update.assert_called_once_with(story)
@@ -156,14 +157,14 @@ class TestUnassign:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="Historia .* nao encontrada"):
-            await use_case.unassign("AUTH-999")
+            await use_case.unassign(1, "AUTH-999")
 
     async def test_unassign_already_unassigned(self, use_case, mock_story_repo):
         """Should succeed even if story has no developer assigned."""
         story = _make_story(developer_id=None)
         mock_story_repo.get_by_id.return_value = story
 
-        result = await use_case.unassign("AUTH-001")
+        result = await use_case.unassign(1, "AUTH-001")
 
         assert result.developer_id is None
         mock_story_repo.update.assert_called_once()
@@ -173,7 +174,7 @@ class TestUnassign:
         mock_story_repo.get_by_id.return_value = None
 
         with pytest.raises(ValueError):
-            await use_case.unassign("AUTH-999")
+            await use_case.unassign(1, "AUTH-999")
 
         mock_story_repo.update.assert_not_called()
 
@@ -182,7 +183,7 @@ class TestUnassign:
         story = _make_story(developer_id=10)
         mock_story_repo.get_by_id.return_value = story
 
-        result = await use_case.unassign("AUTH-001")
+        result = await use_case.unassign(1, "AUTH-001")
 
         assert result.id == "AUTH-001"
         assert result.developer_id is None

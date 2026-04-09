@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from backlog_manager.domain.entities import Developer, Feature, Story
+    from backlog_manager.domain.entities import Developer, Feature, Planning, Story
 
 
 class StoryRepository(Protocol):
@@ -16,17 +16,18 @@ class StoryRepository(Protocol):
         """Adiciona uma nova historia ao repositorio.
 
         Args:
-            story: Historia a ser adicionada.
+            story: Historia a ser adicionada (planning_id extraido do objeto).
 
         Raises:
-            ValueError: Se historia com mesmo ID ja existe.
+            ValueError: Se historia com mesmo ID ja existe no planejamento.
         """
         ...
 
-    async def get_by_id(self, story_id: str) -> Story | None:
-        """Busca historia por ID.
+    async def get_by_id(self, planning_id: int, story_id: str) -> Story | None:
+        """Busca historia por chave composta.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: Identificador da historia.
 
         Returns:
@@ -34,29 +35,36 @@ class StoryRepository(Protocol):
         """
         ...
 
-    async def get_all(self) -> Sequence[Story]:
-        """Retorna todas as historias.
+    async def get_all(self, planning_id: int) -> Sequence[Story]:
+        """Retorna todas as historias de um planejamento.
+
+        Args:
+            planning_id: ID do planejamento.
 
         Returns:
             Lista de todas as historias ordenadas por prioridade.
         """
         ...
 
-    async def get_by_status(self, status: str) -> Sequence[Story]:
+    async def get_by_status(self, planning_id: int, status: str) -> Sequence[Story]:
         """Busca historias por status.
 
         Args:
-            status: Status a filtrar (BACKLOG, IN_PROGRESS, DONE, BLOCKED).
+            planning_id: ID do planejamento.
+            status: Status a filtrar.
 
         Returns:
             Lista de historias com o status especificado.
         """
         ...
 
-    async def get_by_developer(self, developer_id: int) -> Sequence[Story]:
+    async def get_by_developer(
+        self, planning_id: int, developer_id: int
+    ) -> Sequence[Story]:
         """Busca historias alocadas a um desenvolvedor.
 
         Args:
+            planning_id: ID do planejamento.
             developer_id: ID do desenvolvedor.
 
         Returns:
@@ -64,10 +72,13 @@ class StoryRepository(Protocol):
         """
         ...
 
-    async def get_by_feature(self, feature_id: int) -> Sequence[Story]:
+    async def get_by_feature(
+        self, planning_id: int, feature_id: int
+    ) -> Sequence[Story]:
         """Busca historias de uma feature.
 
         Args:
+            planning_id: ID do planejamento.
             feature_id: ID da feature.
 
         Returns:
@@ -79,17 +90,18 @@ class StoryRepository(Protocol):
         """Atualiza uma historia existente.
 
         Args:
-            story: Historia com dados atualizados.
+            story: Historia com dados atualizados (planning_id extraido do objeto).
 
         Raises:
             ValueError: Se historia nao existe.
         """
         ...
 
-    async def delete(self, story_id: str) -> None:
+    async def delete(self, planning_id: int, story_id: str) -> None:
         """Remove uma historia.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia a remover.
 
         Raises:
@@ -97,10 +109,11 @@ class StoryRepository(Protocol):
         """
         ...
 
-    async def exists(self, story_id: str) -> bool:
+    async def exists(self, planning_id: int, story_id: str) -> bool:
         """Verifica se historia existe.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia.
 
         Returns:
@@ -108,10 +121,11 @@ class StoryRepository(Protocol):
         """
         ...
 
-    async def get_max_id_number(self, component: str) -> int:
+    async def get_max_id_number(self, planning_id: int, component: str) -> int:
         """Retorna o maior numero sequencial para um componente.
 
         Args:
+            planning_id: ID do planejamento.
             component: Nome do componente (case-insensitive).
 
         Returns:
@@ -119,18 +133,22 @@ class StoryRepository(Protocol):
         """
         ...
 
-    async def get_max_priority(self) -> int:
+    async def get_max_priority(self, planning_id: int) -> int:
         """Retorna a maior prioridade existente no backlog.
+
+        Args:
+            planning_id: ID do planejamento.
 
         Returns:
             Maior prioridade ou -1 se backlog vazio.
         """
         ...
 
-    async def get_by_priority(self, priority: int) -> Story | None:
+    async def get_by_priority(self, planning_id: int, priority: int) -> Story | None:
         """Busca historia por prioridade exata.
 
         Args:
+            planning_id: ID do planejamento.
             priority: Prioridade a buscar.
 
         Returns:
@@ -138,18 +156,26 @@ class StoryRepository(Protocol):
         """
         ...
 
-    async def count_by_developer(self, developer_id: int) -> int:
-        """Conta historias alocadas a um desenvolvedor.
+    async def count_by_developer(self, planning_id: int, developer_id: int) -> int:
+        """Conta historias alocadas a um desenvolvedor em um planejamento.
+
+        Args:
+            planning_id: ID do planejamento.
+            developer_id: ID do desenvolvedor.
+
+        Returns:
+            Numero de historias alocadas (0 se nenhuma).
+        """
+        ...
+
+    async def count_all_by_developer(self, developer_id: int) -> int:
+        """Conta historias alocadas a um desenvolvedor em todos os planejamentos.
 
         Args:
             developer_id: ID do desenvolvedor.
 
         Returns:
             Numero de historias alocadas (0 se nenhuma).
-
-        Note:
-            Mais eficiente que len(get_by_developer()) pois
-            nao carrega todas as entidades.
         """
         ...
 
@@ -333,26 +359,124 @@ class FeatureRepository(Protocol):
         ...
 
 
+class PlanningRepository(Protocol):
+    """Interface para persistencia de planejamentos."""
+
+    async def add(self, planning: Planning) -> int:
+        """Adiciona um novo planejamento.
+
+        Args:
+            planning: Planejamento a ser adicionado.
+
+        Returns:
+            ID gerado para o planejamento.
+        """
+        ...
+
+    async def get_by_id(self, planning_id: int) -> Planning | None:
+        """Busca planejamento por ID.
+
+        Args:
+            planning_id: Identificador do planejamento.
+
+        Returns:
+            Planejamento encontrado ou None se nao existir.
+        """
+        ...
+
+    async def get_by_name(self, name: str) -> Planning | None:
+        """Busca planejamento pelo nome exato.
+
+        Args:
+            name: Nome do planejamento.
+
+        Returns:
+            Planejamento encontrado ou None se nao existir.
+        """
+        ...
+
+    async def get_all(self) -> Sequence[Planning]:
+        """Retorna todos os planejamentos.
+
+        Returns:
+            Lista de todos os planejamentos ordenados por nome.
+        """
+        ...
+
+    async def update(self, planning: Planning) -> None:
+        """Atualiza um planejamento existente.
+
+        Args:
+            planning: Planejamento com dados atualizados.
+
+        Raises:
+            ValueError: Se planejamento nao existe.
+        """
+        ...
+
+    async def delete(self, planning_id: int) -> None:
+        """Remove um planejamento e todas as suas historias em cascata.
+
+        Args:
+            planning_id: ID do planejamento a remover.
+
+        Raises:
+            ValueError: Se planejamento nao existe.
+        """
+        ...
+
+    async def exists(self, planning_id: int) -> bool:
+        """Verifica se planejamento existe.
+
+        Args:
+            planning_id: ID do planejamento.
+
+        Returns:
+            True se existe, False caso contrario.
+        """
+        ...
+
+    async def count_stories(self, planning_id: int) -> int:
+        """Conta historias associadas a um planejamento.
+
+        Args:
+            planning_id: ID do planejamento.
+
+        Returns:
+            Numero de historias associadas.
+        """
+        ...
+
+    async def update_timestamp(self, planning_id: int) -> None:
+        """Atualiza o updated_at do planejamento para agora.
+
+        Args:
+            planning_id: ID do planejamento.
+        """
+        ...
+
+
 class StoryDependencyRepository(Protocol):
     """Interface para persistencia de dependencias entre historias."""
 
-    async def add(self, story_id: str, depends_on_id: str) -> None:
+    async def add(self, planning_id: int, story_id: str, depends_on_id: str) -> None:
         """Adiciona uma dependencia entre historias.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia que depende.
             depends_on_id: ID da historia da qual depende.
 
         Raises:
             ValueError: Se dependencia ja existe ou historias nao existem.
-            CyclicDependencyException: Se criaria ciclo.
         """
         ...
 
-    async def remove(self, story_id: str, depends_on_id: str) -> None:
+    async def remove(self, planning_id: int, story_id: str, depends_on_id: str) -> None:
         """Remove uma dependencia entre historias.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia que depende.
             depends_on_id: ID da historia da qual depende.
 
@@ -361,10 +485,11 @@ class StoryDependencyRepository(Protocol):
         """
         ...
 
-    async def get_dependencies(self, story_id: str) -> Sequence[str]:
+    async def get_dependencies(self, planning_id: int, story_id: str) -> Sequence[str]:
         """Retorna IDs das historias das quais uma historia depende.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia.
 
         Returns:
@@ -372,10 +497,11 @@ class StoryDependencyRepository(Protocol):
         """
         ...
 
-    async def get_dependents(self, story_id: str) -> Sequence[str]:
+    async def get_dependents(self, planning_id: int, story_id: str) -> Sequence[str]:
         """Retorna IDs das historias que dependem de uma historia.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia.
 
         Returns:
@@ -383,10 +509,11 @@ class StoryDependencyRepository(Protocol):
         """
         ...
 
-    async def exists(self, story_id: str, depends_on_id: str) -> bool:
+    async def exists(self, planning_id: int, story_id: str, depends_on_id: str) -> bool:
         """Verifica se dependencia existe.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia que depende.
             depends_on_id: ID da historia da qual depende.
 
@@ -395,18 +522,22 @@ class StoryDependencyRepository(Protocol):
         """
         ...
 
-    async def get_all_dependencies(self) -> Sequence[tuple[str, str]]:
-        """Retorna todas as dependencias.
+    async def get_all_dependencies(self, planning_id: int) -> Sequence[tuple[str, str]]:
+        """Retorna todas as dependencias de um planejamento.
+
+        Args:
+            planning_id: ID do planejamento.
 
         Returns:
             Lista de tuplas (story_id, depends_on_id).
         """
         ...
 
-    async def remove_all_for_story(self, story_id: str) -> None:
+    async def remove_all_for_story(self, planning_id: int, story_id: str) -> None:
         """Remove todas as dependencias onde a historia aparece.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia.
 
         Note:
@@ -422,6 +553,7 @@ class UnitOfWork(Protocol):
     developers: DeveloperRepository
     features: FeatureRepository
     dependencies: StoryDependencyRepository
+    plannings: PlanningRepository
 
     async def __aenter__(self) -> UnitOfWork:
         """Inicia transacao."""

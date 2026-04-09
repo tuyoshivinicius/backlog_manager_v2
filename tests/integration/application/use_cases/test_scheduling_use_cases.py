@@ -9,6 +9,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+import aiosqlite
 import pytest
 from backlog_manager.application.dto.scheduling import (
     CalculateDurationInputDTO,
@@ -61,6 +62,7 @@ class TestCalculateScheduleUseCaseIntegration:
     ) -> Story:
         """Helper to create a test story."""
         story = Story(
+            planning_id=1,
             id=story_id,
             component=story_id.split("-")[0],
             name=f"Story {story_id}",
@@ -74,6 +76,9 @@ class TestCalculateScheduleUseCaseIntegration:
     async def test_calculate_schedule_success(self, db_path: Path) -> None:
         """T055: Test successful schedule calculation."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create stories
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -88,7 +93,8 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -98,7 +104,7 @@ class TestCalculateScheduleUseCaseIntegration:
 
         # Verify dates were persisted
         async with SQLiteUnitOfWork(db_path) as uow:
-            story = await uow.stories.get_by_id("FEAT-001")
+            story = await uow.stories.get_by_id(1, "FEAT-001")
             assert story is not None
             assert story.start_date == date(2026, 3, 2)
             assert story.duration == 3
@@ -106,6 +112,9 @@ class TestCalculateScheduleUseCaseIntegration:
     async def test_calculate_schedule_with_dependencies(self, db_path: Path) -> None:
         """T056: Test schedule calculation with dependencies."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create stories with chain: A -> B -> C
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -114,8 +123,8 @@ class TestCalculateScheduleUseCaseIntegration:
             await self._create_story(uow, "DEP-003", 3, 3)  # 2 days
 
             # B depends on A, C depends on B
-            await uow.dependencies.add("DEP-002", "DEP-001")
-            await uow.dependencies.add("DEP-003", "DEP-002")
+            await uow.dependencies.add(1, "DEP-002", "DEP-001")
+            await uow.dependencies.add(1, "DEP-003", "DEP-002")
 
         # Calculate schedule
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -124,7 +133,8 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 3, 2),  # Monday
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -132,9 +142,9 @@ class TestCalculateScheduleUseCaseIntegration:
 
         # Verify order is respected
         async with SQLiteUnitOfWork(db_path) as uow:
-            story_a = await uow.stories.get_by_id("DEP-001")
-            story_b = await uow.stories.get_by_id("DEP-002")
-            story_c = await uow.stories.get_by_id("DEP-003")
+            story_a = await uow.stories.get_by_id(1, "DEP-001")
+            story_b = await uow.stories.get_by_id(1, "DEP-002")
+            story_c = await uow.stories.get_by_id(1, "DEP-003")
 
             assert story_a is not None and story_b is not None and story_c is not None
 
@@ -152,6 +162,9 @@ class TestCalculateScheduleUseCaseIntegration:
     async def test_calculate_schedule_with_holidays(self, db_path: Path) -> None:
         """T057: Test schedule calculation skips holidays."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create story that spans Good Friday (2026-04-03)
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -164,14 +177,15 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 4, 1),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
 
         # Verify holiday is skipped
         async with SQLiteUnitOfWork(db_path) as uow:
-            story = await uow.stories.get_by_id("HOL-001")
+            story = await uow.stories.get_by_id(1, "HOL-001")
             assert story is not None
             # Day 1: Wed 01, Day 2: Thu 02, Day 3: Mon 06, Day 4: Tue 07
             # Skipped: Fri 03 (Good Friday), Sat 04, Sun 05
@@ -180,6 +194,9 @@ class TestCalculateScheduleUseCaseIntegration:
     async def test_calculate_schedule_cycle_detected(self, db_path: Path) -> None:
         """T058: Test cycle detection raises CyclicDependencyException."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create stories with cycle: A -> B -> C -> A
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -188,9 +205,9 @@ class TestCalculateScheduleUseCaseIntegration:
             await self._create_story(uow, "CYC-003", 5, 3)
 
             # Create cycle
-            await uow.dependencies.add("CYC-001", "CYC-003")
-            await uow.dependencies.add("CYC-002", "CYC-001")
-            await uow.dependencies.add("CYC-003", "CYC-002")
+            await uow.dependencies.add(1, "CYC-001", "CYC-003")
+            await uow.dependencies.add(1, "CYC-002", "CYC-001")
+            await uow.dependencies.add(1, "CYC-003", "CYC-002")
 
         # Calculate schedule - should raise
         with pytest.raises(CyclicDependencyException):
@@ -200,12 +217,16 @@ class TestCalculateScheduleUseCaseIntegration:
                     CalculateScheduleInputDTO(
                         velocity=2.0,
                         start_date=date(2026, 3, 2),
-                    )
+                    ),
+                    planning_id=1,
                 )
 
     async def test_calculate_schedule_empty_backlog(self, db_path: Path) -> None:
         """T059: Test empty backlog returns success with 0 processed."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # No stories created
 
@@ -215,7 +236,8 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -231,6 +253,9 @@ class TestCalculateScheduleUseCaseIntegration:
         The invalid SP warning path is exercised via unit tests.
         """
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create one backlog story and one non-backlog story
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -243,7 +268,8 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -255,6 +281,9 @@ class TestCalculateScheduleUseCaseIntegration:
     ) -> None:
         """T061: Test dependency without end_date uses project_start_date fallback."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create stories - one not in backlog (no end_date will be calculated)
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -262,7 +291,7 @@ class TestCalculateScheduleUseCaseIntegration:
             await self._create_story(uow, "NED-001", 5, 1, StoryStatus.EXECUCAO)
             # Story B depends on A (which has no end_date)
             await self._create_story(uow, "NED-002", 5, 2, StoryStatus.BACKLOG)
-            await uow.dependencies.add("NED-002", "NED-001")
+            await uow.dependencies.add(1, "NED-002", "NED-001")
 
         async with SQLiteUnitOfWork(db_path) as uow:
             use_case = CalculateScheduleUseCase(uow)
@@ -270,7 +299,8 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -283,20 +313,23 @@ class TestCalculateScheduleUseCaseIntegration:
         # then add 1 day to get next workday
         # So B.start = next_workday(project_start_date + 1 day) = 2026-03-03
         async with SQLiteUnitOfWork(db_path) as uow:
-            story_b = await uow.stories.get_by_id("NED-002")
+            story_b = await uow.stories.get_by_id(1, "NED-002")
             assert story_b is not None
             assert story_b.start_date == date(2026, 3, 3)  # Day after fallback
 
     async def test_schedule_rollback_on_error(self, db_path: Path) -> None:
         """T062: Test rollback on error (no partial updates)."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create stories with cycle
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_story(uow, "RBK-001", 5, 1)
             await self._create_story(uow, "RBK-002", 5, 2)
-            await uow.dependencies.add("RBK-001", "RBK-002")
-            await uow.dependencies.add("RBK-002", "RBK-001")
+            await uow.dependencies.add(1, "RBK-001", "RBK-002")
+            await uow.dependencies.add(1, "RBK-002", "RBK-001")
 
         # Attempt schedule (will fail due to cycle)
         with pytest.raises(CyclicDependencyException):
@@ -306,13 +339,14 @@ class TestCalculateScheduleUseCaseIntegration:
                     CalculateScheduleInputDTO(
                         velocity=2.0,
                         start_date=date(2026, 3, 2),
-                    )
+                    ),
+                    planning_id=1,
                 )
 
         # Verify no stories were updated
         async with SQLiteUnitOfWork(db_path) as uow:
-            story_1 = await uow.stories.get_by_id("RBK-001")
-            story_2 = await uow.stories.get_by_id("RBK-002")
+            story_1 = await uow.stories.get_by_id(1, "RBK-001")
+            story_2 = await uow.stories.get_by_id(1, "RBK-002")
             assert story_1 is not None and story_2 is not None
             assert story_1.start_date is None
             assert story_2.start_date is None
@@ -322,6 +356,9 @@ class TestCalculateScheduleUseCaseIntegration:
     ) -> None:
         """T062a: Test independent stories are processed in priority order."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Create independent stories with different priorities
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -335,7 +372,8 @@ class TestCalculateScheduleUseCaseIntegration:
                 CalculateScheduleInputDTO(
                     velocity=2.0,
                     start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -343,9 +381,9 @@ class TestCalculateScheduleUseCaseIntegration:
 
         # All start at the same time since they're independent
         async with SQLiteUnitOfWork(db_path) as uow:
-            story_1 = await uow.stories.get_by_id("PRI-001")
-            story_2 = await uow.stories.get_by_id("PRI-002")
-            story_3 = await uow.stories.get_by_id("PRI-003")
+            story_1 = await uow.stories.get_by_id(1, "PRI-001")
+            story_2 = await uow.stories.get_by_id(1, "PRI-002")
+            story_3 = await uow.stories.get_by_id(1, "PRI-003")
 
             # All should start on project start date
             assert story_1 is not None and story_1.start_date == date(2026, 3, 2)
@@ -367,10 +405,14 @@ class TestCalculateStoryDatesUseCaseIntegration:
     async def test_calculate_story_dates_success(self, db_path: Path) -> None:
         """Test successful story dates calculation."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id="TST-001",
                     component="TST",
                     name="Test Story",
@@ -386,7 +428,8 @@ class TestCalculateStoryDatesUseCaseIntegration:
                     story_id="TST-001",
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.story_id == "TST-001"
@@ -395,7 +438,7 @@ class TestCalculateStoryDatesUseCaseIntegration:
 
         # Verify persisted
         async with SQLiteUnitOfWork(db_path) as uow:
-            story = await uow.stories.get_by_id("TST-001")
+            story = await uow.stories.get_by_id(1, "TST-001")
             assert story is not None
             assert story.start_date == date(2026, 3, 2)
             assert story.duration == 3
@@ -403,10 +446,14 @@ class TestCalculateStoryDatesUseCaseIntegration:
     async def test_calculate_story_dates_with_dependency(self, db_path: Path) -> None:
         """Test story dates calculation respects dependency end dates."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             # Create dependency story with end date
             dep_story = Story(
+                planning_id=1,
                 id="DEP-001",
                 component="DEP",
                 name="Dependency",
@@ -419,6 +466,7 @@ class TestCalculateStoryDatesUseCaseIntegration:
             # Create dependent story
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id="DEP-002",
                     component="DEP",
                     name="Dependent",
@@ -426,7 +474,7 @@ class TestCalculateStoryDatesUseCaseIntegration:
                     priority=2,
                 )
             )
-            await uow.dependencies.add("DEP-002", "DEP-001")
+            await uow.dependencies.add(1, "DEP-002", "DEP-001")
 
         async with SQLiteUnitOfWork(db_path) as uow:
             use_case = CalculateStoryDatesUseCase(uow)
@@ -435,7 +483,8 @@ class TestCalculateStoryDatesUseCaseIntegration:
                     story_id="DEP-002",
                     velocity=2.0,
                     project_start_date=date(2026, 3, 2),
-                )
+                ),
+                planning_id=1,
             )
 
         # Should start Monday after dependency ends Friday
@@ -444,6 +493,9 @@ class TestCalculateStoryDatesUseCaseIntegration:
     async def test_calculate_story_dates_not_found(self, db_path: Path) -> None:
         """Test error when story not found."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         with pytest.raises(ValueError, match="nao encontrada"):
             async with SQLiteUnitOfWork(db_path) as uow:
@@ -453,5 +505,6 @@ class TestCalculateStoryDatesUseCaseIntegration:
                         story_id="XXX-999",
                         velocity=2.0,
                         project_start_date=date(2026, 3, 2),
-                    )
+                    ),
+                    planning_id=1,
                 )

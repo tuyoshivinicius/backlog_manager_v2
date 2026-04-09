@@ -17,6 +17,7 @@ class StoryOutputDTO(BaseModel):
     Representa uma historia completa para retorno em use cases.
     """
 
+    planning_id: int
     id: str
     component: str
     name: str
@@ -44,6 +45,7 @@ class StoryOutputDTO(BaseModel):
             DTO com dados da historia.
         """
         return cls(
+            planning_id=story.planning_id,
             id=story.id,
             component=story.component,
             name=story.name,

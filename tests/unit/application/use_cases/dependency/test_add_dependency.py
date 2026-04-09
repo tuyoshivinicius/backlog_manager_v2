@@ -88,13 +88,13 @@ class TestAddDependencySuccess:
             depends_on_id="AUTH-001",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
         assert result.story_id == "AUTH-002"
         assert result.depends_on_id == "AUTH-001"
         assert result.warning is None
-        mock_dependency_repo.add.assert_called_once_with("AUTH-002", "AUTH-001")
+        mock_dependency_repo.add.assert_called_once_with(1, "AUTH-002", "AUTH-001")
 
     async def test_add_dependency_returns_output_dto(self, use_case, mock_story_repo):
         """Should return AddDependencyOutputDTO with all fields."""
@@ -106,7 +106,7 @@ class TestAddDependencySuccess:
             depends_on_id="AUTH-001",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert hasattr(result, "success")
         assert hasattr(result, "story_id")
@@ -127,7 +127,7 @@ class TestAddDependencyStoryNotFound:
         )
 
         with pytest.raises(ValueError, match="Historia AUTH-999 nao encontrada"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
     async def test_story_not_found_target(self, use_case, mock_story_repo):
         """Should raise ValueError when target story doesn't exist."""
@@ -139,7 +139,7 @@ class TestAddDependencyStoryNotFound:
         )
 
         with pytest.raises(ValueError, match="Historia AUTH-999 nao encontrada"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
 
 class TestAddDependencySelfDependency:
@@ -153,7 +153,7 @@ class TestAddDependencySelfDependency:
         )
 
         with pytest.raises(ValueError, match="Historia nao pode depender de si mesma"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
 
 class TestAddDependencyDuplicate:
@@ -172,7 +172,7 @@ class TestAddDependencyDuplicate:
         )
 
         with pytest.raises(ValueError, match="Dependencia.*ja existe"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
 
 class TestAddDependencyCycleDetection:
@@ -196,7 +196,7 @@ class TestAddDependencyCycleDetection:
         )
 
         with pytest.raises(CyclicDependencyException) as exc_info:
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
         # Should contain cycle path
         assert exc_info.value.path is not None
@@ -221,7 +221,7 @@ class TestAddDependencyCycleDetection:
         )
 
         with pytest.raises(CyclicDependencyException) as exc_info:
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
         assert exc_info.value.path is not None
         cycle_nodes = set(exc_info.value.path)
@@ -249,7 +249,7 @@ class TestAddDependencyCycleDetection:
         )
 
         with pytest.raises(CyclicDependencyException):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
 
 class TestAddDependencyWaveWarning:
@@ -276,7 +276,7 @@ class TestAddDependencyWaveWarning:
             depends_on_id="FEAT-001",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
         assert result.warning is not None
@@ -305,7 +305,7 @@ class TestAddDependencyWaveWarning:
             depends_on_id="AUTH-001",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
         assert result.warning is None
@@ -331,7 +331,7 @@ class TestAddDependencyWaveWarning:
             depends_on_id="AUTH-002",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
         assert result.warning is None
@@ -356,7 +356,7 @@ class TestAddDependencyWaveWarning:
             depends_on_id="FEAT-001",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
         assert result.warning is not None

@@ -47,6 +47,7 @@ class MainWindowViewModel(QObject):
     story_selected = Signal(str)
     loading = Signal(bool)
     error_occurred = Signal(str)
+    active_planning_changed = Signal(int, str)
 
     def __init__(self, container: DIContainer) -> None:
         """Initialize the ViewModel.
@@ -60,10 +61,42 @@ class MainWindowViewModel(QObject):
         self._selected_story_id: str | None = None
         self._is_loading: bool = False
 
+        # Active planning state
+        self._active_planning_id: int | None = None
+        self._active_planning_name: str | None = None
+
         # Create the table model
         self._table_model = StoryTableModel()
 
         logger.debug("MainWindowViewModel initialized")
+
+    @property
+    def active_planning_id(self) -> int | None:
+        """Get the active planning ID."""
+        return self._active_planning_id
+
+    def _require_planning_id(self) -> int:
+        """Get the active planning ID, raising if not set."""
+        if self._active_planning_id is None:
+            raise ValueError("Nenhum planejamento ativo selecionado")
+        return self._active_planning_id
+
+    @property
+    def active_planning_name(self) -> str | None:
+        """Get the active planning name."""
+        return self._active_planning_name
+
+    def set_active_planning(self, planning_id: int, name: str) -> None:
+        """Set the active planning and emit signal.
+
+        Args:
+            planning_id: Planning ID.
+            name: Planning name.
+        """
+        self._active_planning_id = planning_id
+        self._active_planning_name = name
+        self.active_planning_changed.emit(planning_id, name)
+        logger.info("Active planning set: %d (%s)", planning_id, name)
 
     @property
     def table_model(self) -> StoryTableModel:
@@ -149,15 +182,21 @@ class MainWindowViewModel(QObject):
         self.error_occurred.emit(message)
 
     async def load_stories(self) -> None:
-        """Load all stories from the database.
+        """Load all stories from the database for the active planning.
 
         Emits stories_changed signal on success, error_occurred on failure.
         """
+        if self._active_planning_id is None:
+            self._stories = []
+            self._table_model.set_stories(self._stories)
+            self.stories_changed.emit()
+            return
+
         self._set_loading(True)
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_list_stories_use_case(uow)
-                stories = await use_case.execute()
+                stories = await use_case.execute(self._active_planning_id)
                 self._stories = list(stories)
                 self._table_model.set_stories(self._stories)
                 self.stories_changed.emit()
@@ -180,7 +219,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_story_use_case_factory(uow)
-                story = await use_case.execute(dto)
+                story = await use_case.execute(self._require_planning_id(), dto)
             await self.load_stories()
             logger.info("Created story: %s", story.id)
             return story
@@ -203,7 +242,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_edit_story_use_case(uow)
-                story = await use_case.execute(dto)
+                story = await use_case.execute(self._require_planning_id(), dto)
             await self.load_stories()
             logger.info("Edited story: %s", story.id)
             return story
@@ -261,7 +300,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_delete_story_use_case(uow)
-                await use_case.execute(story_id)
+                await use_case.execute(self._require_planning_id(), story_id)
                 if self._selected_story_id == story_id:
                     self._selected_story_id = self._compute_adjacent_story_id(story_id)
             await self.load_stories()
@@ -297,7 +336,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_move_priority_use_case(uow)
-                await use_case.move_up(story_id)
+                await use_case.move_up(self._require_planning_id(), story_id)
             await self.load_stories()
             logger.info("Moved story priority up: %s", story_id)
             return True
@@ -320,7 +359,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_move_priority_use_case(uow)
-                await use_case.move_down(story_id)
+                await use_case.move_down(self._require_planning_id(), story_id)
             await self.load_stories()
             logger.info("Moved story priority down: %s", story_id)
             return True
@@ -346,7 +385,9 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_assign_developer_use_case(uow)
-                story = await use_case.assign(story_id, developer_id)
+                story = await use_case.assign(
+                    self._require_planning_id(), story_id, developer_id
+                )
             await self.load_stories()
             logger.info("Assigned developer %d to story %s", developer_id, story_id)
             return story
@@ -369,7 +410,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_assign_developer_use_case(uow)
-                story = await use_case.unassign(story_id)
+                story = await use_case.unassign(self._require_planning_id(), story_id)
             await self.load_stories()
             logger.info("Unassigned developer from story %s", story_id)
             return story
@@ -392,7 +433,7 @@ class MainWindowViewModel(QObject):
         try:
             async with self._container.create_unit_of_work() as uow:
                 use_case = self._container.create_duplicate_story_use_case(uow)
-                story = await use_case.execute(story_id)
+                story = await use_case.execute(self._require_planning_id(), story_id)
             await self.load_stories()
             logger.info("Duplicated story: %s -> %s", story_id, story.id)
             return story

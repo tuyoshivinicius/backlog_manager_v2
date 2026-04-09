@@ -20,6 +20,10 @@ class TestConstraints:
             await init_database(db_path)
             conn = await create_connection(db_path)
             try:
+                await conn.execute(
+                    "INSERT INTO Planning (name) VALUES ('Test Planning')"
+                )
+                await conn.commit()
                 yield conn
             finally:
                 await conn.close()
@@ -30,8 +34,8 @@ class TestConstraints:
         for points in [3, 5, 8, 13]:
             await db_connection.execute(
                 """
-                INSERT INTO Story (id, component, name, story_points, priority)
-                VALUES (?, 'TEST', 'Test Story', ?, 0)
+                INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+                VALUES (1, ?, 'TEST', 'Test Story', ?, 0)
                 """,
                 (f"TEST-{points:03d}", points),
             )
@@ -42,8 +46,8 @@ class TestConstraints:
         with pytest.raises(Exception) as exc_info:
             await db_connection.execute(
                 """
-                INSERT INTO Story (id, component, name, story_points, priority)
-                VALUES ('TEST-999', 'TEST', 'Test Story', 7, 0)
+                INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+                VALUES (1, 'TEST-999', 'TEST', 'Test Story', 7, 0)
                 """
             )
         assert "CHECK constraint failed" in str(exc_info.value)
@@ -53,8 +57,8 @@ class TestConstraints:
         # Valid value should work
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority)
-            VALUES ('TEST-001', 'TEST', 'Test Story', 5, 0)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story', 5, 0)
             """
         )
         await db_connection.commit()
@@ -63,8 +67,8 @@ class TestConstraints:
         with pytest.raises(Exception) as exc_info:
             await db_connection.execute(
                 """
-                INSERT INTO Story (id, component, name, story_points, priority)
-                VALUES ('TEST-002', 'TEST', 'Test Story', 5, -1)
+                INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+                VALUES (1, 'TEST-002', 'TEST', 'Test Story', 5, -1)
                 """
             )
         assert "CHECK constraint failed" in str(exc_info.value)
@@ -89,8 +93,8 @@ class TestConstraints:
         # Create a story first
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority)
-            VALUES ('TEST-001', 'TEST', 'Test Story', 5, 0)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story', 5, 0)
             """
         )
         await db_connection.commit()
@@ -99,8 +103,8 @@ class TestConstraints:
         with pytest.raises(Exception) as exc_info:
             await db_connection.execute(
                 """
-                INSERT INTO Story_Dependency (story_id, depends_on_id)
-                VALUES ('TEST-001', 'TEST-001')
+                INSERT INTO Story_Dependency (planning_id, story_id, depends_on_id)
+                VALUES (1, 'TEST-001', 'TEST-001')
                 """
             )
         assert "CHECK constraint failed" in str(exc_info.value)

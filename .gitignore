@@ -132,6 +132,9 @@ Thumbs.db
 # Poetry
 poetry.lock
 
+# Local pip config (servidor de artefatos customizado)
+pip.conf
+
 # Project specific
 *.db
 *.sqlite

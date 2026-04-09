@@ -28,10 +28,13 @@ class CreateStoryUseCase:
         """
         self._uow = uow
 
-    async def execute(self, input_dto: CreateStoryInputDTO) -> StoryOutputDTO:
+    async def execute(
+        self, planning_id: int, input_dto: CreateStoryInputDTO
+    ) -> StoryOutputDTO:
         """Executa criacao de historia.
 
         Args:
+            planning_id: ID do planejamento.
             input_dto: Dados de entrada validados.
 
         Returns:
@@ -51,6 +54,7 @@ class CreateStoryUseCase:
         # Create story using domain service
         story_service = StoryService(self._uow.stories)
         story = await story_service.create_story(
+            planning_id=planning_id,
             component=input_dto.component,
             name=input_dto.name,
             story_points=input_dto.story_points,

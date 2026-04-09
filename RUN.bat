@@ -8,7 +8,7 @@ echo.
 :: --------------------------------------------------
 :: Verificar se o projeto esta instalado
 :: --------------------------------------------------
-if not exist ".venv" (
+if not exist ".venv\Scripts\zion-backlog-manager.exe" (
     echo Instalacao nao encontrada. Executando INSTALL.bat...
     echo.
     call INSTALL.bat
@@ -25,4 +25,4 @@ if not exist ".venv" (
 :: --------------------------------------------------
 echo Iniciando Backlog Manager...
 echo.
-poetry run backlog-manager
+.venv\Scripts\zion-backlog-manager.exe

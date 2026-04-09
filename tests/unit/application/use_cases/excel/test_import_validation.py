@@ -99,7 +99,7 @@ class TestHeaderValidation:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelMissingHeaderException, match="Nome"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
     async def test_all_required_headers_present_succeeds(
         self, use_case, mock_excel_service, mock_story_repo, valid_excel_file
@@ -120,7 +120,7 @@ class TestHeaderValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
         assert result.stories_imported == 1
@@ -148,7 +148,7 @@ class TestStoryPointValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
         assert any("Story Points invalido" in w for w in result.warnings)
@@ -196,7 +196,7 @@ class TestStoryPointValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 4
 
@@ -233,7 +233,7 @@ class TestCycleDetection:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelCycleDetectedException, match="Ciclo de dependencia"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
     async def test_indirect_cycle_a_b_c_a(
         self, use_case, mock_excel_service, valid_excel_file
@@ -272,7 +272,7 @@ class TestCycleDetection:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelCycleDetectedException):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
     async def test_self_dependency_detected_as_cycle(
         self, use_case, mock_excel_service, valid_excel_file
@@ -295,7 +295,7 @@ class TestCycleDetection:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelCycleDetectedException):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
 
 class TestEmptyFieldsValidation:
@@ -320,7 +320,7 @@ class TestEmptyFieldsValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
         assert any("Nome vazio" in w for w in result.warnings)
@@ -344,7 +344,7 @@ class TestEmptyFieldsValidation:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 0
 
@@ -368,7 +368,7 @@ class TestEmptyFieldsValidation:
         mock_story_repo.get_max_id_number.return_value = 0
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 1
         # Verify ID was generated
@@ -422,7 +422,7 @@ class TestPartialSuccessImport:
         )
 
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.stories_imported == 2  # A-001 and D-001
         assert len(result.warnings) >= 2  # Warnings for B-001 and C-001
@@ -439,7 +439,7 @@ class TestPartialSuccessImport:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelFileCorruptedException):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
 
 class TestFileValidation:
@@ -456,7 +456,7 @@ class TestFileValidation:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelFileNotFoundException):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
     async def test_corrupted_file_raises_exception(
         self, use_case, mock_excel_service, valid_excel_file
@@ -469,4 +469,4 @@ class TestFileValidation:
         input_dto = ImportExcelInputDTO(file_path=valid_excel_file)
 
         with pytest.raises(ExcelFileCorruptedException):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)

@@ -102,6 +102,7 @@ def make_story(
     """Create a test story with sensible defaults."""
     component = id.split("-")[0]
     return Story(
+        planning_id=1,
         id=id,
         component=component,
         name=f"Story {id}",

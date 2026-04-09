@@ -6,9 +6,9 @@ from pydantic import BaseModel
 
 
 class ResetPlanningInputDTO(BaseModel):
-    """Input DTO for reset planning use case. No parameters needed."""
+    """Input DTO for reset planning use case."""
 
-    pass
+    planning_id: int
 
 
 class ResetPlanningOutputDTO(BaseModel):
