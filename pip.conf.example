@@ -1,0 +1,16 @@
+[global]
+; Servidor de artefatos customizado (usado como fonte adicional ao PyPI)
+; Copie este arquivo para pip.conf e ajuste a URL:
+;
+;   copy pip.conf.example pip.conf
+;
+; extra-index-url mantem o PyPI como fonte principal e adiciona seu servidor.
+; Para usar SOMENTE seu servidor (sem PyPI), troque para index-url.
+
+extra-index-url = https://seu-servidor.exemplo.com/simple/
+
+; Para servidores com autenticacao basica:
+; extra-index-url = https://usuario:token@seu-servidor.exemplo.com/simple/
+
+; Para aceitar certificados self-signed (nao recomendado em producao):
+; trusted-host = seu-servidor.exemplo.com

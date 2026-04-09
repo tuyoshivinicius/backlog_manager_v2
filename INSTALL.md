@@ -4,22 +4,11 @@ Guia para instalar e executar o Backlog Manager a partir do código-fonte.
 
 ## Pré-requisitos
 
-- **Python 3.11** ou superior (até 3.14)
-- **Poetry** (gerenciador de dependências)
+- **Python 3.13** ou superior (até 3.14)
 
-### Instalando o Poetry
+## Instalação Rápida (pip)
 
-Se ainda não tem o Poetry instalado, a forma recomendada é via `pipx`:
-
-```bash
-pipx install poetry
-```
-
-> Caso não tenha o `pipx`, instale com `pip install --user pipx` e depois `pipx ensurepath`.
->
-> Consulte a [documentação oficial do Poetry](https://python-poetry.org/docs/#installation) para métodos alternativos.
-
-## Instalação
+Método recomendado para uso local — não requer Poetry instalado.
 
 1. **Clone o repositório:**
 
@@ -28,34 +17,49 @@ git clone <url-do-repositorio>
 cd backlog_manager_v2
 ```
 
-2. **Instale as dependências:**
+2. **Execute o instalador (Windows):**
 
 ```bash
-poetry install --only main
+INSTALL.bat
 ```
 
-Isso cria um ambiente virtual (`.venv`) e instala apenas as dependências de produção.
+Isso cria um ambiente virtual (`.venv`) e instala o pacote via `pip install .`.
 
-## Executando
-
-Existem duas formas equivalentes de iniciar a aplicação:
+3. **Execute a aplicação:**
 
 ```bash
-# Via script registrado
-poetry run backlog-manager
+RUN.bat
+```
 
-# Via módulo Python
+### Instalação manual (pip)
+
+```bash
+python -m venv .venv
+.venv\Scripts\pip install .
+.venv\Scripts\zion-backlog-manager.exe
+```
+
+## Instalação via Poetry (desenvolvimento/CI)
+
+Para contribuir com o projeto (testes, linting, formatação), use Poetry:
+
+1. **Instale o Poetry** (se não tiver):
+
+```bash
+pipx install poetry
+```
+
+2. **Instale todas as dependências:**
+
+```bash
+poetry install            # Desenvolvimento (inclui pytest, ruff, mypy, etc.)
+poetry install --only main  # Apenas produção
+```
+
+3. **Execute a aplicação:**
+
+```bash
+poetry run zion-backlog-manager
+# OU
 poetry run python -m backlog_manager
 ```
-
-A interface gráfica do Backlog Manager será aberta.
-
-## Nota: Ambiente de Desenvolvimento
-
-Para contribuir com o projeto (testes, linting, formatação), instale todas as dependências:
-
-```bash
-poetry install
-```
-
-Isso inclui ferramentas como `pytest`, `black`, `ruff`, `mypy`, entre outras.
