@@ -22,7 +22,7 @@ def mock_developer_repo():
 def mock_story_repo():
     """Create mock story repository."""
     repo = MagicMock()
-    repo.count_by_developer = AsyncMock(return_value=0)
+    repo.count_all_by_developer = AsyncMock(return_value=0)
     return repo
 
 
@@ -49,7 +49,7 @@ class TestDeleteDeveloperUseCase:
     ):
         """Should delete developer and return stories unassigned count."""
         mock_developer_repo.get_by_id.return_value = Developer(id=1, name="Ana")
-        mock_story_repo.count_by_developer.return_value = 5
+        mock_story_repo.count_all_by_developer.return_value = 5
 
         result = await use_case.execute(1)
 
@@ -62,7 +62,7 @@ class TestDeleteDeveloperUseCase:
     ):
         """Should return 0 when developer has no stories."""
         mock_developer_repo.get_by_id.return_value = Developer(id=1, name="Ana")
-        mock_story_repo.count_by_developer.return_value = 0
+        mock_story_repo.count_all_by_developer.return_value = 0
 
         result = await use_case.execute(1)
 

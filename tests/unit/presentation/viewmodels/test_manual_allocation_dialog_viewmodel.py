@@ -54,6 +54,7 @@ def _make_container() -> MagicMock:
     mock_uow.__aexit__ = AsyncMock(return_value=False)
     mock_uow.commit = AsyncMock()
     container.create_unit_of_work.return_value = mock_uow
+    container.main_window_viewmodel.active_planning_id = 1
     return container
 
 
@@ -198,7 +199,7 @@ class TestManualAllocationDialogViewModel:
         await vm._confirm_allocation_async()
 
         assert len(vm.allocation_confirmed.emissions) == 1
-        call_args = mock_use_case.execute.call_args[0][0]
+        call_args = mock_use_case.execute.call_args[0][1]
         assert call_args.story_id == "TEST-001"
         assert call_args.developer_id == 3
 
@@ -219,7 +220,7 @@ class TestManualAllocationDialogViewModel:
 
         await vm._confirm_allocation_async()
 
-        call_args = mock_use_case.execute.call_args[0][0]
+        call_args = mock_use_case.execute.call_args[0][1]
         assert call_args.story_id == "TEST-001"
         assert call_args.developer_id == 2
         assert call_args.start_date == date(2026, 4, 6)
