@@ -31,12 +31,13 @@ class RemoveDependencyUseCase:
         self._uow = uow
 
     async def execute(
-        self, input_dto: RemoveDependencyInputDTO
+        self, input_dto: RemoveDependencyInputDTO, planning_id: int
     ) -> RemoveDependencyOutputDTO:
         """Executa remocao de dependencia.
 
         Args:
             input_dto: DTO com story_id e depends_on_id.
+            planning_id: ID do planning ativo.
 
         Returns:
             DTO com resultado da operacao.
@@ -48,13 +49,15 @@ class RemoveDependencyUseCase:
         depends_on_id = input_dto.depends_on_id
 
         # Check dependency exists before removing
-        dependency_exists = await self._uow.dependencies.exists(story_id, depends_on_id)
+        dependency_exists = await self._uow.dependencies.exists(
+            planning_id, story_id, depends_on_id
+        )
         if not dependency_exists:
             raise ValueError(
                 f"Dependencia de {story_id} para {depends_on_id} nao encontrada"
             )
 
         # Remove dependency
-        await self._uow.dependencies.remove(story_id, depends_on_id)
+        await self._uow.dependencies.remove(planning_id, story_id, depends_on_id)
 
         return RemoveDependencyOutputDTO(success=True)

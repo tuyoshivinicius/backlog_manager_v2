@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+import aiosqlite
 import pytest
 from backlog_manager.application.dto.dependency import (
     AddDependencyInputDTO,
@@ -38,6 +39,7 @@ class TestAddDependencyUseCaseIntegration:
         for i in range(1, 5):
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id=f"TEST-{i:03d}",
                     component="TEST",
                     name=f"Story {i}",
@@ -61,6 +63,9 @@ class TestAddDependencyUseCaseIntegration:
     async def test_add_dependency_success(self, db_path: Path) -> None:
         """Integration test for successful dependency addition."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_stories(uow)
@@ -71,7 +76,8 @@ class TestAddDependencyUseCaseIntegration:
                 AddDependencyInputDTO(
                     story_id="TEST-002",
                     depends_on_id="TEST-001",
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -80,12 +86,15 @@ class TestAddDependencyUseCaseIntegration:
 
         # Verify dependency persisted
         async with SQLiteUnitOfWork(db_path) as uow:
-            deps = await uow.dependencies.get_dependencies("TEST-002")
+            deps = await uow.dependencies.get_dependencies(1, "TEST-002")
             assert "TEST-001" in deps
 
     async def test_cycle_detection_direct(self, db_path: Path) -> None:
         """Integration test for direct cycle detection A->B, B->A."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_stories(uow)
@@ -97,7 +106,8 @@ class TestAddDependencyUseCaseIntegration:
                 AddDependencyInputDTO(
                     story_id="TEST-001",
                     depends_on_id="TEST-002",
-                )
+                ),
+                planning_id=1,
             )
 
         # Try to add TEST-002 -> TEST-001 (would create cycle)
@@ -108,7 +118,8 @@ class TestAddDependencyUseCaseIntegration:
                     AddDependencyInputDTO(
                         story_id="TEST-002",
                         depends_on_id="TEST-001",
-                    )
+                    ),
+                    planning_id=1,
                 )
 
         assert exc_info.value.path[0] == exc_info.value.path[-1]
@@ -116,6 +127,9 @@ class TestAddDependencyUseCaseIntegration:
     async def test_cycle_detection_indirect(self, db_path: Path) -> None:
         """Integration test for indirect cycle detection A->B->C->A."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_stories(uow)
@@ -124,10 +138,12 @@ class TestAddDependencyUseCaseIntegration:
         async with SQLiteUnitOfWork(db_path) as uow:
             use_case = AddDependencyUseCase(uow)
             await use_case.execute(
-                AddDependencyInputDTO(story_id="TEST-001", depends_on_id="TEST-002")
+                AddDependencyInputDTO(story_id="TEST-001", depends_on_id="TEST-002"),
+                planning_id=1,
             )
             await use_case.execute(
-                AddDependencyInputDTO(story_id="TEST-002", depends_on_id="TEST-003")
+                AddDependencyInputDTO(story_id="TEST-002", depends_on_id="TEST-003"),
+                planning_id=1,
             )
 
         # Try to add TEST-003 -> TEST-001 (would create cycle)
@@ -138,12 +154,16 @@ class TestAddDependencyUseCaseIntegration:
                     AddDependencyInputDTO(
                         story_id="TEST-003",
                         depends_on_id="TEST-001",
-                    )
+                    ),
+                    planning_id=1,
                 )
 
     async def test_wave_warning(self, db_path: Path) -> None:
         """Integration test for wave warning."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             feature1_id, feature2_id = await self._create_features_with_waves(uow)
@@ -151,6 +171,7 @@ class TestAddDependencyUseCaseIntegration:
             # Create story in wave 1
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id="WAVE-001",
                     component="WAVE",
                     name="Wave 1 Story",
@@ -162,6 +183,7 @@ class TestAddDependencyUseCaseIntegration:
             # Create story in wave 2
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id="WAVE-002",
                     component="WAVE",
                     name="Wave 2 Story",
@@ -178,7 +200,8 @@ class TestAddDependencyUseCaseIntegration:
                 AddDependencyInputDTO(
                     story_id="WAVE-001",
                     depends_on_id="WAVE-002",
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
@@ -203,6 +226,7 @@ class TestRemoveDependencyUseCaseIntegration:
         for i in range(1, 4):
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id=f"TEST-{i:03d}",
                     component="TEST",
                     name=f"Story {i}",
@@ -214,11 +238,14 @@ class TestRemoveDependencyUseCaseIntegration:
     async def test_remove_dependency_success(self, db_path: Path) -> None:
         """Integration test for successful dependency removal."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         # Setup: create stories and dependency
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_stories(uow)
-            await uow.dependencies.add("TEST-002", "TEST-001")
+            await uow.dependencies.add(1, "TEST-002", "TEST-001")
 
         # Remove dependency
         async with SQLiteUnitOfWork(db_path) as uow:
@@ -227,14 +254,15 @@ class TestRemoveDependencyUseCaseIntegration:
                 RemoveDependencyInputDTO(
                     story_id="TEST-002",
                     depends_on_id="TEST-001",
-                )
+                ),
+                planning_id=1,
             )
 
         assert result.success is True
 
         # Verify removal
         async with SQLiteUnitOfWork(db_path) as uow:
-            deps = await uow.dependencies.get_dependencies("TEST-002")
+            deps = await uow.dependencies.get_dependencies(1, "TEST-002")
             assert "TEST-001" not in deps
 
 
@@ -254,6 +282,7 @@ class TestGetDependenciesUseCaseIntegration:
         for i in range(1, 5):
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id=f"TEST-{i:03d}",
                     component="TEST",
                     name=f"Story {i}",
@@ -265,16 +294,20 @@ class TestGetDependenciesUseCaseIntegration:
     async def test_get_dependencies_success(self, db_path: Path) -> None:
         """Integration test for getting dependencies."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_stories(uow)
-            await uow.dependencies.add("TEST-003", "TEST-001")
-            await uow.dependencies.add("TEST-003", "TEST-002")
+            await uow.dependencies.add(1, "TEST-003", "TEST-001")
+            await uow.dependencies.add(1, "TEST-003", "TEST-002")
 
         async with SQLiteUnitOfWork(db_path) as uow:
             use_case = GetDependenciesUseCase(uow)
             result = await use_case.execute(
-                GetDependenciesInputDTO(story_id="TEST-003")
+                GetDependenciesInputDTO(story_id="TEST-003"),
+                planning_id=1,
             )
 
         assert result.story_id == "TEST-003"
@@ -299,6 +332,7 @@ class TestGetDependentsUseCaseIntegration:
         for i in range(1, 5):
             await uow.stories.add(
                 Story(
+                    planning_id=1,
                     id=f"TEST-{i:03d}",
                     component="TEST",
                     name=f"Story {i}",
@@ -310,15 +344,20 @@ class TestGetDependentsUseCaseIntegration:
     async def test_get_dependents_success(self, db_path: Path) -> None:
         """Integration test for getting dependents."""
         await init_database(db_path)
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.execute("INSERT INTO Planning (name) VALUES ('Test Planning')")
+            await conn.commit()
 
         async with SQLiteUnitOfWork(db_path) as uow:
             await self._create_stories(uow)
-            await uow.dependencies.add("TEST-002", "TEST-001")
-            await uow.dependencies.add("TEST-003", "TEST-001")
+            await uow.dependencies.add(1, "TEST-002", "TEST-001")
+            await uow.dependencies.add(1, "TEST-003", "TEST-001")
 
         async with SQLiteUnitOfWork(db_path) as uow:
             use_case = GetDependentsUseCase(uow)
-            result = await use_case.execute(GetDependentsInputDTO(story_id="TEST-001"))
+            result = await use_case.execute(
+                GetDependentsInputDTO(story_id="TEST-001"), planning_id=1
+            )
 
         assert result.story_id == "TEST-001"
         assert len(result.dependents) == 2

@@ -78,6 +78,7 @@ def sample_stories():
     """Create sample stories for testing."""
     return [
         Story(
+            planning_id=1,
             id="AUTH-001",
             component="AUTH",
             name="Login de usuario",
@@ -88,6 +89,7 @@ def sample_stories():
             feature_id=1,
         ),
         Story(
+            planning_id=1,
             id="AUTH-002",
             component="AUTH",
             name="Logout de usuario",
@@ -140,7 +142,7 @@ class TestExportExcelUseCase:
 
         file_path = tmp_path / "export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(1, input_dto)
 
         assert result.stories_exported == 2
         assert result.developers_exported == 2
@@ -157,7 +159,7 @@ class TestExportExcelUseCase:
         """Should create file with empty data when database is empty."""
         file_path = tmp_path / "empty_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(1, input_dto)
 
         assert result.stories_exported == 0
         assert result.developers_exported == 0
@@ -182,7 +184,7 @@ class TestExportExcelUseCase:
 
         file_path = tmp_path / "deps_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         # Check the data passed to write_workbook
         call_args = mock_excel_service.write_workbook.call_args
@@ -209,7 +211,7 @@ class TestExportExcelUseCase:
 
         file_path = tmp_path / "devs_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         call_args = mock_excel_service.write_workbook.call_args
         export_data = call_args[0][1]
@@ -235,7 +237,7 @@ class TestExportExcelUseCase:
 
         file_path = tmp_path / "features_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         call_args = mock_excel_service.write_workbook.call_args
         export_data = call_args[0][1]
@@ -261,7 +263,7 @@ class TestExportDataFormat:
 
         file_path = tmp_path / "columns_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         call_args = mock_excel_service.write_workbook.call_args
         export_data = call_args[0][1]
@@ -292,7 +294,7 @@ class TestExportDataFormat:
 
         file_path = tmp_path / "sp_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         call_args = mock_excel_service.write_workbook.call_args
         export_data = call_args[0][1]
@@ -313,7 +315,7 @@ class TestExportDataFormat:
 
         file_path = tmp_path / "status_export.xlsx"
         input_dto = ExportExcelInputDTO(file_path=file_path)
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         call_args = mock_excel_service.write_workbook.call_args
         export_data = call_args[0][1]

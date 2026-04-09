@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from backlog_manager.infrastructure.database.repositories import (
     SQLiteDeveloperRepository,
     SQLiteFeatureRepository,
+    SQLitePlanningRepository,
     SQLiteStoryDependencyRepository,
     SQLiteStoryRepository,
 )
@@ -43,6 +44,7 @@ class SQLiteUnitOfWork:
         self._developers: SQLiteDeveloperRepository | None = None
         self._features: SQLiteFeatureRepository | None = None
         self._dependencies: SQLiteStoryDependencyRepository | None = None
+        self._plannings: SQLitePlanningRepository | None = None
 
     @property
     def stories(self) -> SQLiteStoryRepository:
@@ -100,6 +102,20 @@ class SQLiteUnitOfWork:
             raise RuntimeError(self._CONTEXT_MANAGER_ERROR_MSG)
         return self._dependencies
 
+    @property
+    def plannings(self) -> SQLitePlanningRepository:
+        """Get planning repository.
+
+        Returns:
+            Planning repository instance.
+
+        Raises:
+            RuntimeError: If not in context.
+        """
+        if self._plannings is None:
+            raise RuntimeError(self._CONTEXT_MANAGER_ERROR_MSG)
+        return self._plannings
+
     async def __aenter__(self) -> SQLiteUnitOfWork:
         """Enter async context and start transaction.
 
@@ -111,6 +127,7 @@ class SQLiteUnitOfWork:
         self._developers = SQLiteDeveloperRepository(self._conn)
         self._features = SQLiteFeatureRepository(self._conn)
         self._dependencies = SQLiteStoryDependencyRepository(self._conn)
+        self._plannings = SQLitePlanningRepository(self._conn)
         return self
 
     async def __aexit__(
@@ -140,6 +157,7 @@ class SQLiteUnitOfWork:
         self._developers = None
         self._features = None
         self._dependencies = None
+        self._plannings = None
 
     async def commit(self) -> None:
         """Commit the current transaction."""

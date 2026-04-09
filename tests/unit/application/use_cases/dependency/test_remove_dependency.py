@@ -46,10 +46,10 @@ class TestRemoveDependencySuccess:
             depends_on_id="AUTH-001",
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(input_dto, 1)
 
         assert result.success is True
-        mock_dependency_repo.remove.assert_called_once_with("AUTH-002", "AUTH-001")
+        mock_dependency_repo.remove.assert_called_once_with(1, "AUTH-002", "AUTH-001")
 
     async def test_remove_calls_exists_before_remove(
         self, use_case, mock_dependency_repo
@@ -60,9 +60,9 @@ class TestRemoveDependencySuccess:
             depends_on_id="AUTH-001",
         )
 
-        await use_case.execute(input_dto)
+        await use_case.execute(input_dto, 1)
 
-        mock_dependency_repo.exists.assert_called_once_with("AUTH-002", "AUTH-001")
+        mock_dependency_repo.exists.assert_called_once_with(1, "AUTH-002", "AUTH-001")
 
 
 class TestRemoveDependencyNotFound:
@@ -78,7 +78,7 @@ class TestRemoveDependencyNotFound:
         )
 
         with pytest.raises(ValueError, match="nao encontrada"):
-            await use_case.execute(input_dto)
+            await use_case.execute(input_dto, 1)
 
         mock_dependency_repo.remove.assert_not_called()
 
@@ -97,9 +97,9 @@ class TestRemovePreservesOtherDependencies:
             depends_on_id="AUTH-001",
         )
 
-        await use_case.execute(input_dto)
+        await use_case.execute(input_dto, 1)
 
         # Only the specified dependency should be removed
-        mock_dependency_repo.remove.assert_called_once_with("AUTH-002", "AUTH-001")
+        mock_dependency_repo.remove.assert_called_once_with(1, "AUTH-002", "AUTH-001")
         # Other dependencies should not be affected (verified by single call)
         assert mock_dependency_repo.remove.call_count == 1

@@ -25,10 +25,11 @@ class DuplicateStoryUseCase:
         """
         self._uow = uow
 
-    async def execute(self, story_id: str) -> StoryOutputDTO:
+    async def execute(self, planning_id: int, story_id: str) -> StoryOutputDTO:
         """Executa duplicacao de historia.
 
         Args:
+            planning_id: ID do planejamento.
             story_id: ID da historia a duplicar.
 
         Returns:
@@ -38,13 +39,13 @@ class DuplicateStoryUseCase:
             ValueError: Se historia original nao existe.
         """
         # Get original story
-        original = await self._uow.stories.get_by_id(story_id)
+        original = await self._uow.stories.get_by_id(planning_id, story_id)
         if original is None:
             raise ValueError(f"Historia {story_id} nao encontrada")
 
         # Create duplicate using domain service
         story_service = StoryService(self._uow.stories)
-        duplicate = await story_service.duplicate_story(original)
+        duplicate = await story_service.duplicate_story(planning_id, original)
 
         # Persist
         await self._uow.stories.add(duplicate)

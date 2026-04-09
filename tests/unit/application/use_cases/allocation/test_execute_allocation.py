@@ -20,6 +20,7 @@ from backlog_manager.domain.value_objects import StoryPoint, StoryStatus
 
 def _make_story(story_id: str = "TEST-001", **kwargs) -> Story:
     defaults = {
+        "planning_id": 1,
         "id": story_id,
         "component": story_id.rsplit("-", 1)[0],
         "name": f"Story {story_id}",
@@ -104,7 +105,7 @@ class TestExecuteAllocationUseCase:
             return_value=fake_result,
         ):
             use_case = ExecuteAllocationUseCase(mock_uow)
-            result = await use_case.execute(_make_input())
+            result = await use_case.execute(_make_input(), 1)
 
         assert any("Backlog muito grande" in w for w in result.warnings)
         assert any(str(LARGE_BACKLOG_THRESHOLD) in w for w in result.warnings)
@@ -121,7 +122,7 @@ class TestExecuteAllocationUseCase:
         ) as mock_alloc:
             use_case = ExecuteAllocationUseCase(mock_uow)
             result = await use_case.execute(
-                _make_input(allocation_criteria="INVALID_CRITERIA")
+                _make_input(allocation_criteria="INVALID_CRITERIA"), 1
             )
 
         assert any("Criterio invalido" in w for w in result.warnings)
@@ -146,7 +147,7 @@ class TestExecuteAllocationUseCase:
             return_value=fake_result,
         ):
             use_case = ExecuteAllocationUseCase(mock_uow)
-            result = await use_case.execute(_make_input())
+            result = await use_case.execute(_make_input(), 1)
 
         mock_uow.stories.update.assert_called_once_with(story)
         assert result.success is True
@@ -167,7 +168,7 @@ class TestExecuteAllocationUseCase:
             return_value=fake_result,
         ):
             use_case = ExecuteAllocationUseCase(mock_uow)
-            result = await use_case.execute(_make_input())
+            result = await use_case.execute(_make_input(), 1)
 
         assert any("Dev sem historias" in w for w in result.warnings)
 
@@ -187,7 +188,7 @@ class TestExecuteAllocationUseCase:
             return_value=fake_result,
         ):
             use_case = ExecuteAllocationUseCase(mock_uow)
-            result = await use_case.execute(_make_input())
+            result = await use_case.execute(_make_input(), 1)
 
         assert result.success is True
         # Deadlock count should be reflected in metrics

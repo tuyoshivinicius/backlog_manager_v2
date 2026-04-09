@@ -301,9 +301,12 @@ class StoryDialogViewModel(QObject):
             feature_id=self._feature_id,
         )
 
+        planning_id = self._container.main_window_viewmodel.active_planning_id
+        assert planning_id is not None, "Active planning must be set"
+
         async with self._container.create_unit_of_work() as uow:
             use_case = self._container.create_story_use_case_factory(uow)
-            story = await use_case.execute(dto)
+            story = await use_case.execute(planning_id, dto)
             self.saved.emit()
             logger.info("Created story: %s", story.id)
             return story
@@ -329,9 +332,12 @@ class StoryDialogViewModel(QObject):
             status=self._status,
         )
 
+        planning_id = self._container.main_window_viewmodel.active_planning_id
+        assert planning_id is not None, "Active planning must be set"
+
         async with self._container.create_unit_of_work() as uow:
             use_case = self._container.create_edit_story_use_case(uow)
-            story = await use_case.execute(dto)
+            story = await use_case.execute(planning_id, dto)
             self.saved.emit()
             logger.info("Edited story: %s", story.id)
             return story

@@ -41,6 +41,7 @@ def container() -> MagicMock:
 def sample_story_dto() -> StoryOutputDTO:
     """Return a sample StoryOutputDTO for edit-mode tests."""
     return StoryOutputDTO(
+        planning_id=1,
         id="COMP-001",
         component="COMP",
         name="Sample Story",
@@ -296,6 +297,7 @@ class TestStoryDialogViewModelSave:
         viewmodel.story_points = 5
 
         mock_story = StoryOutputDTO(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test Story",
@@ -329,6 +331,7 @@ class TestStoryDialogViewModelSave:
         viewmodel.name = "Updated Story"
 
         mock_story = StoryOutputDTO(
+            planning_id=1,
             id=sample_story_dto.id,
             component=sample_story_dto.component,
             name="Updated Story",
@@ -490,6 +493,7 @@ class TestStoryDialogViewModelDeveloperId:
         viewmodel.developer_id = 42
 
         mock_story = StoryOutputDTO(
+            planning_id=1,
             id=sample_story_dto.id,
             component=sample_story_dto.component,
             name=sample_story_dto.name,
@@ -523,6 +527,7 @@ class TestStoryDialogViewModelDeveloperId:
         viewmodel.developer_id = None
 
         mock_story = StoryOutputDTO(
+            planning_id=1,
             id=sample_story_dto.id,
             component=sample_story_dto.component,
             name=sample_story_dto.name,
@@ -587,6 +592,7 @@ class TestStoryDialogViewModelStatus:
         viewmodel.status = "CONCLUIDO"
 
         mock_story = StoryOutputDTO(
+            planning_id=1,
             id=sample_story_dto.id,
             component=sample_story_dto.component,
             name=sample_story_dto.name,

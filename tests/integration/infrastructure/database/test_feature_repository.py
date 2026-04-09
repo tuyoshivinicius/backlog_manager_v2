@@ -4,13 +4,15 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from backlog_manager.domain.entities import Feature, Story
+from backlog_manager.domain.entities import Feature, Planning, Story
 from backlog_manager.domain.exceptions import (
     DuplicateWaveException,
     FeatureHasStoriesException,
 )
 from backlog_manager.domain.value_objects import StoryPoint
 from backlog_manager.infrastructure.database import SQLiteUnitOfWork, init_database
+
+PLANNING_ID = 1
 
 
 @pytest.mark.integration
@@ -23,6 +25,11 @@ class TestFeatureRepository:
         """Create a temporary database path."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             yield Path(tmp_dir) / "test.db"
+
+    async def _create_planning(self, db_path: Path) -> None:
+        """Create a test planning row."""
+        async with SQLiteUnitOfWork(db_path) as uow:
+            await uow.plannings.add(Planning(id=None, name="Test Planning"))
 
     async def test_add_feature(self, db_path: Path) -> None:
         """Test adding a feature."""
@@ -164,11 +171,13 @@ class TestFeatureRepository:
     ) -> None:
         """Test deleting feature with stories raises FeatureHasStoriesException."""
         await init_database(db_path)
+        await self._create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             feat_id = await uow.features.add(Feature(name="Auth", wave=1))
             await uow.stories.add(
                 Story(
+                    planning_id=PLANNING_ID,
                     id="AUTH-001",
                     component="AUTH",
                     name="Login",
@@ -206,6 +215,7 @@ class TestFeatureRepository:
     async def test_has_stories(self, db_path: Path) -> None:
         """Test has_stories method."""
         await init_database(db_path)
+        await self._create_planning(db_path)
 
         async with SQLiteUnitOfWork(db_path) as uow:
             feat_id = await uow.features.add(Feature(name="Auth", wave=1))
@@ -213,6 +223,7 @@ class TestFeatureRepository:
 
             await uow.stories.add(
                 Story(
+                    planning_id=PLANNING_ID,
                     id="AUTH-001",
                     component="AUTH",
                     name="Login",

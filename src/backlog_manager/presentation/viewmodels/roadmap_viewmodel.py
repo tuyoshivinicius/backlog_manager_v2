@@ -153,10 +153,14 @@ class RoadmapViewModel(QObject):
             RoadmapData com grupos colapsados por padrao, ou None se nenhuma
             historia tem datas calculadas.
         """
+        planning_id = self._container.main_window_viewmodel.active_planning_id
+        if planning_id is None:
+            return None
+
         async with self._container.create_unit_of_work() as uow:
             list_stories_uc = self._container.create_list_stories_use_case(uow)
             list_features_uc = self._container.create_list_features_use_case(uow)
-            stories = list(await list_stories_uc.execute())
+            stories = list(await list_stories_uc.execute(planning_id))
             features_output = await list_features_uc.execute()
 
         self._cached_features = {f.id: f.name for f in features_output.features}

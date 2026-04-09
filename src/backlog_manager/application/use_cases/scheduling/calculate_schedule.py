@@ -50,12 +50,13 @@ class CalculateScheduleUseCase:
         self._uow = uow
 
     async def execute(
-        self, input_dto: CalculateScheduleInputDTO
+        self, input_dto: CalculateScheduleInputDTO, planning_id: int
     ) -> CalculateScheduleOutputDTO:
         """Execute full schedule calculation.
 
         Args:
             input_dto: Input containing velocity and project start date.
+            planning_id: ID do planning ativo.
 
         Returns:
             Output DTO with calculation results and warnings.
@@ -65,7 +66,7 @@ class CalculateScheduleUseCase:
         """
         warnings: list[str] = []
 
-        all_stories = await self._uow.stories.get_all()
+        all_stories = await self._uow.stories.get_all(planning_id)
         eligible_stories = self._filter_eligible_stories(
             all_stories, input_dto.recalculate_all, warnings
         )
@@ -79,12 +80,12 @@ class CalculateScheduleUseCase:
                 warnings=warnings,
             )
 
-        all_deps = await self._uow.dependencies.get_all_dependencies()
+        all_deps = await self._uow.dependencies.get_all_dependencies(planning_id)
         graph = DependencyService.build_graph(all_deps)
         sorted_stories = SchedulingService.topological_sort(eligible_stories, graph)
 
         stories_updated = await self._calculate_and_update_dates(
-            sorted_stories, graph, input_dto, warnings
+            planning_id, sorted_stories, graph, input_dto, warnings
         )
 
         return CalculateScheduleOutputDTO(
@@ -138,6 +139,7 @@ class CalculateScheduleUseCase:
 
     async def _resolve_dependency_end_dates(
         self,
+        planning_id: int,
         dep_ids: list[str],
         story_end_dates: dict[str, date],
         fallback_date: date,
@@ -146,6 +148,7 @@ class CalculateScheduleUseCase:
         """Resolve end dates for a story's dependencies.
 
         Args:
+            planning_id: ID do planning ativo.
             dep_ids: List of dependency story IDs.
             story_end_dates: Cache of already-calculated end dates.
             fallback_date: Date to use when dependency has no end date.
@@ -162,7 +165,7 @@ class CalculateScheduleUseCase:
                     dependency_end_dates.append(end_date)
                 continue
 
-            dep_story = await self._uow.stories.get_by_id(dep_id)
+            dep_story = await self._uow.stories.get_by_id(planning_id, dep_id)
             if dep_story is not None and dep_story.end_date is not None:
                 dependency_end_dates.append(dep_story.end_date)
                 story_end_dates[dep_id] = dep_story.end_date
@@ -177,6 +180,7 @@ class CalculateScheduleUseCase:
 
     async def _calculate_and_update_dates(
         self,
+        planning_id: int,
         sorted_stories: list[Story],
         graph: dict[str, list[str]],
         input_dto: CalculateScheduleInputDTO,
@@ -185,6 +189,7 @@ class CalculateScheduleUseCase:
         """Calculate dates for sorted stories and persist updates.
 
         Args:
+            planning_id: ID do planning ativo.
             sorted_stories: Stories in topological order.
             graph: Dependency graph.
             input_dto: Input with velocity and start date.
@@ -199,7 +204,7 @@ class CalculateScheduleUseCase:
         for story in sorted_stories:
             dep_ids = graph.get(story.id, [])
             dependency_end_dates = await self._resolve_dependency_end_dates(
-                dep_ids, story_end_dates, input_dto.start_date, warnings
+                planning_id, dep_ids, story_end_dates, input_dto.start_date, warnings
             )
 
             start_date, end_date, duration = SchedulingService.calculate_story_dates(

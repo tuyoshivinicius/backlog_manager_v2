@@ -51,6 +51,7 @@ def _make_story(
     priority: int = 0,
 ) -> StoryOutputDTO:
     return StoryOutputDTO(
+        planning_id=1,
         id=id,
         component=component,
         name=name,

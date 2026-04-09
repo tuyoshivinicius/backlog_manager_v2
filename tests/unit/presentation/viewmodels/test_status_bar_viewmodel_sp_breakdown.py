@@ -29,6 +29,7 @@ def _make_story(
 ) -> StoryOutputDTO:
     """Create a minimal StoryOutputDTO for testing."""
     return StoryOutputDTO(
+        planning_id=1,
         id=story_id,
         component="comp",
         name="Test Story",

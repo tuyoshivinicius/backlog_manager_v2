@@ -14,6 +14,7 @@ class Story:
     """Entidade representando uma User Story no backlog.
 
     Attributes:
+        planning_id: ID do planejamento ao qual pertence.
         id: Identificador unico no formato COMPONENTE-NNN (ex: AUTH-001).
         component: Componente/modulo ao qual pertence (max 50 chars).
         name: Nome/titulo da historia (max 200 chars).
@@ -27,6 +28,7 @@ class Story:
         feature_id: Referencia a feature/wave.
     """
 
+    planning_id: int
     id: str
     component: str
     name: str

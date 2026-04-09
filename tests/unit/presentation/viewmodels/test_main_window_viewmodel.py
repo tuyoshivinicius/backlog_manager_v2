@@ -62,6 +62,7 @@ def _sample_stories() -> list[StoryOutputDTO]:
     """Create sample stories matching conftest fixture."""
     return [
         StoryOutputDTO(
+            planning_id=1,
             id="COMP-001",
             component="COMP",
             name="Primeira Historia",
@@ -79,6 +80,7 @@ def _sample_stories() -> list[StoryOutputDTO]:
             dependency_ids=["API-001"],
         ),
         StoryOutputDTO(
+            planning_id=1,
             id="COMP-002",
             component="COMP",
             name="Segunda Historia",
@@ -96,6 +98,7 @@ def _sample_stories() -> list[StoryOutputDTO]:
             dependency_ids=[],
         ),
         StoryOutputDTO(
+            planning_id=1,
             id="API-001",
             component="API",
             name="Terceira Historia",
@@ -127,6 +130,7 @@ class TestMainWindowViewModelInitialization:
         """Test that ViewModel initializes with correct state."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         assert viewmodel.stories == []
         assert viewmodel.selected_story_id is None
@@ -137,6 +141,7 @@ class TestMainWindowViewModelInitialization:
         """Test that table model is created on initialization."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         assert viewmodel.table_model is not None
 
@@ -153,6 +158,7 @@ class TestMainWindowViewModelSelection:
         """Test that selecting a story updates the selected ID."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel.select_story("TEST-001")
 
         assert viewmodel.selected_story_id == "TEST-001"
@@ -161,6 +167,7 @@ class TestMainWindowViewModelSelection:
         """Test that selecting a story emits story_selected signal."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         viewmodel.select_story("TEST-001")
 
@@ -170,6 +177,7 @@ class TestMainWindowViewModelSelection:
         """Test that selecting None clears the selection."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel.select_story("TEST-001")
         viewmodel.select_story(None)
 
@@ -179,6 +187,7 @@ class TestMainWindowViewModelSelection:
         """Test that selected_story returns the DTO when found."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         stories = _sample_stories()
         viewmodel._table_model.set_stories(stories)
         viewmodel._stories = stories
@@ -201,6 +210,7 @@ class TestMainWindowViewModelLoadStories:
         """Test successful story loading."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         stories = _sample_stories()
 
         mock_use_case = MagicMock()
@@ -224,6 +234,7 @@ class TestMainWindowViewModelLoadStories:
         """Test that error during loading emits error_occurred signal."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_use_case = MagicMock()
         mock_use_case.execute = AsyncMock(side_effect=Exception("Database error"))
@@ -252,8 +263,10 @@ class TestMainWindowViewModelCreateStory:
         """Test successful story creation."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         created_story = StoryOutputDTO(
+            planning_id=1,
             id="NEW-001",
             component="NEW",
             name="New Story",
@@ -300,6 +313,7 @@ class TestMainWindowViewModelCreateStory:
         """Test that validation error during creation emits signal."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_create_use_case = MagicMock()
         mock_create_use_case.execute = AsyncMock(
@@ -335,8 +349,10 @@ class TestMainWindowViewModelEditStory:
         """Test successful story editing."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         edited_story = StoryOutputDTO(
+            planning_id=1,
             id="COMP-001",
             component="COMP",
             name="Updated Name",
@@ -393,6 +409,7 @@ class TestMainWindowViewModelDeleteStory:
         """Test successful story deletion."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_delete_use_case = MagicMock()
         mock_delete_use_case.execute = AsyncMock()
@@ -421,6 +438,7 @@ class TestMainWindowViewModelDeleteStory:
         """Test that deleting the selected story clears selection."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel.select_story("COMP-001")
 
         mock_delete_use_case = MagicMock()
@@ -459,6 +477,7 @@ class TestMainWindowViewModelMovePriority:
         """Test successful priority move up."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_move_use_case = MagicMock()
         mock_move_use_case.move_up = AsyncMock()
@@ -487,6 +506,7 @@ class TestMainWindowViewModelMovePriority:
         """Test successful priority move down."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_move_use_case = MagicMock()
         mock_move_use_case.move_down = AsyncMock()
@@ -524,8 +544,10 @@ class TestMainWindowViewModelAssignDeveloper:
         """Test successful developer assignment."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         assigned_story = StoryOutputDTO(
+            planning_id=1,
             id="COMP-001",
             component="COMP",
             name="Test Story",
@@ -567,8 +589,10 @@ class TestMainWindowViewModelAssignDeveloper:
         """Test successful developer unassignment."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         unassigned_story = StoryOutputDTO(
+            planning_id=1,
             id="COMP-001",
             component="COMP",
             name="Test Story",
@@ -618,6 +642,7 @@ class TestMainWindowViewModelFiltering:
         """Test filtering stories by status."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel._stories = _sample_stories()
 
         backlog_stories = viewmodel.get_stories_by_status("BACKLOG")
@@ -630,6 +655,7 @@ class TestMainWindowViewModelFiltering:
         """Test filtering stories by feature."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel._stories = _sample_stories()
 
         feature_stories = viewmodel.get_stories_by_feature(1)
@@ -639,6 +665,7 @@ class TestMainWindowViewModelFiltering:
         """Test filtering stories by developer."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel._stories = _sample_stories()
 
         dev_stories = viewmodel.get_stories_by_developer(1)
@@ -659,8 +686,10 @@ class TestMainWindowViewModelDuplicateStory:
         """Test successful story duplication."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         duplicated_story = StoryOutputDTO(
+            planning_id=1,
             id="COMP-002",
             component="COMP",
             name="Sample Story (copia)",
@@ -703,8 +732,10 @@ class TestMainWindowViewModelDuplicateStory:
         """Test that stories_changed signal is emitted after duplication."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         duplicated_story = StoryOutputDTO(
+            planning_id=1,
             id="COMP-002",
             component="COMP",
             name="Copy",
@@ -745,6 +776,7 @@ class TestMainWindowViewModelDuplicateStory:
         """Test error handling during duplication."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_duplicate_use_case = MagicMock()
         mock_duplicate_use_case.execute = AsyncMock(
@@ -776,6 +808,7 @@ class TestMainWindowViewModelSelectionPersistence:
         """Test that selected_story_id is NOT cleared during load_stories."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel.select_story("COMP-001")
         stories = _sample_stories()
 
@@ -796,6 +829,7 @@ class TestMainWindowViewModelSelectionPersistence:
         """Test that deleting a story selects the adjacent story."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         stories = _sample_stories()
         viewmodel._stories = stories
         viewmodel._table_model.set_stories(stories)
@@ -831,6 +865,7 @@ class TestMainWindowViewModelSelectionPersistence:
         """Test that deleting the last story clears selection."""
         container = _make_container()
         single_story = StoryOutputDTO(
+            planning_id=1,
             id="ONLY-001",
             component="COMP",
             name="Only Story",
@@ -844,6 +879,7 @@ class TestMainWindowViewModelSelectionPersistence:
             feature_id=None,
         )
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel._stories = [single_story]
         viewmodel._table_model.set_stories([single_story])
         viewmodel.select_story("ONLY-001")
@@ -875,6 +911,7 @@ class TestMainWindowViewModelSelectionPersistence:
         """Test deleting middle story selects next story."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         stories = _sample_stories()
         viewmodel._stories = stories
         viewmodel._table_model.set_stories(stories)
@@ -909,6 +946,7 @@ class TestMainWindowViewModelSelectionPersistence:
         """Test deleting last row selects previous story."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         stories = _sample_stories()
         viewmodel._stories = stories
         viewmodel._table_model.set_stories(stories)
@@ -952,6 +990,7 @@ class TestMainWindowViewModelErrorHandling:
         """Test that BacklogManagerException is handled properly."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         class TestException(BacklogManagerException):
             pass
@@ -985,6 +1024,7 @@ class TestMainWindowViewModelEditStoryErrors:
         """Test that IncompleteDependencyException shows dependency details."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         exc = IncompleteDependencyException(
             story_id="COMP-001",
@@ -1022,6 +1062,7 @@ class TestMainWindowViewModelEditStoryErrors:
         """Test that generic exception in edit_story emits error signal."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_edit_use_case = MagicMock()
         mock_edit_use_case.execute = AsyncMock(
@@ -1057,6 +1098,7 @@ class TestMainWindowViewModelDeleteStoryErrors:
         """Test that ValueError with 'nao encontrada' refreshes without error."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
         viewmodel.select_story("COMP-001")
 
         mock_delete_use_case = MagicMock()
@@ -1091,6 +1133,7 @@ class TestMainWindowViewModelDeleteStoryErrors:
         """Test that ValueError without 'nao encontrada' emits error."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_delete_use_case = MagicMock()
         mock_delete_use_case.execute = AsyncMock(
@@ -1112,6 +1155,7 @@ class TestMainWindowViewModelDeleteStoryErrors:
         """Test that generic exception in delete_story emits error."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_delete_use_case = MagicMock()
         mock_delete_use_case.execute = AsyncMock(
@@ -1143,6 +1187,7 @@ class TestMainWindowViewModelMovePriorityErrors:
         """Test that exception in move_priority_up emits error and returns False."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_move_use_case = MagicMock()
         mock_move_use_case.move_up = AsyncMock(
@@ -1164,6 +1209,7 @@ class TestMainWindowViewModelMovePriorityErrors:
         """Test that exception in move_priority_down emits error and returns False."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_move_use_case = MagicMock()
         mock_move_use_case.move_down = AsyncMock(
@@ -1194,6 +1240,7 @@ class TestMainWindowViewModelAssignDeveloperErrors:
         """Test that exception in assign_developer emits error and returns None."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_assign_use_case = MagicMock()
         mock_assign_use_case.assign = AsyncMock(
@@ -1215,6 +1262,7 @@ class TestMainWindowViewModelAssignDeveloperErrors:
         """Test that exception in unassign_developer emits error and returns None."""
         container = _make_container()
         viewmodel = MainWindowViewModel(container)
+        viewmodel._active_planning_id = 1
 
         mock_assign_use_case = MagicMock()
         mock_assign_use_case.unassign = AsyncMock(

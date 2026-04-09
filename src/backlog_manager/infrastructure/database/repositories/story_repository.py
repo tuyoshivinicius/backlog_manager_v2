@@ -31,19 +31,20 @@ class SQLiteStoryRepository:
             story: Story to add.
 
         Raises:
-            ValueError: If story with same ID already exists.
+            ValueError: If story with same ID already exists in the planning.
         """
-        if await self.exists(story.id):
+        if await self.exists(story.planning_id, story.id):
             raise ValueError(f"Historia com ID {story.id} ja existe")
 
         await self._conn.execute(
             """
             INSERT INTO Story (
-                id, component, name, story_points, priority, status,
+                planning_id, id, component, name, story_points, priority, status,
                 duration, start_date, end_date, developer_id, feature_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                story.planning_id,
                 story.id,
                 story.component,
                 story.name,
@@ -58,78 +59,94 @@ class SQLiteStoryRepository:
             ),
         )
 
-    async def get_by_id(self, story_id: str) -> Story | None:
-        """Get story by ID.
+    async def get_by_id(self, planning_id: int, story_id: str) -> Story | None:
+        """Get story by composite key.
 
         Args:
+            planning_id: Planning ID.
             story_id: Story identifier.
 
         Returns:
             Story if found, None otherwise.
         """
         async with self._conn.execute(
-            "SELECT * FROM Story WHERE id = ?", (story_id,)
+            "SELECT * FROM Story WHERE planning_id = ? AND id = ?",
+            (planning_id, story_id),
         ) as cursor:
             row = await cursor.fetchone()
             if row is None:
                 return None
             return self._row_to_story(row)
 
-    async def get_all(self) -> Sequence[Story]:
-        """Get all stories ordered by priority.
+    async def get_all(self, planning_id: int) -> Sequence[Story]:
+        """Get all stories for a planning ordered by priority.
+
+        Args:
+            planning_id: Planning ID.
 
         Returns:
             List of all stories.
         """
         async with self._conn.execute(
-            "SELECT * FROM Story ORDER BY priority"
+            "SELECT * FROM Story WHERE planning_id = ? ORDER BY priority",
+            (planning_id,),
         ) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_story(row) for row in rows]
 
-    async def get_by_status(self, status: str) -> Sequence[Story]:
+    async def get_by_status(self, planning_id: int, status: str) -> Sequence[Story]:
         """Get stories by status.
 
         Args:
+            planning_id: Planning ID.
             status: Status to filter by.
 
         Returns:
             List of stories with the specified status.
         """
         async with self._conn.execute(
-            "SELECT * FROM Story WHERE status = ? ORDER BY priority", (status,)
+            "SELECT * FROM Story WHERE planning_id = ? AND status = ? ORDER BY priority",
+            (planning_id, status),
         ) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_story(row) for row in rows]
 
-    async def get_by_developer(self, developer_id: int) -> Sequence[Story]:
+    async def get_by_developer(
+        self, planning_id: int, developer_id: int
+    ) -> Sequence[Story]:
         """Get stories assigned to a developer.
 
         Args:
+            planning_id: Planning ID.
             developer_id: Developer ID.
 
         Returns:
             List of stories assigned to the developer.
         """
         async with self._conn.execute(
-            "SELECT * FROM Story WHERE developer_id = ? ORDER BY priority",
-            (developer_id,),
+            "SELECT * FROM Story WHERE planning_id = ? AND developer_id = ? "
+            "ORDER BY priority",
+            (planning_id, developer_id),
         ) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_story(row) for row in rows]
 
-    async def get_by_feature(self, feature_id: int) -> Sequence[Story]:
+    async def get_by_feature(
+        self, planning_id: int, feature_id: int
+    ) -> Sequence[Story]:
         """Get stories in a feature.
 
         Args:
+            planning_id: Planning ID.
             feature_id: Feature ID.
 
         Returns:
             List of stories in the feature.
         """
         async with self._conn.execute(
-            "SELECT * FROM Story WHERE feature_id = ? ORDER BY priority",
-            (feature_id,),
+            "SELECT * FROM Story WHERE planning_id = ? AND feature_id = ? "
+            "ORDER BY priority",
+            (planning_id, feature_id),
         ) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_story(row) for row in rows]
@@ -143,7 +160,7 @@ class SQLiteStoryRepository:
         Raises:
             ValueError: If story doesn't exist.
         """
-        if not await self.exists(story.id):
+        if not await self.exists(story.planning_id, story.id):
             raise ValueError(f"Historia {story.id} nao existe")
 
         await self._conn.execute(
@@ -152,7 +169,7 @@ class SQLiteStoryRepository:
                 component = ?, name = ?, story_points = ?, priority = ?,
                 status = ?, duration = ?, start_date = ?, end_date = ?,
                 developer_id = ?, feature_id = ?
-            WHERE id = ?
+            WHERE planning_id = ? AND id = ?
             """,
             (
                 story.component,
@@ -165,43 +182,51 @@ class SQLiteStoryRepository:
                 story.end_date.isoformat() if story.end_date else None,
                 story.developer_id,
                 story.feature_id,
+                story.planning_id,
                 story.id,
             ),
         )
 
-    async def delete(self, story_id: str) -> None:
+    async def delete(self, planning_id: int, story_id: str) -> None:
         """Delete a story.
 
         Args:
+            planning_id: Planning ID.
             story_id: ID of story to delete.
 
         Raises:
             ValueError: If story doesn't exist.
         """
-        if not await self.exists(story_id):
+        if not await self.exists(planning_id, story_id):
             raise ValueError(f"Historia {story_id} nao existe")
 
-        await self._conn.execute("DELETE FROM Story WHERE id = ?", (story_id,))
+        await self._conn.execute(
+            "DELETE FROM Story WHERE planning_id = ? AND id = ?",
+            (planning_id, story_id),
+        )
 
-    async def exists(self, story_id: str) -> bool:
+    async def exists(self, planning_id: int, story_id: str) -> bool:
         """Check if story exists.
 
         Args:
+            planning_id: Planning ID.
             story_id: Story ID.
 
         Returns:
             True if exists, False otherwise.
         """
         async with self._conn.execute(
-            "SELECT 1 FROM Story WHERE id = ?", (story_id,)
+            "SELECT 1 FROM Story WHERE planning_id = ? AND id = ?",
+            (planning_id, story_id),
         ) as cursor:
             row = await cursor.fetchone()
             return row is not None
 
-    async def get_max_id_number(self, component: str) -> int:
+    async def get_max_id_number(self, planning_id: int, component: str) -> int:
         """Get max sequential number for a component.
 
         Args:
+            planning_id: Planning ID.
             component: Component name (case-insensitive).
 
         Returns:
@@ -214,44 +239,67 @@ class SQLiteStoryRepository:
                 0
             )
             FROM Story
-            WHERE UPPER(component) = UPPER(?)
+            WHERE planning_id = ? AND UPPER(component) = UPPER(?)
             """,
-            (component,),
+            (planning_id, component),
         ) as cursor:
             row = await cursor.fetchone()
             return int(row[0]) if row else 0
 
-    async def get_max_priority(self) -> int:
+    async def get_max_priority(self, planning_id: int) -> int:
         """Get max priority in backlog.
+
+        Args:
+            planning_id: Planning ID.
 
         Returns:
             Max priority or -1 if empty.
         """
         async with self._conn.execute(
-            "SELECT COALESCE(MAX(priority), -1) FROM Story"
+            "SELECT COALESCE(MAX(priority), -1) FROM Story WHERE planning_id = ?",
+            (planning_id,),
         ) as cursor:
             row = await cursor.fetchone()
             return int(row[0]) if row else -1
 
-    async def get_by_priority(self, priority: int) -> Story | None:
+    async def get_by_priority(self, planning_id: int, priority: int) -> Story | None:
         """Get story by exact priority.
 
         Args:
+            planning_id: Planning ID.
             priority: Priority to search.
 
         Returns:
             Story if found, None otherwise.
         """
         async with self._conn.execute(
-            "SELECT * FROM Story WHERE priority = ?", (priority,)
+            "SELECT * FROM Story WHERE planning_id = ? AND priority = ?",
+            (planning_id, priority),
         ) as cursor:
             row = await cursor.fetchone()
             if row is None:
                 return None
             return self._row_to_story(row)
 
-    async def count_by_developer(self, developer_id: int) -> int:
+    async def count_by_developer(self, planning_id: int, developer_id: int) -> int:
         """Count stories assigned to a developer.
+
+        Args:
+            planning_id: Planning ID.
+            developer_id: Developer ID.
+
+        Returns:
+            Number of stories assigned (0 if none).
+        """
+        async with self._conn.execute(
+            "SELECT COUNT(*) FROM Story WHERE planning_id = ? AND developer_id = ?",
+            (planning_id, developer_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0]) if row else 0
+
+    async def count_all_by_developer(self, developer_id: int) -> int:
+        """Count stories assigned to a developer across all plannings.
 
         Args:
             developer_id: Developer ID.
@@ -284,6 +332,7 @@ class SQLiteStoryRepository:
             end_date = date.fromisoformat(row["end_date"])
 
         return Story(
+            planning_id=row["planning_id"],
             id=row["id"],
             component=row["component"],
             name=row["name"],

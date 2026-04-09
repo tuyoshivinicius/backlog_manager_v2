@@ -57,6 +57,7 @@ def create_stories(count: int, feature_id: int | None = None) -> list[Story]:
     for i in range(count):
         stories.append(
             Story(
+                planning_id=1,
                 id=f"STORY-{i+1:03d}",
                 component="AUTH",
                 name=f"Story {i+1}",
@@ -99,6 +100,7 @@ class TestReproducibility:
         def create_fresh_stories() -> list[Story]:
             return [
                 Story(
+                    planning_id=1,
                     id="AUTH-001",
                     component="AUTH",
                     name="Story 1",
@@ -111,6 +113,7 @@ class TestReproducibility:
                     duration=3,
                 ),
                 Story(
+                    planning_id=1,
                     id="AUTH-002",
                     component="AUTH",
                     name="Story 2",
@@ -123,6 +126,7 @@ class TestReproducibility:
                     duration=2,
                 ),
                 Story(
+                    planning_id=1,
                     id="AUTH-003",
                     component="AUTH",
                     name="Story 3",
@@ -184,6 +188,7 @@ class TestReproducibility:
         def create_many_stories() -> list[Story]:
             return [
                 Story(
+                    planning_id=1,
                     id=f"AUTH-{i:03d}",
                     component="AUTH",
                     name=f"Story {i}",

@@ -20,6 +20,10 @@ class TestForeignKeys:
             await init_database(db_path)
             conn = await create_connection(db_path)
             try:
+                await conn.execute(
+                    "INSERT INTO Planning (name) VALUES ('Test Planning')"
+                )
+                await conn.commit()
                 yield conn
             finally:
                 await conn.close()
@@ -39,8 +43,8 @@ class TestForeignKeys:
         # Create story with valid developer_id
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority, developer_id)
-            VALUES ('TEST-001', 'TEST', 'Test Story', 5, 0, ?)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority, developer_id)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story', 5, 0, ?)
             """,
             (dev_id,),
         )
@@ -50,8 +54,8 @@ class TestForeignKeys:
         with pytest.raises(Exception) as exc_info:
             await db_connection.execute(
                 """
-                INSERT INTO Story (id, component, name, story_points, priority, developer_id)
-                VALUES ('TEST-002', 'TEST', 'Test Story 2', 5, 0, 999)
+                INSERT INTO Story (planning_id, id, component, name, story_points, priority, developer_id)
+                VALUES (1, 'TEST-002', 'TEST', 'Test Story 2', 5, 0, 999)
                 """
             )
         assert "FOREIGN KEY constraint failed" in str(exc_info.value)
@@ -73,8 +77,8 @@ class TestForeignKeys:
         # Create story with valid feature_id
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority, feature_id)
-            VALUES ('TEST-001', 'TEST', 'Test Story', 5, 0, ?)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority, feature_id)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story', 5, 0, ?)
             """,
             (feat_id,),
         )
@@ -84,8 +88,8 @@ class TestForeignKeys:
         with pytest.raises(Exception) as exc_info:
             await db_connection.execute(
                 """
-                INSERT INTO Story (id, component, name, story_points, priority, feature_id)
-                VALUES ('TEST-002', 'TEST', 'Test Story 2', 5, 0, 999)
+                INSERT INTO Story (planning_id, id, component, name, story_points, priority, feature_id)
+                VALUES (1, 'TEST-002', 'TEST', 'Test Story 2', 5, 0, 999)
                 """
             )
         assert "FOREIGN KEY constraint failed" in str(exc_info.value)
@@ -95,22 +99,22 @@ class TestForeignKeys:
         # Create two stories
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority)
-            VALUES ('TEST-001', 'TEST', 'Test Story 1', 5, 0)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story 1', 5, 0)
             """
         )
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority)
-            VALUES ('TEST-002', 'TEST', 'Test Story 2', 5, 1)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+            VALUES (1, 'TEST-002', 'TEST', 'Test Story 2', 5, 1)
             """
         )
 
         # Valid dependency
         await db_connection.execute(
             """
-            INSERT INTO Story_Dependency (story_id, depends_on_id)
-            VALUES ('TEST-002', 'TEST-001')
+            INSERT INTO Story_Dependency (planning_id, story_id, depends_on_id)
+            VALUES (1, 'TEST-002', 'TEST-001')
             """
         )
         await db_connection.commit()
@@ -119,8 +123,8 @@ class TestForeignKeys:
         with pytest.raises(Exception) as exc_info:
             await db_connection.execute(
                 """
-                INSERT INTO Story_Dependency (story_id, depends_on_id)
-                VALUES ('TEST-999', 'TEST-001')
+                INSERT INTO Story_Dependency (planning_id, story_id, depends_on_id)
+                VALUES (1, 'TEST-999', 'TEST-001')
                 """
             )
         assert "FOREIGN KEY constraint failed" in str(exc_info.value)
@@ -138,8 +142,8 @@ class TestForeignKeys:
 
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority, developer_id)
-            VALUES ('TEST-001', 'TEST', 'Test Story', 5, 0, ?)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority, developer_id)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story', 5, 0, ?)
             """,
             (dev_id,),
         )
@@ -151,7 +155,7 @@ class TestForeignKeys:
 
         # Story should still exist with NULL developer_id
         async with db_connection.execute(
-            "SELECT developer_id FROM Story WHERE id = 'TEST-001'"
+            "SELECT developer_id FROM Story WHERE planning_id = 1 AND id = 'TEST-001'"
         ) as cursor:
             row = await cursor.fetchone()
             assert row[0] is None
@@ -161,26 +165,28 @@ class TestForeignKeys:
         # Create stories and dependency
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority)
-            VALUES ('TEST-001', 'TEST', 'Test Story 1', 5, 0)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+            VALUES (1, 'TEST-001', 'TEST', 'Test Story 1', 5, 0)
             """
         )
         await db_connection.execute(
             """
-            INSERT INTO Story (id, component, name, story_points, priority)
-            VALUES ('TEST-002', 'TEST', 'Test Story 2', 5, 1)
+            INSERT INTO Story (planning_id, id, component, name, story_points, priority)
+            VALUES (1, 'TEST-002', 'TEST', 'Test Story 2', 5, 1)
             """
         )
         await db_connection.execute(
             """
-            INSERT INTO Story_Dependency (story_id, depends_on_id)
-            VALUES ('TEST-002', 'TEST-001')
+            INSERT INTO Story_Dependency (planning_id, story_id, depends_on_id)
+            VALUES (1, 'TEST-002', 'TEST-001')
             """
         )
         await db_connection.commit()
 
         # Delete story
-        await db_connection.execute("DELETE FROM Story WHERE id = 'TEST-001'")
+        await db_connection.execute(
+            "DELETE FROM Story WHERE planning_id = 1 AND id = 'TEST-001'"
+        )
         await db_connection.commit()
 
         # Dependency should be deleted

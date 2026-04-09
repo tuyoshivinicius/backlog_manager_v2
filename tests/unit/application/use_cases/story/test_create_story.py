@@ -56,7 +56,7 @@ class TestCreateStoryUseCase:
             story_points=5,
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(1, input_dto)
 
         assert result.id == "AUTH-001"
         assert result.name == "Implement login"
@@ -77,7 +77,7 @@ class TestCreateStoryUseCase:
             story_points=3,
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(1, input_dto)
 
         assert result.id == "CORE-006"
         assert result.component == "CORE"
@@ -91,7 +91,7 @@ class TestCreateStoryUseCase:
             story_points=3,
         )
 
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         mock_story_repo.add.assert_called_once()
         added_story = mock_story_repo.add.call_args[0][0]
@@ -106,7 +106,7 @@ class TestCreateStoryUseCase:
             feature_id=42,
         )
 
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         mock_feature_repo.exists.assert_called_once_with(42)
 
@@ -122,7 +122,7 @@ class TestCreateStoryUseCase:
         )
 
         with pytest.raises(ValueError, match="Feature com ID 999 nao encontrada"):
-            await use_case.execute(input_dto)
+            await use_case.execute(1, input_dto)
 
     async def test_skips_feature_validation_when_none(
         self, use_case, mock_feature_repo
@@ -135,7 +135,7 @@ class TestCreateStoryUseCase:
             feature_id=None,
         )
 
-        await use_case.execute(input_dto)
+        await use_case.execute(1, input_dto)
 
         mock_feature_repo.exists.assert_not_called()
 
@@ -148,7 +148,7 @@ class TestCreateStoryUseCase:
             feature_id=None,
         )
 
-        result = await use_case.execute(input_dto)
+        result = await use_case.execute(1, input_dto)
 
         assert hasattr(result, "id")
         assert hasattr(result, "component")

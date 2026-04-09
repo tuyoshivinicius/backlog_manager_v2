@@ -39,7 +39,14 @@ from backlog_manager.application.use_cases.feature import (
 )
 from backlog_manager.application.use_cases.planning import (
     CountAffectedStoriesUseCase,
+    CreatePlanningUseCase,
+    DeletePlanningUseCase,
+    GetActivePlanningUseCase,
+    ListPlanningsUseCase,
+    MigrateOrphanStoriesUseCase,
     ResetPlanningUseCase,
+    SetActivePlanningUseCase,
+    UpdatePlanningUseCase,
 )
 from backlog_manager.application.use_cases.scheduling import (
     CalculateDurationUseCase,
@@ -74,6 +81,9 @@ if TYPE_CHECKING:
     )
     from backlog_manager.presentation.viewmodels.manual_allocation_dialog_viewmodel import (
         ManualAllocationDialogViewModel,
+    )
+    from backlog_manager.presentation.viewmodels.planning_viewmodel import (
+        PlanningViewModel,
     )
     from backlog_manager.presentation.viewmodels.reset_planning_viewmodel import (
         ResetPlanningViewModel,
@@ -134,6 +144,7 @@ class DIContainer:
             ManualAllocationDialogViewModel | None
         ) = None
         self._roadmap_viewmodel: RoadmapViewModel | None = None
+        self._planning_viewmodel: PlanningViewModel | None = None
 
         logger.info("DIContainer initialized with database: %s", self._db_path)
 
@@ -557,6 +568,49 @@ class DIContainer:
         excel_service = ExcelService()
         return ExportExcelUseCase(uow, excel_service)
 
+    # Planning Use Case Factories (new)
+    def create_create_planning_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> CreatePlanningUseCase:
+        """Create a CreatePlanningUseCase instance."""
+        return CreatePlanningUseCase(uow)
+
+    def create_list_plannings_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> ListPlanningsUseCase:
+        """Create a ListPlanningsUseCase instance."""
+        return ListPlanningsUseCase(uow)
+
+    def create_update_planning_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> UpdatePlanningUseCase:
+        """Create an UpdatePlanningUseCase instance."""
+        return UpdatePlanningUseCase(uow)
+
+    def create_delete_planning_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> DeletePlanningUseCase:
+        """Create a DeletePlanningUseCase instance."""
+        return DeletePlanningUseCase(uow)
+
+    def create_get_active_planning_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> GetActivePlanningUseCase:
+        """Create a GetActivePlanningUseCase instance."""
+        return GetActivePlanningUseCase(uow)
+
+    def create_set_active_planning_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> SetActivePlanningUseCase:
+        """Create a SetActivePlanningUseCase instance."""
+        return SetActivePlanningUseCase(uow)
+
+    def create_migrate_orphan_stories_use_case(
+        self, uow: SQLiteUnitOfWork
+    ) -> MigrateOrphanStoriesUseCase:
+        """Create a MigrateOrphanStoriesUseCase instance."""
+        return MigrateOrphanStoriesUseCase(uow)
+
     # ViewModels
     @property
     def main_window_viewmodel(self) -> MainWindowViewModel:
@@ -682,3 +736,14 @@ class DIContainer:
                 container=self,
             )
         return self._roadmap_viewmodel
+
+    @property
+    def planning_viewmodel(self) -> PlanningViewModel:
+        """Get the PlanningViewModel instance (lazy loaded)."""
+        if self._planning_viewmodel is None:
+            from backlog_manager.presentation.viewmodels.planning_viewmodel import (
+                PlanningViewModel,
+            )
+
+            self._planning_viewmodel = PlanningViewModel(self)
+        return self._planning_viewmodel

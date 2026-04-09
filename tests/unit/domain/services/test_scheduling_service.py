@@ -205,6 +205,7 @@ class TestCalculateStoryDates:
     def story_5sp(self) -> Story:
         """Create a story with 5 story points."""
         return Story(
+            planning_id=1,
             id="TEST-001",
             component="TEST",
             name="Test Story",
@@ -294,13 +295,28 @@ class TestTopologicalSort:
         """Create stories A, B, C."""
         return [
             Story(
-                id="A-001", component="A", name="Story A", story_points=5, priority=1
+                planning_id=1,
+                id="A-001",
+                component="A",
+                name="Story A",
+                story_points=5,
+                priority=1,
             ),
             Story(
-                id="B-001", component="B", name="Story B", story_points=5, priority=2
+                planning_id=1,
+                id="B-001",
+                component="B",
+                name="Story B",
+                story_points=5,
+                priority=2,
             ),
             Story(
-                id="C-001", component="C", name="Story C", story_points=5, priority=3
+                planning_id=1,
+                id="C-001",
+                component="C",
+                name="Story C",
+                story_points=5,
+                priority=3,
             ),
         ]
 
@@ -316,10 +332,20 @@ class TestTopologicalSort:
         """T050: A.prio=2, B.prio=1, independent -> [B, A]."""
         stories = [
             Story(
-                id="A-001", component="A", name="Story A", story_points=5, priority=2
+                planning_id=1,
+                id="A-001",
+                component="A",
+                name="Story A",
+                story_points=5,
+                priority=2,
             ),
             Story(
-                id="B-001", component="B", name="Story B", story_points=5, priority=1
+                planning_id=1,
+                id="B-001",
+                component="B",
+                name="Story B",
+                story_points=5,
+                priority=1,
             ),
         ]
         deps: dict[str, list[str]] = {}
@@ -331,13 +357,28 @@ class TestTopologicalSort:
         """T051: A->C, B->C, A.prio=2, B.prio=1 -> [B, A, C]."""
         stories = [
             Story(
-                id="A-001", component="A", name="Story A", story_points=5, priority=2
+                planning_id=1,
+                id="A-001",
+                component="A",
+                name="Story A",
+                story_points=5,
+                priority=2,
             ),
             Story(
-                id="B-001", component="B", name="Story B", story_points=5, priority=1
+                planning_id=1,
+                id="B-001",
+                component="B",
+                name="Story B",
+                story_points=5,
+                priority=1,
             ),
             Story(
-                id="C-001", component="C", name="Story C", story_points=5, priority=3
+                planning_id=1,
+                id="C-001",
+                component="C",
+                name="Story C",
+                story_points=5,
+                priority=3,
             ),
         ]
         # C depends on both A and B
@@ -351,13 +392,28 @@ class TestTopologicalSort:
         """T052: Cycle detected -> CyclicDependencyException."""
         stories = [
             Story(
-                id="A-001", component="A", name="Story A", story_points=5, priority=1
+                planning_id=1,
+                id="A-001",
+                component="A",
+                name="Story A",
+                story_points=5,
+                priority=1,
             ),
             Story(
-                id="B-001", component="B", name="Story B", story_points=5, priority=2
+                planning_id=1,
+                id="B-001",
+                component="B",
+                name="Story B",
+                story_points=5,
+                priority=2,
             ),
             Story(
-                id="C-001", component="C", name="Story C", story_points=5, priority=3
+                planning_id=1,
+                id="C-001",
+                component="C",
+                name="Story C",
+                story_points=5,
+                priority=3,
             ),
         ]
         # A->B->C->A (cycle)
@@ -370,6 +426,7 @@ class TestTopologicalSort:
         # Create 100 stories
         stories = [
             Story(
+                planning_id=1,
                 id=f"T-{i:03d}",
                 component="T",
                 name=f"Story {i}",

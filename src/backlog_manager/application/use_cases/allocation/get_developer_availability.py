@@ -83,12 +83,13 @@ class GetDeveloperAvailabilityUseCase:
         self._uow = uow
 
     async def execute(
-        self, input_dto: GetDeveloperAvailabilityInputDTO
+        self, input_dto: GetDeveloperAvailabilityInputDTO, planning_id: int
     ) -> GetDeveloperAvailabilityOutputDTO:
         """Executa consulta de disponibilidade.
 
         Args:
             input_dto: Dados de entrada com story_id, data candidata, velocity e criterio.
+            planning_id: ID do planning ativo.
 
         Returns:
             Lista de desenvolvedores com disponibilidade e recomendacao.
@@ -96,7 +97,7 @@ class GetDeveloperAvailabilityUseCase:
         Raises:
             ValueError: Se historia nao encontrada ou sem story points.
         """
-        story = await self._uow.stories.get_by_id(input_dto.story_id)
+        story = await self._uow.stories.get_by_id(planning_id, input_dto.story_id)
         if story is None:
             raise ValueError(f"Historia {input_dto.story_id} nao encontrada")
 
@@ -104,8 +105,8 @@ class GetDeveloperAvailabilityUseCase:
             raise ValueError("Historia sem story points definidos")
 
         developers = await self._uow.developers.get_all()
-        all_stories = list(await self._uow.stories.get_all())
-        all_deps = await self._uow.dependencies.get_all_dependencies()
+        all_stories = list(await self._uow.stories.get_all(planning_id))
+        all_deps = await self._uow.dependencies.get_all_dependencies(planning_id)
 
         dependency_graph = self._build_dependency_graph(all_deps)
 

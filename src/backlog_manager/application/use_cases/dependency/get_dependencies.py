@@ -31,19 +31,22 @@ class GetDependenciesUseCase:
         self._uow = uow
 
     async def execute(
-        self, input_dto: GetDependenciesInputDTO
+        self, input_dto: GetDependenciesInputDTO, planning_id: int
     ) -> GetDependenciesOutputDTO:
         """Executa consulta de dependencias.
 
         Args:
             input_dto: DTO com story_id.
+            planning_id: ID do planning ativo.
 
         Returns:
             DTO com lista de IDs das dependencias.
         """
         story_id = input_dto.story_id
 
-        dependencies = await self._uow.dependencies.get_dependencies(story_id)
+        dependencies = await self._uow.dependencies.get_dependencies(
+            planning_id, story_id
+        )
 
         return GetDependenciesOutputDTO(
             story_id=story_id,
